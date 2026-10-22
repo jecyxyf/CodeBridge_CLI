@@ -1,3 +1,66 @@
-# 码桥CodeBridge
+# 码桥 CodeBridge 0.0.1
 
-VPS 上的 AI 开发与编译，本地运行前后端及硬件，通过 Tailscale 连接并进行浏览器调试。
+本地目录，远程使用。当前版本是可审查的 MVP / 测试版，不是已完成全部平台验收的正式版本。
+
+- 本地：中文浏览器工作台，类似聊天应用的布局。聊天、模型、Agent、历史会话暂未接入，不会伪造 AI 回复。
+- 设置：服务器、SSH 端口、用户名、密码、服务器 SHA256 指纹、HTTP CONNECT / SOCKS5 代理、本地共享目录。
+- 诊断：SSH Ping、实际代理隧道测试、挂载阶段状态、显式临时文件读写验证。SSH Ping 是应用层 SSH 可达性检查，不是 ICMP。
+- 远端：只部署一个按连接运行的挂载辅助程序和 SSHFS，没有网页、常驻 Agent 或构建系统。
+- 本地主动通过 SSH 连接远端；远端目录是本地目录的读写挂载，不是两份工程目录的同步。
+- 不使用 Tailscale、frp、密钥登录或配对服务。
+
+## 快速开始
+
+获取 `0.0.1` 分支完整源码 ZIP 并解压，或克隆本仓库。
+
+Windows 本地客户端，在 PowerShell 中进入仓库目录运行：
+
+```powershell
+powershell -NoProfile -File .\local_client\scripts\windows.ps1
+```
+
+Linux 远端，在远端仓库目录运行：
+
+```sh
+bash remote_server/scripts/linux.sh
+```
+
+脚本不启用 SSH 密码登录、不修改防火墙、不开放额外监听端口。服务器应已经提供可用的密码 SSH 登录。不要把客户端密码发送到日志、命令行或仓库。
+
+详细六平台部署、依赖与限制：[部署指南](docs/deployment.md)。
+
+客户端启动器会打开带临时会话令牌的 `127.0.0.1` 页面。设置在用户目录保存，但 SSH 密码从不保存。服务器指纹必须先通过可信渠道核对；不匹配时不会发送 SSH 密码。服务器管理员可在服务器控制台使用 `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub -E sha256` 查看对应主机公钥指纹。SSH 协商可能选用其他主机密钥类型，须核对实际协商的指纹，而不是盲目复制客户端显示值。
+
+## 架构
+
+```text
+本地浏览器（仅 127.0.0.1）
+    -> 本地 Python HTTP 控制端（临时令牌、来源检查）
+    -> Paramiko：代理 -> SSH 密码认证 + 固定服务器指纹
+    -> SSH exec 二进制通道（无 PTY）
+         远端：SSHFS passive/slave -> 真实挂载点
+         本地：rclone serve sftp --stdio -> 选择的目录
+```
+
+数据通道的 stdout 只承载二进制 SFTP；状态走 SSH stderr。远端确认操作系统真实挂载且目录能够列出后才显示“已连接”；读写验证必须另行点击，不能由已连接状态推断。失败不回退到普通空目录。每次连接采用新的会话和挂载点，断开后不保证原挂载路径可继续使用。
+
+## 安全与写入边界
+
+请先阅读 [安全和验证边界](docs/security-and-testing.md)。尤其注意：
+
+1. 共享目录是授予远端读写能力，不是对恶意本地程序的 OS 安全沙箱。不要共享系统盘、家目录、密钥、凭据或其他敏感目录。
+2. 当前 rclone 固定发行版为 1.75.2，运行时最低要求 1.75.0。禁用跟随/翻译链接、隔离配置并清除 `RCLONE_*` 环境覆盖。
+3. 为支持单独写入和随机覆盖操作，rclone 使用本地 VFS 写入缓存。这是 I/O 缓存，不是第二份工程同步，但断电/断线时可能存在未写回数据。不要在仍写入时断开；缓存保留供恢复，当前版本不声称强制断开时零数据丢失。
+4. 不支持两端同时编辑同一文件的冲突合并；停止一端编辑后再在另一端操作。
+5. 已发现 rclone 1.75.2 对已有本地文件以 `r+`（O_RDWR）句柄读取会返回协议错误。当前验证覆盖分开的读取与保存操作，不能据此宣称所有编辑器、数据库或构建工具兼容。完整 SSHFS O_RDWR 行为仍需实机验证。
+6. Linux 完整 FUSE 挂载、Windows/macOS 安装及挂载需要真实操作系统验收，本仓库明确记录未测项。
+
+## 测试
+
+```sh
+python -m unittest discover -s tests -v
+# 可选：使用已安装的安全版本 rclone 运行真实二进制 SFTP 集成测试
+CODEBRIDGE_TEST_RCLONE="$(command -v rclone)" python -m unittest discover -s tests -v
+```
+
+完整测试清单和实际结果见 [验证记录](docs/security-and-testing.md)。

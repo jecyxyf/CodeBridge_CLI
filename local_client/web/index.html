@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CodeBridge · 工作空间</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+<div class="app">
+<aside class="sidebar" id="sidebar">
+  <a class="brand" href="#chat" aria-label="CodeBridge 首页"><span class="brandmark"><i data-icon="bridge"></i></span>CodeBridge<span class="beta">预览版</span></a>
+  <button class="new-chat" id="new-chat"><i data-icon="plus"></i>新建对话<span>⌘ K</span></button>
+  <div class="section-label">工作空间</div>
+  <button class="nav-item active" data-view="chat"><i data-icon="chat"></i>对话<span class="tiny-dot"></span></button>
+  <button class="nav-item" data-view="settings"><i data-icon="folder"></i>目录连接</button>
+  <div class="history-label">最近对话</div>
+  <div class="history-empty"><i data-icon="message"></i><p>从一个新想法开始</p><span>接入远程 Agent 后，<br>对话会显示在这里。</span></div>
+  <div class="sidebar-bottom">
+    <button class="connection-card" data-view="settings"><span class="connection-symbol"><i data-icon="link"></i></span><span><strong id="sidebar-status">尚未连接</strong><small id="sidebar-detail">配置你的远程工作空间</small></span><i data-icon="chevron"></i></button>
+    <button class="settings-link" data-view="settings"><i data-icon="settings"></i>设置<span>本地客户端</span></button>
+  </div>
+</aside>
+<main>
+  <header class="topbar"><div class="topbar-left"><button class="icon-button mobile-menu" id="menu" aria-label="展开侧边栏"><i data-icon="menu"></i></button><span id="page-title">新对话</span><span class="topbar-divider"></span><span class="subtle" id="page-subtitle">远程 Agent 工作空间</span></div><button class="status-pill" data-view="settings"><span class="status-dot" id="top-dot"></span><span id="top-status">未连接远程</span><i data-icon="chevron"></i></button></header>
+  <section class="chat-view" id="chat-view">
+    <div class="welcome"><div class="welcome-symbol"><i data-icon="bridge"></i></div><div class="eyebrow">LOCAL FILES. REMOTE INTELLIGENCE.</div><h1>让想法，在你的项目中发生。</h1><p>本地的文件，远程的 Agent。<br>从连接一个工作目录开始。</p><button class="welcome-action" data-view="settings">连接工作目录<i data-icon="arrow-right"></i></button>
+      <div class="capability-row"><span><i data-icon="folder"></i>文件留在本地</span><span><i data-icon="lock"></i>SSH 加密通道</span><span><i data-icon="terminal"></i>远程 Agent 执行</span></div>
+    </div>
+    <div class="composer-wrap"><div class="preview-note"><span class="tiny-dot"></span>界面预览 · 对话功能尚未接入</div><div class="composer"><textarea aria-label="消息输入框（预览）" placeholder="连接远程 Agent 后，在这里描述你的任务…" disabled></textarea><div class="composer-toolbar"><button class="icon-button" disabled aria-label="添加附件（未接入）"><i data-icon="plus"></i></button><span class="agent-label"><i data-icon="terminal"></i>远程 Agent<span class="tag">待接入</span></span><button class="send-button" disabled aria-label="发送（未接入）"><i data-icon="arrow-up"></i></button></div></div><p class="composer-footnote">CodeBridge 不在本地运行 AI。对话能力将由你连接的远程 Agent 提供。</p></div>
+  </section>
+  <section class="settings-view" id="settings-view" hidden>
+    <div class="settings-heading"><div><div class="eyebrow">WORKSPACE CONNECTION</div><h1>连接你的工作空间</h1><p>通过 SSH，将选定的本地目录提供给远程 Agent。</p></div><span class="outline-tag">目录映射</span></div>
+    <form id="connection-form" autocomplete="off">
+      <div class="settings-grid"><div class="settings-fields">
+      <section class="panel"><div class="panel-title"><span class="number">01</span><div><h2>远程服务器</h2><p>填写运行 Agent 的远程服务器信息</p></div><i data-icon="server"></i></div><div class="fields"><div class="field-grid host-grid"><label>服务器地址<input name="host" placeholder="192.168.1.100 或 server.example.com" required spellcheck="false"></label><label>SSH 端口<input name="port" type="number" min="1" max="65535" value="22" required></label></div><div class="diagnostic-row"><button type="button" class="secondary-button" id="test-server">SSH Ping · 测试服务器</button><span>按当前代理配置探测 SSH 服务，不是 ICMP Ping。</span></div><p id="server-test-result" class="diagnostic-result" role="status" aria-live="polite" hidden></p><div class="field-grid"><label>用户名<input name="username" placeholder="例如 developer" required spellcheck="false" autocomplete="off"></label><label>密码<span class="password-input"><input name="password" type="password" placeholder="输入 SSH 登录密码" required autocomplete="new-password"><button type="button" class="icon-button" id="toggle-password" aria-label="显示密码"><i data-icon="eye"></i></button></span></label></div><p class="field-hint"><i data-icon="lock"></i>密码仅用于本次连接，不保存在浏览器中。</p><label class="fingerprint-field">服务器主机密钥指纹<input name="fingerprint" placeholder="SHA256:…（请向服务器管理员获取）" required spellcheck="false"></label><p class="field-hint">连接前核验指纹，避免连接到错误的服务器。</p><label class="os-field">远程系统<select name="remote_os"><option value="Linux">Linux</option><option value="macOS">macOS</option><option value="Windows">Windows</option></select></label><details id="proxy-details"><summary>代理设置<span>可选</span><i data-icon="chevron"></i></summary><label class="proxy-field">代理地址<input name="proxy" placeholder="socks5://127.0.0.1:1080" spellcheck="false"></label><p class="field-hint">留空则直连。支持 SOCKS5 或 HTTP CONNECT。</p><div class="diagnostic-row proxy-test-row"><button type="button" class="secondary-button" id="test-proxy">测试代理通道</button><span>验证经代理到所填 SSH 服务器的通道。</span></div><p id="proxy-test-result" class="diagnostic-result" role="status" aria-live="polite" hidden></p></details></div></section>
+      <section class="panel"><div class="panel-title"><span class="number">02</span><div><h2>本地工作目录</h2><p>仅映射你选择的文件夹，而不是整台电脑</p></div><i data-icon="folder"></i></div><div class="fields"><label>目录路径<div class="directory-input"><input name="folder" placeholder="C:\Users\你的用户名\Projects\my-project" required spellcheck="false"><button type="button" class="secondary-button" id="pick-directory"><i data-icon="folder"></i>选择目录</button></div></label><p class="field-hint">请填写运行此客户端的电脑上的完整路径。</p><div class="mount-path"><span>远程映射路径</span><code id="mount-path">连接后自动分配</code></div><div class="permission-note"><i data-icon="info"></i><span>连接后，远程端可读写该目录。请只选择你信任并允许 Agent 操作的项目。</span></div></div></section>
+      </div><aside class="connection-summary"><div class="summary-icon"><i data-icon="link"></i></div><h2>连接状态</h2><span class="summary-status" id="summary-status"><span class="status-dot"></span>尚未连接</span><div class="connection-flow"><div><i data-icon="laptop"></i><span>本地目录<small id="flow-local">等待选择</small></span></div><div class="flow-line"><span>SSH 加密通道</span></div><div><i data-icon="server"></i><span>远程工作空间<small id="flow-remote">等待连接</small></span></div></div><div class="summary-divider"></div><ol class="phase-list" aria-label="连接验证阶段"><li id="phase-auth"><span></span>SSH 身份验证</li><li id="phase-mount"><span></span>远程目录已挂载</li><li id="phase-read"><span></span>目录可读取</li><li id="phase-write"><span></span>读写验证通过<small>需手动验证</small></li></ol><p class="summary-description">先建立目录连接，再接入远程 Agent。断开连接后，远程端将无法继续访问本地文件。</p><div id="status-message" class="status-message" role="status" aria-live="polite">正在检查本地服务…</div><button class="primary-button" id="connect-button" type="submit"><i data-icon="link"></i>连接并映射目录</button><button class="secondary-button disconnect" id="disconnect-button" type="button" hidden>断开连接</button><button class="secondary-button verify-button" id="verify-readwrite" type="button" disabled>验证读写</button><p class="verify-hint">仅创建一个唯一的临时探针文件，验证本地回写后清理。不代表全部编辑器操作均兼容。</p><p id="readwrite-result" class="diagnostic-result" role="status" aria-live="polite" hidden></p><p class="security-caption"><i data-icon="shield"></i>首次连接需核验服务器指纹</p></aside></div>
+    </form>
+    <footer class="settings-footer">CodeBridge <span>本地客户端 / 目录连接</span><span>你的文件，你的工作空间。</span></footer>
+  </section>
+</main>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+<script src="app.js"></script>
+</body></html>
