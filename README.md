@@ -63,13 +63,37 @@ bash remote_server/scripts/linux.sh
 5. 已发现 rclone 1.75.2 对已有本地文件以 `r+`（O_RDWR）句柄读取会返回协议错误。当前验证覆盖分开的读取与保存操作，不能据此宣称所有编辑器、数据库或构建工具兼容。完整 SSHFS O_RDWR 行为仍需实机验证。
 6. Linux 完整 FUSE 挂载、Windows/macOS 安装及挂载需要真实操作系统验收，本仓库明确记录未测项。
 
+## Python 运行环境契约
+
+Python 运行环境必须部署在仓库根目录的 `./.venv`。项目运行、依赖安装、测试及 Python 开发工具统一使用该环境的解释器，不能使用系统或全局 Python、仓库外虚拟环境或 Conda 环境替代。客户端部署脚本已使用此路径；开发时也必须遵守，详见 [项目工作指南](AGENTS.md)。
+
+在仓库根目录准备 Python 3.10+ 环境（系统 Python 仅用于探测和创建虚拟环境）：
+
+```sh
+python3 -m venv .venv
+./.venv/bin/python -m pip install -r local_client/requirements.txt
+./.venv/bin/python -m local_client.app
+```
+
+Windows PowerShell：
+
+```powershell
+py -3 -m venv .venv
+& .\.venv\Scripts\python.exe -m pip install -r .\local_client\requirements.txt
+& .\.venv\Scripts\python.exe -m local_client.app
+```
+
+以上命令仅准备 Python 环境并启动应用；rclone、Tkinter 等平台依赖仍需按部署指南准备。已有环境不兼容时先检查原因，不要删除或回退到全局 Python；`.venv` 不得提交，也不能跨操作系统复制复用。
+
 ## 测试
 
 ```sh
-python -m unittest discover -s tests -v
+./.venv/bin/python -m unittest discover -s tests -v
 # 可选：真实 SFTP 测试；Linux 有可用 FUSE 时还会运行真实挂载测试
-CODEBRIDGE_TEST_RCLONE="$(command -v rclone)" python -m unittest discover -s tests -v
+CODEBRIDGE_TEST_RCLONE="$(command -v rclone)" ./.venv/bin/python -m unittest discover -s tests -v
 ```
+
+Windows PowerShell 测试命令为 `& .\.venv\Scripts\python.exe -m unittest discover -s tests -v`。
 
 完整测试清单和实际结果见 [验证记录](docs/security-and-testing.md)。
 
