@@ -76,7 +76,169 @@ class DiagnosticTests(unittest.TestCase):
         self.assertEqual(application.state,'connected');self.assertEqual(application.phase,'readable')
 
 
-class RemoteOperationTests(unittest.TestCase):
+class RemoteHomeFixture(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.home = Path(temporary.name)
+        environment_patch = mock.patch.dict(os.environ, {'HOME': str(self.home)})
+        environment_patch.start()
+        self.addCleanup(environment_patch.stop)
+        home_patch = mock.patch.object(mount.Path, 'home', return_value=self.home)
+        home_patch.start()
+        self.addCleanup(home_patch.stop)
+        config_patch = mock.patch.object(app, 'CONFIG', self.home / 'settings.json')
+        config_patch.start()
+        self.addCleanup(config_patch.stop)
+
+
+@unittest.skipIf(os.name == 'nt', 'fixed directory mounts are for Linux/macOS')
+class FixedMountTests(RemoteHomeFixture):
+    def test_mount_directory_is_fixed_and_reused_when_empty(self):
+        first = mount.mountpoint('a' * 32)
+        second = mount.mountpoint('b' * 32)
+        self.assertEqual(Path(first).parent, self.home)
+        self.assertRegex(Path(first).name, '^[a-z]{5}$')
+        self.assertEqual(first, second)
+        self.assertEqual(Path(first).stat().st_mode & 0o777, 0o700)
+        config = self.home / '.codebridge' / 'server.json'
+        self.assertEqual(json.loads(config.read_text()), {'mount_directory': Path(first).name})
+        self.assertEqual(config.stat().st_mode & 0o777, 0o600)
+
+    def test_existing_contents_are_never_hidden_or_removed(self):
+        target = mount.initialize_server()
+        file = target / 'keep'
+        file.write_bytes(b'important')
+        with self.assertRaisesRegex(RuntimeError, '不是空目录'):
+            mount.mountpoint('a' * 32)
+        self.assertEqual(file.read_bytes(), b'important')
+
+    def test_symbolic_link_is_rejected(self):
+        target = mount.initialize_server()
+        target.rmdir()
+        destination = self.home / 'existing'
+        destination.mkdir()
+        target.symlink_to(destination, target_is_directory=True)
+        with self.assertRaisesRegex(RuntimeError, '符号链接'):
+            mount.mountpoint('a' * 32)
+
+    def test_existing_mount_is_not_reused(self):
+        mount.initialize_server()
+        with mock.patch.object(mount.os.path, 'ismount', return_value=True):
+            with self.assertRaisesRegex(RuntimeError, '已被挂载'):
+                mount.mountpoint('a' * 32)
+
+    def test_second_connection_cannot_take_mount_ownership(self):
+        with mount.mount_lock('mount-session.json'):
+            with self.assertRaisesRegex(RuntimeError, '已有连接'):
+                mount.mount_lock('mount-session.json')
+        with mount.mount_lock('mount-session.json'):
+            pass
+
+    def test_probe_locks_prevent_unmount_and_allow_parallel_reads(self):
+        with mount.mount_access():
+            with mount.mount_access():
+                with self.assertRaises(RuntimeError):
+                    mount.mount_lock('mount-access.lock')
+        with mount.mount_lock('mount-access.lock'):
+            pass
+
+    def test_current_session_is_required_for_fixed_mount(self):
+        session = 'a' * 32
+        path = str(mount.initialize_server())
+        with mount.mount_lock('mount-session.json') as file:
+            json.dump({'session': session, 'mount': path}, file)
+            file.flush()
+            with mock.patch.object(mount.os.path, 'ismount', side_effect=lambda candidate: str(candidate) == path):
+                self.assertEqual(mount.existing_mount(session), path)
+                with self.assertRaisesRegex(RuntimeError, '会话已改变'):
+                    mount.existing_mount('b' * 32)
+
+    def test_in_flight_legacy_mount_can_still_be_verified(self):
+        session = 'a' * 32
+        path = self.home / '.codebridge' / 'mounts' / session
+        with mock.patch.object(mount.os.path, 'ismount', side_effect=lambda candidate: candidate == path):
+            self.assertEqual(mount.existing_mount(session), str(path))
+
+    def test_session_record_does_not_replace_mount_check(self):
+        path = str(mount.initialize_server())
+        with mount.mount_lock('mount-session.json') as file:
+            json.dump({'session': 'a' * 32, 'mount': path}, file)
+            file.flush()
+        with self.assertRaisesRegex(RuntimeError, '不是挂载点|未报告'):
+            mount.existing_mount('a' * 32)
+
+    def test_name_collision_does_not_reuse_user_directory(self):
+        occupied = self.home / 'taken'
+        occupied.mkdir()
+        (occupied / 'keep').write_bytes(b'important')
+        with mock.patch.object(mount.secrets, 'choice', side_effect=list('takenfresh')):
+            path = mount.initialize_server()
+        self.assertEqual(path.name, 'fresh')
+        self.assertEqual((occupied / 'keep').read_bytes(), b'important')
+
+    def test_corrupt_config_is_backed_up_with_warning_and_new_directory(self):
+        with mock.patch.object(mount.secrets, 'choice', side_effect=list('oldernewer')):
+            old = mount.initialize_server()
+            (old / 'keep').write_bytes(b'important')
+            config = self.home / '.codebridge' / 'server.json'
+            config.write_text('{broken', encoding='utf-8')
+            with mock.patch.object(mount, 'emit') as warning:
+                new = mount.initialize_server()
+        self.assertEqual(old.name, 'older')
+        self.assertEqual(new.name, 'newer')
+        self.assertEqual((old / 'keep').read_bytes(), b'important')
+        backups = list(config.parent.glob('server.corrupt-*.json'))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(backups[0].read_text(), '{broken')
+        self.assertEqual(json.loads(config.read_text()), {'mount_directory': 'newer'})
+        self.assertEqual(warning.call_args.args[0], 'WARNING')
+        self.assertIn(str(backups[0]), warning.call_args.args[1]['message'])
+
+    def test_invalid_config_name_is_regenerated_inside_home(self):
+        mount.initialize_server()
+        config = self.home / '.codebridge' / 'server.json'
+        config.write_text('{"mount_directory":"../outside"}', encoding='utf-8')
+        with mock.patch.object(mount, 'emit') as warning:
+            path = mount.initialize_server()
+        self.assertEqual(path.parent, self.home)
+        self.assertRegex(path.name, '^[a-z]{5}$')
+        warning.assert_called_once()
+
+    def test_custom_mount_does_not_change_saved_default(self):
+        default = mount.initialize_server()
+        config = self.home / '.codebridge' / 'server.json'
+        saved = config.read_bytes()
+        path = mount.mountpoint('a' * 32, '~/custom project')
+        self.assertEqual(path, str(self.home / 'custom project'))
+        self.assertTrue(Path(path).is_dir())
+        self.assertEqual(config.read_bytes(), saved)
+        self.assertEqual(mount.mountpoint('b' * 32), str(default))
+
+    def test_custom_nonempty_path_is_rejected_without_changing_files(self):
+        custom = self.home / 'custom'
+        custom.mkdir()
+        (custom / 'keep').write_bytes(b'important')
+        with self.assertRaisesRegex(RuntimeError, '不是空目录'):
+            mount.mountpoint('a' * 32, str(custom))
+        self.assertEqual((custom / 'keep').read_bytes(), b'important')
+
+    def test_relative_custom_path_is_rejected(self):
+        with self.assertRaisesRegex(RuntimeError, '绝对路径'):
+            mount.mountpoint('a' * 32, 'relative-path')
+
+    def test_custom_mount_is_verified_against_active_session(self):
+        path = mount.mountpoint('a' * 32, '~/custom')
+        with mount.mount_lock('mount-session.json') as file:
+            json.dump({'session': 'a' * 32, 'mount': path}, file)
+            file.flush()
+            with mock.patch.object(mount.os.path, 'ismount', side_effect=lambda candidate: str(candidate) == path):
+                self.assertEqual(mount.existing_mount('a' * 32), path)
+                with self.assertRaisesRegex(RuntimeError, '会话已改变'):
+                    mount.existing_mount('b' * 32)
+
+
+class RemoteOperationTests(RemoteHomeFixture):
     def test_list_empty_directory(self):
         with tempfile.TemporaryDirectory() as directory, mock.patch.object(mount,'existing_mount',return_value=directory):
             self.assertEqual(mount.operation_worker('a'*32,'list'),{'ok':True})
@@ -110,7 +272,7 @@ class RemoteOperationTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):mount.existing_mount('a'*32)
 
 
-class VerificationTests(unittest.TestCase):
+class VerificationTests(RemoteHomeFixture):
     def test_exec_ack_timeout_closes_channel(self):
         finished=threading.Event()
         class Channel:
@@ -155,9 +317,170 @@ class VerificationTests(unittest.TestCase):
         finally:b.verify_lock.release()
     def test_stale_success_cannot_overwrite_new_connection(self):
         application=app.Application();old=mock.Mock();new=mock.Mock();application.bridge=old;application.state='connected';application.phase='readable'
-        def change():application.bridge=new;return {'ok':True,'message':'old success'}
+        old.stop = threading.Event()
+        def change():
+            application.bridge=new;application.phase='mounting';application.message='new connection'
+            return {'ok':True,'message':'old success'}
         old.verify_readwrite.side_effect=change
         self.assertFalse(application.verify_readwrite()['ok'])
-        self.assertEqual(application.phase,'readable')
+        self.assertEqual(application.phase,'mounting')
+        self.assertEqual(application.message,'new connection')
+        self.assertIsNone(application.readwrite_result)
+
+
+class AutomaticVerificationTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        config_patch = mock.patch.object(app, 'CONFIG', Path(temporary.name) / 'settings.json')
+        config_patch.start()
+        self.addCleanup(config_patch.stop)
+        self.application = app.Application()
+        self.connection = self.new_connection()
+        self.application.bridge = self.connection
+        self.application.state = 'connecting'
+        self.application.phase = 'mounting'
+        self.started = threading.Event()
+        self.release = threading.Event()
+        self.workers = []
+        self.addCleanup(self.finish_workers)
+
+    def new_connection(self):
+        connection = bridge.Bridge(self.application.notify)
+        connection.verify_readwrite = mock.Mock(return_value={'ok': True, 'message': 'verified'})
+        return connection
+
+    def ready(self, mount_path='/test-mount'):
+        self.application.notify('已连接，远端挂载路径：' + mount_path)
+        worker = self.application.readwrite_worker
+        self.workers.append(worker)
+        return worker
+
+    def finish_workers(self):
+        self.release.set()
+        for worker in self.workers:
+            worker.join(2)
+            self.assertFalse(worker.is_alive(), 'verification worker did not finish')
+
+    def wait_for(self, worker):
+        worker.join(2)
+        self.assertFalse(worker.is_alive(), 'verification worker did not finish')
+
+    def blocked_verification(self):
+        self.started.set()
+        self.release.wait(2)
+        return {'ok': True, 'message': 'verified'}
+
+    def test_only_readable_mount_starts_automatic_verification(self):
+        self.application.notify('挂载已建立，正在检查目录：/test-mount')
+        self.connection.verify_readwrite.assert_not_called()
+        self.assertIsNone(self.application.readwrite_worker)
+        self.wait_for(self.ready())
+        self.connection.verify_readwrite.assert_called_once_with()
+        snapshot = self.application.snapshot()
+        self.assertEqual(snapshot['state'], 'connected')
+        self.assertEqual(snapshot['phase'], 'write_verified')
+        self.assertEqual(snapshot['readwrite_result'], {'ok': True, 'message': 'verified'})
+        snapshot['readwrite_result']['ok'] = False
+        self.assertTrue(self.application.snapshot()['readwrite_result']['ok'])
+
+    def test_duplicate_ready_and_status_polling_do_not_repeat_verification(self):
+        self.wait_for(self.ready())
+        first_worker = self.application.readwrite_worker
+        self.application.notify('已连接，远端挂载路径：/test-mount')
+        self.application.snapshot()
+        self.application.snapshot()
+        self.assertIs(self.application.readwrite_worker, first_worker)
+        self.assertEqual(self.application.phase, 'write_verified')
+        self.connection.verify_readwrite.assert_called_once_with()
+
+    def test_manual_request_cannot_overlap_automatic_verification(self):
+        self.connection.verify_readwrite.side_effect = self.blocked_verification
+        worker = self.ready()
+        self.assertTrue(self.started.wait(2))
+        self.assertEqual(self.application.snapshot()['phase'], 'write_verifying')
+        self.assertIsNone(self.application.snapshot()['readwrite_result'])
+        self.assertFalse(self.application.verify_readwrite()['ok'])
+        self.assertEqual(self.application.phase, 'write_verifying')
+        self.application.notify('已连接，远端挂载路径：/test-mount')
+        self.connection.verify_readwrite.assert_called_once_with()
+        self.release.set()
+        self.wait_for(worker)
+        self.assertEqual(self.application.phase, 'write_verified')
+
+    def test_failure_preserves_connection_and_manual_retry(self):
+        self.connection.verify_readwrite.return_value = {'ok': False, 'message': 'write-back timed out'}
+        self.wait_for(self.ready())
+        self.assertEqual(self.application.state, 'connected')
+        self.assertEqual(self.application.phase, 'readable')
+        self.assertFalse(self.application.snapshot()['readwrite_result']['ok'])
+        self.application.notify('已连接，远端挂载路径：/test-mount')
+        self.connection.verify_readwrite.assert_called_once_with()
+        self.connection.verify_readwrite.return_value = {'ok': True, 'message': 'retry verified'}
+        self.assertTrue(self.application.verify_readwrite()['ok'])
+        self.assertEqual(self.connection.verify_readwrite.call_count, 2)
+        self.assertEqual(self.application.phase, 'write_verified')
+        self.assertEqual(self.application.snapshot()['readwrite_result']['message'], 'retry verified')
+
+    def test_each_new_connection_verifies_once_and_discards_old_result(self):
+        self.connection.verify_readwrite.side_effect = self.blocked_verification
+        old_worker = self.ready()
+        self.assertTrue(self.started.wait(2))
+        new = self.new_connection()
+        new.verify_readwrite.return_value = {'ok': True, 'message': 'new connection verified'}
+        self.application.bridge = new
+        self.application.state = 'connecting'
+        self.wait_for(self.ready('/new-mount'))
+        self.release.set()
+        self.wait_for(old_worker)
+        self.connection.verify_readwrite.assert_called_once_with()
+        new.verify_readwrite.assert_called_once_with()
+        snapshot = self.application.snapshot()
+        self.assertEqual(snapshot['mount_path'], '/new-mount')
+        self.assertEqual(snapshot['phase'], 'write_verified')
+        self.assertEqual(snapshot['message'], 'new connection verified')
+        self.assertEqual(snapshot['readwrite_result']['message'], 'new connection verified')
+
+    def test_disconnect_before_worker_starts_prevents_probe(self):
+        with self.application.lock:
+            worker = self.ready()
+            self.connection.stop.set()
+            self.application.state = 'disconnected'
+            self.application.phase = 'idle'
+        self.wait_for(worker)
+        self.connection.verify_readwrite.assert_not_called()
+        self.assertEqual(self.application.phase, 'idle')
+        self.assertIsNone(self.application.snapshot()['readwrite_result'])
+
+    def test_disconnect_during_verification_discards_late_result(self):
+        self.connection.verify_readwrite.side_effect = self.blocked_verification
+        worker = self.ready()
+        self.assertTrue(self.started.wait(2))
+        self.connection.stop.set()
+        self.application.notify('已断开')
+        self.release.set()
+        self.wait_for(worker)
+        self.assertEqual(self.application.state, 'disconnected')
+        self.assertEqual(self.application.phase, 'idle')
+        self.assertEqual(self.application.message, '已断开')
+        self.assertIsNone(self.application.snapshot()['readwrite_result'])
+
+    def test_unexpected_error_does_not_leave_verification_running(self):
+        self.connection.verify_readwrite.side_effect = RuntimeError('private exception detail')
+        self.wait_for(self.ready())
+        self.assertEqual(self.application.state, 'connected')
+        self.assertEqual(self.application.phase, 'readable')
+        self.assertFalse(self.application.snapshot()['readwrite_result']['ok'])
+        self.assertNotIn('private exception detail', self.application.message)
+
+    def test_server_warning_survives_verification_and_does_not_change_phase(self):
+        self.application.notify('警告：配置损坏，已备份并重新生成')
+        self.assertEqual(self.application.phase, 'mounting')
+        self.wait_for(self.ready())
+        snapshot = self.application.snapshot()
+        self.assertEqual(snapshot['phase'], 'write_verified')
+        self.assertEqual(snapshot['warnings'], ['配置损坏，已备份并重新生成'])
+        snapshot['warnings'].clear()
+        self.assertEqual(len(self.application.snapshot()['warnings']), 1)
 
 if __name__=='__main__':unittest.main()

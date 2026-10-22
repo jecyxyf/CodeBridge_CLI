@@ -76,5 +76,6 @@ os.chmod(wrapper, 0o700)
 print(f"Installed helper: {target}\nInstalled launcher: {wrapper}")
 PY
 "$HOME/.local/bin/codebridge-mount" --self-test
+"$HOME/.local/bin/codebridge-mount" --initialize
 echo 'Ready for a client connection test. The script did not start sshd or create a mount.'
 echo 'Use your existing SSH account and SSH service. If sshd is absent or inaccessible, ask the host administrator to configure it.'

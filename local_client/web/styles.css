@@ -44,3 +44,6 @@ button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid #9b
 
 .trust-settings-row{display:flex;align-items:center;gap:12px;margin:12px 0 0}.trust-settings-row .secondary-button{height:33px;font-size:10px;flex-shrink:0}.trust-settings-row>span{font-size:10px;color:#788b79;line-height:1.8}
 @media(max-width:480px){.trust-settings-row{align-items:flex-start;flex-direction:column;gap:7px}}
+
+.diagnostic-result.warning{color:#826b4d;background:#f8f3e8;border-color:#eee4ce;white-space:pre-line}
+.remote-mount-field{margin-top:16px}

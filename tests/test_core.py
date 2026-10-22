@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import shlex
 from pathlib import Path
 import socket
 import subprocess
@@ -17,6 +18,15 @@ from local_client import bridge, app
 from remote_server import mount
 
 class SecurityTests(unittest.TestCase):
+    def test_custom_mount_path_is_one_quoted_remote_argument(self):
+        path = "/home/test/project 'one'; $(id)"
+        command = bridge.mount_command('Linux', 'a' * 32, path)
+        self.assertEqual(shlex.split(command), ['.local/bin/codebridge-mount', '--session', 'a' * 32,
+                                                '--mount-path', path])
+
+    def test_default_mount_does_not_send_override(self):
+        self.assertNotIn('--mount-path', bridge.mount_command('Linux', 'a' * 32))
+
     def test_root_link_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -122,6 +132,18 @@ class ApiTests(unittest.TestCase):
             saved=self.config.read_text()
             self.assertNotIn('DO-NOT-SAVE',saved)
             self.assertNotIn('password',saved)
+
+    def test_custom_remote_path_is_saved_and_sent_to_bridge(self):
+        with mock.patch.object(app.Bridge, 'run') as run:
+            self.app.connect(dict(remote_os='Linux', remote_mount_path='~/custom project'))
+            self.app.worker.join()
+        self.assertEqual(json.loads(self.config.read_text())['remote_mount_path'], '~/custom project')
+        self.assertEqual(run.call_args.args[0]['remote_mount_path'], '~/custom project')
+
+    def test_windows_custom_directory_is_rejected_before_persistence(self):
+        with self.assertRaises(ValueError):
+            self.app.connect(dict(remote_os='Windows', remote_mount_path='C:\\custom'))
+        self.assertFalse(self.config.exists())
 
 class PipeSocket:
     def get_name(self):return "stdio-test"

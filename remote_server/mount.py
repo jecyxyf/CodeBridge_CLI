@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """One SSH exec session, one foreground passive mount. stdout is SFTP ONLY."""
 import argparse
+from contextlib import nullcontext
 import ctypes
 import json
 import os
 from pathlib import Path
 import re
+import secrets
 import shutil
 import signal
 import stat
+import string
 import subprocess
 import sys
 import threading
@@ -38,20 +41,120 @@ def passive_option(binary):
     raise RuntimeError('此 SSHFS 构建未声明 passive/slave 支持；不会使用假挂载或不安全回退')
 
 
-def mountpoint(session):
+def mount_lock(name, exclusive=True, wait=False):
+    import fcntl
+    base = Path.home() / '.codebridge'
+    base.mkdir(mode=0o700, exist_ok=True)
+    if base.is_symlink() or base.stat().st_uid != os.getuid() or base.stat().st_mode & 0o077:
+        raise RuntimeError('挂载状态目录必须归当前用户所有且权限为 0700')
+    fd = os.open(base / name, os.O_RDWR | os.O_CREAT | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+    file = os.fdopen(fd, 'r+', encoding='utf-8')
+    try:
+        info = os.fstat(file.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+            raise RuntimeError('挂载状态文件无效')
+        flags = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
+        fcntl.flock(file.fileno(), flags | (0 if wait else fcntl.LOCK_NB))
+    except BlockingIOError:
+        file.close()
+        raise RuntimeError('已有连接正在使用远端挂载目录，请先断开原连接') from None
+    except Exception:
+        file.close()
+        raise
+    return file
+
+
+def mount_access(exclusive=False):
+    # A probe holds shared access; mount/unmount holds exclusive access.
+    return nullcontext() if os.name == 'nt' else mount_lock('mount-access.lock', exclusive, wait=True)
+
+
+def server_directory():
+    config = Path.home() / '.codebridge' / 'server.json'
+    try:
+        fd = os.open(config, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0))
+        with os.fdopen(fd, 'r', encoding='utf-8') as file:
+            info = os.fstat(file.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+                raise ValueError('invalid configuration file')
+            data = json.loads(file.read(4097))
+        if (not isinstance(data, dict) or set(data) != {'mount_directory'} or
+                not isinstance(data['mount_directory'], str) or
+                not re.fullmatch('[a-z]{5}', data['mount_directory'])):
+            raise ValueError('invalid mount directory name')
+    except (OSError, ValueError, UnicodeError):
+        raise RuntimeError('服务端配置无法读取或无效') from None
+    return Path.home() / data['mount_directory']
+
+
+def checked_directory(path, require_empty=True, allow_mounted=False):
+    for part in (path, *path.parents):
+        if part.is_symlink():
+            raise RuntimeError('远端挂载目录及其父目录不能是符号链接')
+    path = path.resolve()
+    if os.path.ismount(path):
+        if allow_mounted:
+            return path
+        raise RuntimeError('远端目录已被挂载，请先断开原连接或处理遗留挂载')
+    path.mkdir(mode=0o700, exist_ok=True)
+    if path.stat().st_uid != os.getuid():
+        raise RuntimeError('远端挂载目录必须归当前用户所有')
+    if require_empty:
+        with os.scandir(path) as entries:
+            if next(entries, None) is not None:
+                raise RuntimeError('远端挂载目录不是空目录，已拒绝遮盖已有文件')
+    return path
+
+
+def initialize_server():
+    with mount_lock('server-config.lock', wait=True):
+        config = Path.home() / '.codebridge' / 'server.json'
+        if config.exists() or config.is_symlink():
+            try:
+                server_directory()
+            except RuntimeError:
+                backup = config.with_name('server.corrupt-' + secrets.token_hex(8) + '.json')
+                config.rename(backup)
+                emit('WARNING', {'message': '服务端配置损坏，已保留副本：' + str(backup) +
+                                 '；正在重新生成五字母挂载目录和配置，旧目录不会删除。'})
+        if not config.exists() and not config.is_symlink():
+            for _ in range(100):
+                name = ''.join(secrets.choice(string.ascii_lowercase) for _ in range(5))
+                path = Path.home() / name
+                try:
+                    path.mkdir(mode=0o700)
+                except FileExistsError:
+                    continue
+                break
+            else:
+                raise RuntimeError('无法分配空闲的五字母目录，请检查用户目录')
+            # Exclusive creation never overwrites an existing configuration.
+            fd = os.open(config, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+            with os.fdopen(fd, 'w', encoding='utf-8') as file:
+                json.dump({'mount_directory': name}, file, indent=2)
+                file.write('\n')
+                file.flush()
+                os.fsync(file.fileno())
+        return checked_directory(server_directory(), require_empty=False, allow_mounted=True)
+
+
+def mountpoint(session, mount_path=''):
     if os.name == 'nt':
+        if mount_path:
+            raise RuntimeError('Windows 远端暂只支持自动盘符，请留空远端挂载目录')
         mask = ctypes.windll.kernel32.GetLogicalDrives()
         for index in range(25, 3, -1):
             if not mask & (1 << index):
                 return chr(65 + index) + ':'
         raise RuntimeError('没有可用盘符')
-    base = Path.home() / '.codebridge' / 'mounts'
-    base.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if base.is_symlink() or base.stat().st_uid != os.getuid() or base.stat().st_mode & 0o077:
-        raise RuntimeError('挂载父目录必须归当前用户所有且权限为 0700')
-    path = base / session
-    path.mkdir(mode=0o700)  # Never reuse an existing path/mount.
-    return str(path)
+    path = initialize_server()
+    if mount_path:
+        if any(ord(char) < 32 for char in mount_path):
+            raise RuntimeError('远端挂载目录不能包含控制字符')
+        path = Path(mount_path).expanduser()
+        if not path.is_absolute():
+            raise RuntimeError('远端挂载目录须为绝对路径或 ~/目录')
+    return str(checked_directory(path))
 
 
 def is_mounted(path):
@@ -76,13 +179,29 @@ def existing_mount(session, drive=None):
             raise RuntimeError('需要有效的远端盘符')
         path = drive + ':\\'
     else:
-        path = str(Path.home() / '.codebridge' / 'mounts' / session)
+        # Keep in-flight mounts from older clients usable during an adapter update.
+        legacy = Path.home() / '.codebridge' / 'mounts' / session
+        if os.path.ismount(legacy):
+            return str(legacy)
+        try:
+            active = json.loads((Path.home() / '.codebridge' / 'mount-session.json').read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            raise RuntimeError('挂载会话记录不存在或无效') from None
+        if (not isinstance(active, dict) or active.get('session') != session or
+                not isinstance(active.get('mount'), str) or not Path(active['mount']).is_absolute()):
+            raise RuntimeError('挂载会话已改变，已拒绝访问其他连接')
+        path = active['mount']
     if not os.path.ismount(path):
         raise RuntimeError('操作系统未报告该目录为挂载点')
     return path
 
 
 def operation_worker(session, operation, probe=None, drive=None):
+    with mount_access():
+        return checked_operation(session, operation, probe, drive)
+
+
+def checked_operation(session, operation, probe=None, drive=None):
     path = existing_mount(session, drive)
     if operation == 'list':
         with os.scandir(path) as entries:
@@ -133,15 +252,27 @@ def bounded_operation(session, operation, probe=None, drive=None):
     return json.loads(completed.stdout)
 
 
-def run(session):
+def run(session, mount_path=''):
     process = None
     path = None
+    owner = None
+    reserved = False
     try:
         binary = executable()
         option = passive_option(binary)
         if sys.platform.startswith('linux') and not os.path.exists('/dev/fuse'):
             raise RuntimeError('远端缺少 /dev/fuse，不能挂载；请在允许 FUSE 的真实主机部署')
-        path = mountpoint(session)
+        if os.name != 'nt':
+            owner = mount_lock('mount-session.json')
+        with mount_access(exclusive=True) if owner else nullcontext():
+            path = mountpoint(session, mount_path)
+            if owner:
+                owner.seek(0)
+                json.dump({'session': session, 'mount': path}, owner)
+                owner.truncate()
+                owner.flush()
+                os.fsync(owner.fileno())
+                reserved = True
         command = [binary, ':/', path, '-f', '-o', option,
                    '-o', 'cache=no', '-o', 'attr_timeout=0', '-o', 'entry_timeout=0',
                    '-o', 'negative_timeout=0']
@@ -175,31 +306,49 @@ def run(session):
         emit('ERROR', {'message': str(exc)})
         return 1
     finally:
-        if path:
-            unmount(path)
-        if process and process.poll() is None:
-            process.terminate()
-            try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
-        if path and os.name != 'nt' and not is_mounted(path):
-            try:
-                Path(path).rmdir()
-            except OSError:
-                pass
+        try:
+            with mount_access(exclusive=True) if owner else nullcontext():
+                if path:
+                    unmount(path)
+                if process and process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                if owner and reserved:
+                    owner.seek(0)
+                    owner.truncate()
+                    owner.flush()
+                    os.fsync(owner.fileno())
+                # Keep the configured, empty directory for the next connection.
+        finally:
+            if owner:
+                owner.close()
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--session')
     parser.add_argument('--self-test', action='store_true')
+    parser.add_argument('--initialize', action='store_true')
+    parser.add_argument('--mount-path', default='')
     parser.add_argument('--verify-readwrite', action='store_true')
     parser.add_argument('--operation-worker', choices=('list', 'rw'))
     parser.add_argument('--probe')
     parser.add_argument('--drive')
     args = parser.parse_args()
+    if args.initialize:
+        try:
+            if os.name == 'nt':
+                raise RuntimeError('目录挂载初始化适用于 Linux/macOS；Windows 仍使用空闲盘符')
+            path = initialize_server()
+            print(json.dumps({'mount': str(path), 'config': str(Path.home() / '.codebridge' / 'server.json')}))
+            return 0
+        except Exception as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
     if args.self_test:
         try:
             binary = executable()
@@ -230,7 +379,7 @@ def main():
     for name in ('SIGTERM', 'SIGHUP'):
         if hasattr(signal, name):
             signal.signal(getattr(signal, name), interrupted)
-    return run(args.session)
+    return run(args.session, args.mount_path)
 
 if __name__ == '__main__':
     sys.exit(main())

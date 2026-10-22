@@ -62,6 +62,7 @@ os.chmod(wrapper, 0o700)
 print(f"Installed helper: {target}\nInstalled launcher: {wrapper}")
 PY
 "$HOME/.local/bin/codebridge-mount" --self-test
+"$HOME/.local/bin/codebridge-mount" --initialize
 echo 'Adapter installed; an actual client connection is required to verify the filesystem driver.'
 echo 'If macOS asks for macFUSE approval or a restart, complete the official vendor steps yourself before connecting.'
 echo 'See https://macfuse.github.io/ . No Remote Login, firewall, Gatekeeper or system security settings were changed.'

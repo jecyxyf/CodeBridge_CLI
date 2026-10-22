@@ -19,7 +19,7 @@ from .diagnostics import bounded_test
 
 WEB = Path(__file__).with_name('web')
 CONFIG = Path.home() / '.codebridge' / 'settings.json'
-SETTING_KEYS = {'host', 'port', 'username', 'proxy', 'folder', 'remote_os', 'fingerprint'}
+SETTING_KEYS = {'host', 'port', 'username', 'proxy', 'folder', 'remote_os', 'fingerprint', 'remote_mount_path'}
 
 
 class Application:
@@ -33,6 +33,10 @@ class Application:
         self.message = '未连接'
         self.mount = ''
         self.pending_trust = None
+        self.auto_verify_bridge = None
+        self.readwrite_worker = None
+        self.readwrite_result = None
+        self.warnings = []
         try:
             self.settings = {k: v for k, v in json.loads(CONFIG.read_text(encoding='utf-8')).items() if k in SETTING_KEYS}
         except (OSError, ValueError, AttributeError):
@@ -41,12 +45,29 @@ class Application:
 
     def notify(self, message):
         with self.lock:
-            self.message = message
+            if message.startswith('警告：'):
+                warning = message.split('：', 1)[1][:2000]
+                if warning not in self.warnings:
+                    self.warnings = (self.warnings + [warning])[-8:]
+                return
             if message.startswith('已连接，远端挂载路径：'):
+                current = self.bridge
+                if (not current or current.stop.is_set() or self.state == 'disconnecting' or
+                        self.auto_verify_bridge is current):
+                    return
                 self.state = 'connected'
-                self.phase = 'readable'
                 self.mount = message.split('：', 1)[1]
-            elif message.startswith('正在连接服务器'):
+                self.auto_verify_bridge = current
+                self.phase = 'write_verifying'
+                self.message = '目录已连接，正在自动验证读写…'
+                self.readwrite_result = None
+                # Reserve the verification before starting so manual requests cannot race it.
+                self.readwrite_worker = threading.Thread(target=self._verify_readwrite,
+                                                        args=(current,), daemon=True)
+                self.readwrite_worker.start()
+                return
+            self.message = message
+            if message.startswith('正在连接服务器'):
                 self.phase = 'ssh_connecting'
             elif message.startswith('身份已验证，正在启动'):
                 self.phase = 'ssh_authenticated'
@@ -71,7 +92,10 @@ class Application:
                 self.phase = 'error'
             return {'state': self.state, 'phase': self.phase, 'message': self.message, 'mount_path': self.mount,
                     'settings': {k: v for k, v in self.settings.items() if k != 'fingerprint'},
-                    'trust_challenge': dict(self.pending_trust['public']) if self.pending_trust else None}
+                    'trust_challenge': dict(self.pending_trust['public']) if self.pending_trust else None,
+                    'warnings': list(self.warnings),
+                    'readwrite_result': dict(self.readwrite_result)
+                    if self.state == 'connected' and self.readwrite_result is not None else None}
 
     def connect(self, data):
         with self.lock:
@@ -80,6 +104,8 @@ class Application:
             settings = {key: str(data.get(key, '')) for key in SETTING_KEYS if key != 'fingerprint'}
             if settings['remote_os'] not in ('Linux', 'macOS', 'Windows'):
                 raise ValueError('请选择远端系统')
+            if settings['remote_os'] == 'Windows' and settings['remote_mount_path'].strip():
+                raise ValueError('Windows 远端暂只支持自动盘符，请留空远端挂载目录')
             if any(len(value) > 4096 for value in settings.values()):
                 raise ValueError('设置过长')
             parsed_proxy = urlsplit(settings['proxy'])
@@ -94,6 +120,10 @@ class Application:
             # Allowlist prevents accidental credential persistence.
             CONFIG.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding='utf-8')
             self.bridge = Bridge(self.notify, self.verify_host)
+            self.auto_verify_bridge = None
+            self.readwrite_worker = None
+            self.readwrite_result = None
+            self.warnings = []
             self.state, self.message, self.mount = 'connecting', '正在连接…', ''
             self.phase = 'ssh_connecting'
             self.worker = threading.Thread(target=self.bridge.run, args=(settings, password), daemon=True)
@@ -172,12 +202,27 @@ class Application:
             current = self.bridge
             if self.state != 'connected' or not current:
                 return {'ok': False, 'message': '请先连接并确认目录可读'}
-        result = current.verify_readwrite()
+            if self.phase == 'write_verifying':
+                return {'ok': False, 'message': '读写验证正在进行，请稍候'}
+            self.phase = 'write_verifying'
+            self.message = '正在验证读写，等待远端读写和本地写回…'
+            self.readwrite_result = None
+        return self._verify_readwrite(current)
+
+    def _verify_readwrite(self, current):
+        with self.lock:
+            if self.bridge is not current or self.state != 'connected' or current.stop.is_set():
+                return {'ok': False, 'message': '连接状态已改变，本次验证结果已作废'}
+        try:
+            result = current.verify_readwrite()
+        except Exception as exc:
+            result = {'ok': False, 'message': '读写验证失败（' + type(exc).__name__ + '）'}
         with self.lock:
             if self.bridge is not current or self.state != 'connected' or current.stop.is_set():
                 return {'ok': False, 'message': '连接状态已改变，本次验证结果已作废'}
             self.phase = 'write_verified' if result['ok'] else 'readable'
             self.message = result['message']
+            self.readwrite_result = dict(result)
         return result
 
     def disconnect(self):

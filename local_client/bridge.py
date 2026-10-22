@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import queue
 import re
+import shlex
 import shutil
 import socket
 import stat
@@ -124,6 +125,16 @@ def execute_bounded(channel, command, timeout=10):
         timer.cancel()
 
 
+def mount_command(remote_os, session, mount_path=''):
+    launcher = '.\\.codebridge\\codebridge-mount.cmd' if remote_os == 'Windows' else '.local/bin/codebridge-mount'
+    command = f'{launcher} --session {session}'
+    if mount_path:
+        if remote_os == 'Windows':
+            raise BridgeError('Windows 远端暂只支持自动盘符，请留空远端挂载目录')
+        command += ' --mount-path ' + shlex.quote(mount_path)
+    return command
+
+
 def probe_bytes(path, allowed):
     if path.is_symlink():
         raise BridgeError('验证文件被替换为链接，已停止')
@@ -229,8 +240,8 @@ class Bridge:
                                                            if not k.startswith('RCLONE_')})
             self.channel = self.client.open_session(timeout=15)
             self.channel.settimeout(None)
-            launcher = '.\\.codebridge\\codebridge-mount.cmd' if settings['remote_os'] == 'Windows' else '.local/bin/codebridge-mount'
-            execute_bounded(self.channel, f'{launcher} --session {session}')
+            execute_bounded(self.channel, mount_command(settings['remote_os'], session,
+                                                       settings.get('remote_mount_path', '').strip()))
             for target in (self._pipe_to_remote, self._pipe_from_remote):
                 threading.Thread(target=target, daemon=True).start()
             threading.Thread(target=self._collect_local_errors, daemon=True).start()
@@ -258,7 +269,12 @@ class Bridge:
                     while b'\n' in pending:
                         line, pending = pending.split(b'\n', 1)
                         message = line.decode('utf-8', 'replace')
-                        if message.startswith('CODEBRIDGE_MOUNTED '):
+                        if message.startswith('CODEBRIDGE_WARNING '):
+                            data = json.loads(message[len('CODEBRIDGE_WARNING '):])
+                            warning = data.get('message')
+                            if isinstance(warning, str):
+                                self.notify('警告：' + warning[:2000])
+                        elif message.startswith('CODEBRIDGE_MOUNTED '):
                             data = json.loads(message[len('CODEBRIDGE_MOUNTED '):])
                             if data.get('session') != session:
                                 raise BridgeError('挂载状态会话不匹配')
