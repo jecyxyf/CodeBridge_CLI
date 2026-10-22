@@ -11,6 +11,7 @@ import socket
 import stat
 import subprocess
 import threading
+import tempfile
 import time
 from urllib.parse import urlsplit
 import uuid
@@ -93,7 +94,11 @@ def rclone_command(root, cache):
     match = re.search(rb'rclone v(\d+)\.(\d+)\.(\d+)', version.stdout)
     if not match or tuple(map(int, match.groups())) < (1, 75, 0):
         raise BridgeError('rclone 版本过旧；安全要求至少 1.75.0，请重新运行部署脚本')
-    return [executable, 'serve', 'sftp', str(root), '--stdio', '--config', os.devnull,
+    # rclone rejects Windows NUL as --config. Use an exclusive-created regular
+    # file in this session's cache, never the user's default config or an old file.
+    fd, config = tempfile.mkstemp(prefix='rclone-empty-', suffix='.conf', dir=Path(cache).resolve())
+    os.close(fd)
+    return [executable, 'serve', 'sftp', str(root), '--stdio', '--config', config,
             '--cache-dir', str(cache), '--vfs-cache-mode', 'writes', '--vfs-write-back', '0s',
             '--dir-cache-time', '1s', '--poll-interval', '0', '--buffer-size', '0',
             '--copy-links=false', '--links=false', '--vfs-links=false', '--log-level', 'ERROR', '--stats', '0']

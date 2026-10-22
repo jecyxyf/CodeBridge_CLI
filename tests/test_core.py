@@ -38,6 +38,24 @@ class SecurityTests(unittest.TestCase):
             run.return_value.stdout=b'rclone v1.60.1'
             with self.assertRaises(bridge.BridgeError):
                 bridge.rclone_command(Path('/tmp'),Path('/tmp/cache'))
+    def test_windows_null_device_never_used_as_rclone_config(self):
+        with tempfile.TemporaryDirectory() as temp, mock.patch.object(bridge.shutil, 'which', return_value='rclone.exe'), mock.patch.object(bridge.subprocess, 'run', return_value=mock.Mock(stdout=b'rclone v1.75.2')), mock.patch.object(bridge.os, 'devnull', 'nul'):
+            cache = Path(temp) / 'session-cache'
+            cache.mkdir()
+            preserved = cache / 'old-unsynced-data'
+            preserved.write_bytes(b'do not change')
+            first = bridge.rclone_command(Path(temp), cache)
+            second = bridge.rclone_command(Path(temp), cache)
+            config = Path(first[first.index('--config') + 1])
+            other = Path(second[second.index('--config') + 1])
+            self.assertTrue(config.is_file())
+            self.assertFalse(config.is_symlink())
+            self.assertEqual(config.parent, cache.resolve())
+            self.assertEqual(config.read_bytes(), b'')
+            self.assertNotEqual(config, other)
+            self.assertNotIn('nul', first)
+            self.assertEqual(preserved.read_bytes(), b'do not change')
+
     def test_readiness_requires_mount(self):
         self.assertFalse(mount.is_mounted('/tmp/not-a-codebridge-mount'))
     def test_host_fingerprint_checked_before_password(self):

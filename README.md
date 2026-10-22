@@ -1,4 +1,4 @@
-# 码桥 CodeBridge 0.0.2
+# 码桥 CodeBridge 0.0.3
 
 本地目录，远程使用。当前版本是可审查的 MVP / 测试版，不是已完成全部平台验收的正式版本。
 
@@ -9,9 +9,11 @@
 - 本地主动通过 SSH 连接远端；远端目录是本地目录的读写挂载，不是两份工程目录的同步。
 - 不使用 Tailscale、frp、密钥登录或配对服务。
 
+0.0.3 修复 Windows 本地文件服务将 NUL 设备当作 rclone 配置文件而启动失败的问题。旧缓存不会被删除或复用；更新后关闭旧客户端，再运行现有启动器即可，无需重装依赖。
+
 ## 快速开始
 
-获取本仓库 `0.0.2` 分支。已有仓库可运行 `git fetch origin`，再运行 `git switch --track origin/0.0.2`（本地已有该分支时使用 `git switch 0.0.2` 和 `git pull --ff-only`）。关闭旧客户端并重新启动。
+获取本仓库 `0.0.3` 分支。已有仓库可运行 `git fetch origin`，再运行 `git switch --track origin/0.0.3`（本地已有该分支时使用 `git switch 0.0.3` 和 `git pull --ff-only`）。关闭旧客户端并重新启动。
 
 Windows 本地客户端，在 PowerShell 中进入仓库目录运行：
 
@@ -66,3 +68,7 @@ CODEBRIDGE_TEST_RCLONE="$(command -v rclone)" python -m unittest discover -s tes
 ```
 
 完整测试清单和实际结果见 [验证记录](docs/security-and-testing.md)。
+
+## 版本约定
+
+每次交付更新递增补丁版本，并发布到同名新分支（例如 `0.0.3` → `0.0.4`）；保留旧版本分支，不覆盖旧版，也不自动合并 master。同一次修改的测试迭代不单独发布新版本。
