@@ -13,7 +13,8 @@ import time
 from urllib.parse import urlsplit
 import webbrowser
 
-from .bridge import Bridge
+from .bridge import Bridge, BridgeError
+from .trust import TrustStore, target_id
 from .diagnostics import bounded_test
 
 WEB = Path(__file__).with_name('web')
@@ -31,10 +32,12 @@ class Application:
         self.diagnostics_limit = threading.BoundedSemaphore(2)
         self.message = '未连接'
         self.mount = ''
+        self.pending_trust = None
         try:
             self.settings = {k: v for k, v in json.loads(CONFIG.read_text(encoding='utf-8')).items() if k in SETTING_KEYS}
         except (OSError, ValueError, AttributeError):
             self.settings = {}
+        self.trust = TrustStore(CONFIG.with_name('trusted_hosts.json'), self.settings)
 
     def notify(self, message):
         with self.lock:
@@ -52,7 +55,7 @@ class Application:
             elif message.startswith('挂载已建立，正在检查目录：'):
                 self.phase = 'mounted'
                 self.mount = message.split('：', 1)[1]
-            elif message.startswith('已断开'):
+            elif message.startswith('已断开') or message == '首次连接确认已取消，未发送密码':
                 self.state = 'disconnected'
                 self.phase = 'idle'
                 self.mount = ''
@@ -67,13 +70,14 @@ class Application:
                 self.state = 'error'
                 self.phase = 'error'
             return {'state': self.state, 'phase': self.phase, 'message': self.message, 'mount_path': self.mount,
-                    'settings': self.settings}
+                    'settings': {k: v for k, v in self.settings.items() if k != 'fingerprint'},
+                    'trust_challenge': dict(self.pending_trust['public']) if self.pending_trust else None}
 
     def connect(self, data):
         with self.lock:
             if self.worker and self.worker.is_alive():
                 raise ValueError('连接正在运行，请先断开')
-            settings = {key: str(data.get(key, '')) for key in SETTING_KEYS}
+            settings = {key: str(data.get(key, '')) for key in SETTING_KEYS if key != 'fingerprint'}
             if settings['remote_os'] not in ('Linux', 'macOS', 'Windows'):
                 raise ValueError('请选择远端系统')
             if any(len(value) > 4096 for value in settings.values()):
@@ -84,15 +88,84 @@ class Application:
             password = data.get('password', '')
             if not isinstance(password, str) or len(password) > 4096:
                 raise ValueError('密码格式无效')
+            self.trust.migrate()
             self.settings = settings
             CONFIG.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             # Allowlist prevents accidental credential persistence.
             CONFIG.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding='utf-8')
-            self.bridge = Bridge(self.notify)
+            self.bridge = Bridge(self.notify, self.verify_host)
             self.state, self.message, self.mount = 'connecting', '正在连接…', ''
             self.phase = 'ssh_connecting'
             self.worker = threading.Thread(target=self.bridge.run, args=(settings, password), daemon=True)
             self.worker.start()
+
+    def verify_host(self, bridge, host, port, actual):
+        with self.lock:
+            if self.bridge is not bridge or bridge.stop.is_set():
+                raise BridgeError('连接已取消')
+            expected = self.trust.expected(host, port)
+            if expected is not None:
+                if expected != actual:
+                    raise BridgeError('服务器身份不匹配，可能更换了服务器或连接被拦截。已拒绝发送密码，请核实后处理信任记录。当前指纹：' + actual)
+                self.trust.remember(host, port, actual)  # safely persist a matching legacy pin
+                return
+            pending = {'public': {'id': secrets.token_urlsafe(24), 'host': host, 'port': port, 'fingerprint': actual},
+                       'bridge': bridge, 'event': threading.Event(), 'accepted': False,
+                       'deadline': time.monotonic() + 120}
+            self.pending_trust = pending
+            self.phase = 'host_trust'
+            self.message = '首次连接这台服务器，请确认是否信任；确认前不会发送密码'
+        try:
+            while not pending['event'].wait(0.2):
+                if bridge.stop.is_set() or time.monotonic() >= pending['deadline']:
+                    raise BridgeError('首次连接确认已取消或超时，未发送密码')
+            if not pending['accepted'] or bridge.stop.is_set():
+                raise BridgeError('首次连接确认已取消，未发送密码')
+        finally:
+            with self.lock:
+                if self.pending_trust is pending:
+                    self.pending_trust = None
+
+    def decide_trust(self, data):
+        with self.lock:
+            pending = self.pending_trust
+            if (not pending or not isinstance(data.get('id'), str) or
+                    not hmac.compare_digest(data['id'], pending['public']['id']) or
+                    type(data.get('accept')) is not bool or pending['event'].is_set() or
+                    pending['bridge'] is not self.bridge or self.bridge.stop.is_set() or
+                    time.monotonic() >= pending['deadline']):
+                raise ValueError('确认已过期，请重新连接')
+            if data['accept']:
+                info = pending['public']
+                # The caller supplies only a nonce and decision, never a new key/host.
+                self.trust.remember(info['host'], info['port'], info['fingerprint'])
+                pending['accepted'] = True
+            pending['event'].set()
+            self.pending_trust = None
+            self.phase = 'ssh_connecting'
+            self.message = '已记住服务器，正在继续连接…' if data['accept'] else '已取消首次连接确认，未发送密码'
+
+    def forget_host(self, data):
+        with self.lock:
+            if self.worker and self.worker.is_alive():
+                raise ValueError('请先断开连接，再删除服务器指纹')
+            host, port = data.get('host'), data.get('port')
+            if not isinstance(host, str) or type(port) is not int:
+                raise ValueError('服务器地址或端口无效')
+            target_id(host, port)  # validate before any persistence or challenge changes
+            # Revoke stale challenges before reset; never close an active mount.
+            if self.pending_trust:
+                self.pending_trust['event'].set()
+                self.pending_trust = None
+            # Remove legacy settings first so a crash cannot restore a deleted pin.
+            if 'fingerprint' in self.settings:
+                self.trust.migrate()
+                self.settings.pop('fingerprint', None)
+                CONFIG.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+                CONFIG.write_text(json.dumps(self.settings, ensure_ascii=False, indent=2), encoding='utf-8')
+            self.trust.forget(host, port)
+            self.state, self.phase, self.mount = 'disconnected', 'idle', ''
+            self.message = '已清除这台服务器的已保存身份；下次连接时会重新询问是否信任。网络或密码错误不会因此修复。'
 
     def verify_readwrite(self):
         with self.lock:
@@ -174,6 +247,12 @@ def make_handler(app, token):
                         app.diagnostics_limit.release()
                 if self.path == '/api/verify-readwrite':
                     return self.send(200, app.verify_readwrite())
+                if self.path == '/api/forget-host':
+                    app.forget_host(body)
+                    return self.send(200, app.snapshot())
+                if self.path == '/api/host-trust':
+                    app.decide_trust(body)
+                    return self.send(202, app.snapshot())
                 if self.path == '/api/connect':
                     app.connect(body)
                     return self.send(202, app.snapshot())
@@ -189,6 +268,8 @@ def make_handler(app, token):
                     except subprocess.TimeoutExpired:
                         return self.send(408, {'error': '文件夹选择超时，请重试或手动填写路径'})
                 return self.send(404, {'error': '接口不存在'})
+            except BridgeError:
+                return self.send(409, {'error': '服务器信任记录无法安全保存，请检查本地信任记录并重新连接'})
             except (ValueError, TypeError):
                 return self.send(400, {'error': '设置无效，请检查输入和连接状态'})
             except OSError:

@@ -70,6 +70,12 @@ class SecurityTests(unittest.TestCase):
 
 class ApiTests(unittest.TestCase):
     def setUp(self):
+        self.temp=tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.config=Path(self.temp.name)/'settings.json'
+        config_patch=mock.patch.object(app,'CONFIG',self.config)
+        config_patch.start()
+        self.addCleanup(config_patch.stop)
         self.app=app.Application()
         self.server=app.ThreadingHTTPServer(('127.0.0.1',0),app.make_handler(self.app,'test-token'))
         threading.Thread(target=self.server.serve_forever,daemon=True).start()
@@ -88,15 +94,14 @@ class ApiTests(unittest.TestCase):
         req=Request(self.url+'/api/status',headers={'X-CodeBridge-Token':'test-token'})
         self.assertEqual(json.load(urlopen(req))['state'],'disconnected')
     def test_proxy_password_not_persisted(self):
-        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(app,'CONFIG',Path(tmp)/'settings.json'):
-            with self.assertRaises(ValueError):
-                self.app.connect(dict(remote_os='Linux',proxy='http://user:secret@host:8000'))
-            self.assertFalse((Path(tmp)/'settings.json').exists())
+        with self.assertRaises(ValueError):
+            self.app.connect(dict(remote_os='Linux',proxy='http://user:secret@host:8000'))
+        self.assertFalse(self.config.exists())
     def test_password_not_persisted(self):
-        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(app,'CONFIG',Path(tmp)/'settings.json'), mock.patch.object(app.Bridge,'run'):
+        with mock.patch.object(app.Bridge,'run'):
             self.app.connect(dict(remote_os='Linux',password='DO-NOT-SAVE'))
             self.app.worker.join()
-            saved=(Path(tmp)/'settings.json').read_text()
+            saved=self.config.read_text()
             self.assertNotIn('DO-NOT-SAVE',saved)
             self.assertNotIn('password',saved)
 

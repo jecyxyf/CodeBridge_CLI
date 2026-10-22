@@ -134,8 +134,9 @@ def probe_bytes(path, allowed):
 
 
 class Bridge:
-    def __init__(self, notify):
+    def __init__(self, notify, verify_host=None):
         self.notify = notify
+        self.verify_host = verify_host
         self.stop = threading.Event()
         self.client = None
         self.process = None
@@ -199,15 +200,14 @@ class Bridge:
             port = int(settings['port'])
             if not host or not username or not 0 < port < 65536 or not password:
                 raise BridgeError('请填写服务器、端口、用户名和密码')
-            expected = settings['fingerprint'].strip()
-            if not expected.startswith('SHA256:'):
-                raise BridgeError('请填写通过可信渠道核对的服务器 SHA256 指纹')
             self.notify('正在连接服务器…')
             sock = connect_socket(host, port, settings['proxy'].strip())
             self.client = paramiko.Transport(sock)
             self.client.start_client(timeout=15)
             actual = fingerprint(self.client.get_remote_server_key())
-            if actual != expected:
+            if self.verify_host is not None:
+                self.verify_host(self, host, port, actual)
+            elif actual != settings.get('fingerprint', '').strip():
                 raise BridgeError('服务器指纹不匹配，已拒绝发送密码。实际指纹：' + actual)
             if self.stop.is_set():
                 return
