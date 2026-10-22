@@ -1,6 +1,7 @@
 """Credential-free application-level SSH ping, respecting the configured proxy."""
 import time
 from .bridge import BridgeError, connect_socket
+from .runtime import bounded_process
 
 
 def target(data, require_proxy=False):
@@ -50,13 +51,15 @@ def test_ssh(data, require_proxy=False):
 def bounded_test(data, require_proxy=False):
     """Bound DNS resolution as well as sockets; no credentials enter child argv."""
     import json
-    import subprocess
     import sys
+    from pathlib import Path
     try:
         host, port, proxy = target(data, require_proxy)
         payload = {'host': host, 'port': port, 'proxy': proxy, 'require_proxy': require_proxy}
-        completed = subprocess.run([sys.executable, '-m', 'local_client.diagnostics'],
-                                   input=json.dumps(payload), text=True, capture_output=True, timeout=30)
+        completed = bounded_process([sys.executable, '-m', 'local_client.diagnostics'],
+                                    timeout=30, label='SSH 连接诊断',
+                                    input=json.dumps(payload), text=True,
+                                    cwd=str(Path(__file__).resolve().parents[1]))
         if completed.returncode:
             raise BridgeError('测试进程未正常完成')
         return json.loads(completed.stdout)

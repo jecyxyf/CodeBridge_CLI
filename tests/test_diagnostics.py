@@ -38,8 +38,7 @@ class DiagnosticTests(unittest.TestCase):
     def test_connect_injection_rejected(self):
         with self.assertRaises(bridge.BridgeError):bridge.connect_socket('a\r\nInjected: true',22,'http://localhost:8080')
     def test_diagnostic_subprocess_bounds_dns_and_omits_password(self):
-        import subprocess
-        with mock.patch.object(subprocess,'run') as run:
+        with mock.patch.object(diagnostics,'bounded_process') as run:
             run.return_value.returncode=0;run.return_value.stdout='{"ok":true}'
             self.assertTrue(diagnostics.bounded_test({'host':'server','port':22,'password':'never-send'})['ok'])
             self.assertEqual(run.call_args.kwargs['timeout'],30)
@@ -262,11 +261,11 @@ class RemoteOperationTests(RemoteHomeFixture):
             with self.assertRaises(RuntimeError):mount.operation_worker('a'*32,'rw',probe)
             self.assertEqual(outside.read_bytes(),b'keep')
     def test_operation_subprocess_is_bounded(self):
-        with mock.patch.object(mount.subprocess,'run') as run:
+        with mock.patch.object(mount,'bounded_process') as run:
             run.return_value.returncode=0;run.return_value.stdout=b'{"ok":true}'
             self.assertEqual(mount.bounded_operation('a'*32,'list'),{'ok':True})
-            self.assertEqual(run.call_args.kwargs['timeout'],12)
-            self.assertNotIn('shell',run.call_args.kwargs)
+            self.assertEqual(run.call_args.args[1],12)
+            self.assertIn('--internal-worker',run.call_args.args[0])
     def test_unmounted_directory_rejected(self):
         with mock.patch.object(mount.os.path,'ismount',return_value=False):
             with self.assertRaises(RuntimeError):mount.existing_mount('a'*32)
@@ -296,9 +295,14 @@ class VerificationTests(RemoteHomeFixture):
             root=Path(directory);other=root/'untouched';other.write_bytes(b'keep')
             b=bridge.Bridge(lambda message:None);b.root=root;b.session='a'*32;b.mount='/test';b.remote_os='Linux';b.mounted=True;b.client=mock.Mock()
             class Channel:
+                commands = []
                 def settimeout(self,value):pass
                 def exec_command(self,command):
-                    self.command=command;probe=command.split()[-1]
+                    self.command=command;self.commands.append(command)
+                    if '--connection-result success' in command:
+                        self.response=json.dumps({'ok':True,'session':'a'*32,'result':'success'}).encode()
+                        return
+                    probe=command.split()[-1]
                     with mock.patch.object(mount,'existing_mount',return_value=directory):self.response=json.dumps(mount.operation_worker('a'*32,'rw',probe)).encode()
                 def recv_ready(self):return bool(self.response)
                 def recv_stderr_ready(self):return False
@@ -310,7 +314,8 @@ class VerificationTests(RemoteHomeFixture):
             result=b.verify_readwrite()
             self.assertTrue(result['ok'],result)
             self.assertEqual(list(root.iterdir()),[other]);self.assertEqual(other.read_bytes(),b'keep')
-            self.assertRegex(channel.command,r'^\.local/bin/codebridge-mount --verify-readwrite --session [a-f0-9]{32} --probe [a-f0-9]{32}$')
+            self.assertRegex(channel.commands[0],r'^\.local/bin/codebridge-mount --verify-readwrite --session [a-f0-9]{32} --probe [a-f0-9]{32}$')
+            self.assertIn('--connection-result success',channel.commands[1])
     def test_no_parallel_verification(self):
         b=bridge.Bridge(lambda message:None);b.verify_lock.acquire()
         try:self.assertFalse(b.verify_readwrite()['ok'])
@@ -322,7 +327,9 @@ class VerificationTests(RemoteHomeFixture):
             application.bridge=new;application.phase='mounting';application.message='new connection'
             return {'ok':True,'message':'old success'}
         old.verify_readwrite.side_effect=change
-        self.assertFalse(application.verify_readwrite()['ok'])
+        self.assertTrue(application.verify_readwrite()['pending'])
+        application.readwrite_worker.join(2)
+        self.assertFalse(application.readwrite_worker.is_alive())
         self.assertEqual(application.phase,'mounting')
         self.assertEqual(application.message,'new connection')
         self.assertIsNone(application.readwrite_result)
@@ -417,7 +424,8 @@ class AutomaticVerificationTests(unittest.TestCase):
         self.application.notify('已连接，远端挂载路径：/test-mount')
         self.connection.verify_readwrite.assert_called_once_with()
         self.connection.verify_readwrite.return_value = {'ok': True, 'message': 'retry verified'}
-        self.assertTrue(self.application.verify_readwrite()['ok'])
+        self.assertTrue(self.application.verify_readwrite()['pending'])
+        self.wait_for(self.application.readwrite_worker)
         self.assertEqual(self.connection.verify_readwrite.call_count, 2)
         self.assertEqual(self.application.phase, 'write_verified')
         self.assertEqual(self.application.snapshot()['readwrite_result']['message'], 'retry verified')

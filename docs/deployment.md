@@ -63,7 +63,7 @@ bash local_client/scripts/macos.sh
 ### 所有本地端共用行为
 
 - Python 应用依赖装在项目根目录 `.venv`，不污染系统 Python：`paramiko==3.5.1`、`PySocks==1.7.1`。
-- 实际入口是 `python -m local_client.app`，不是 Tk 主界面；Tkinter 只用于可选的原生目录选择。
+- 实际入口是 `./.venv/bin/python -m local_client.app`（Windows 使用 `.venv\Scripts\python.exe`）；Tkinter 只用于可选的原生目录选择。
 - rclone 必须 **>= 1.75.0** 且实际支持 `serve sftp --stdio`。旧版即使有 stdio 也不会通过检查；建议使用 1.75.2 或更新的安全稳定版。
 - 不要把其他操作系统的 `.venv` 一起搬过来。脚本发现明显不兼容的环境会停止，不会擅自删除。重建前请自行重命名旧 `.venv`。
 - 安装后移动项目目录可能使 venv 内部路径失效，需在新位置重建 `.venv` 并重跑脚本。
@@ -93,11 +93,12 @@ bash remote_server/scripts/linux.sh
 
 ```text
 ~/.codebridge/remote_server/mount.py
+~/.codebridge/remote_server/codebridge_logging.py
 ~/.local/bin/codebridge-mount
 ~/.codebridge/server.json
 ```
 
-启动器绑定安装时的完整 Python 路径，避免 SSH 非交互 shell 的 PATH 指向错误 Python。安装器完成首次初始化，在 SSH 登录用户的家目录下生成一个五位随机小写英文字母目录，例如 `~/qjvpa/`，并写入 `~/.codebridge/server.json`：
+远端安装器也在仓库根目录创建或复用 `./.venv`，系统 Python 仅用于探测和创建环境。启动器绑定该 `.venv` 解释器的完整路径，避免 SSH 非交互 shell 的 PATH 指向错误 Python；安装后需保留仓库目录及其 `.venv`。安装器完成首次初始化，在 SSH 登录用户的家目录下生成一个五位随机小写英文字母目录，例如 `~/qjvpa/`，并写入 `~/.codebridge/server.json`：
 
 ```json
 {"mount_directory": "qjvpa"}
@@ -135,6 +136,7 @@ powershell -NoProfile -File .\remote_server\scripts\windows.ps1
 
 ```text
 %USERPROFILE%\.codebridge\remote_server\mount.py
+%USERPROFILE%\.codebridge\remote_server\codebridge_logging.py
 %USERPROFILE%\.codebridge\codebridge-mount.cmd
 ```
 
@@ -171,6 +173,8 @@ Windows 等价选项：
 
 只运行本机平台的命令。检查用于确认依赖，不会创建一次真实共享挂载。
 
+远端 `--check` / `-CheckOnly` 需要已有合格的仓库根 `.venv`，不会为了检查创建环境，也不会创建日志或 Python 字节码缓存。
+
 已自行装好依赖时，可加 Unix 的 `--skip-deps` 或 Windows 的 `-SkipDependencies`。它跳过系统安装，但仍会更新 CodeBridge 自己的环境、requirements、辅助脚本及启动器。`CODEBRIDGE_PYTHON` 环境变量可指定已有 Python 的完整路径。
 
 远端快速自检：
@@ -185,6 +189,10 @@ Windows 等价选项：
 
 重复运行会更新 CodeBridge 自己的 helper/启动器，不会删除共享目录。正在连接时先断开，再做更新。更新 Python 安装路径后，需重跑远端安装器重新生成绝对路径 wrapper。
 
+日志与超时更新必须在服务端重跑部署脚本，确保 `mount.py` 与 `codebridge_logging.py` 同步安装。旧服务端不支持新的结束确认命令，新客户端会明确报告验证失败。
+
+客户端日志在项目根目录 `logs/`；服务端日志在已安装的 `mount.py` 同目录下 `logs/`，即 `~/.codebridge/remote_server/logs/`。文件名为各端本地日期 `YYYY-MM-DD.log`，保存最近 90 个自然日。每行是 `时间,消息类型,日志内容`，级别为 DEBUG/INFO/WARN/ERROR。排查时按同一个 `session` 查找双方步骤及“连接流程运行结束”；不要仅以“挂载可读”判断第 6 步已经成功。
+
 ## 4. 首次连接验收
 
 1. 先建一个没有重要资料的本地目录，放入测试文本、中文名文件和一个小二进制文件。
@@ -192,7 +200,7 @@ Windows 等价选项：
 3. 首次连接时确认服务器地址，点击“信任并连接”，无需手工填写指纹。首次信任并不能独立证明身份；有疑虑可展开详情，通过可信渠道核对。后续自动校验已保存身份，变化时拒绝发送密码。服务器重装或确实换钥后，可先断开并确认“删除指纹”，仅清除当前主机和端口的 CodeBridge 记录，再重新连接确认。不要用清除身份尝试修复普通网络或密码错误。
 4. 代理可留空；如填写，当前版本仅接受不带账号密码的 `socks5://主机:端口` 或 `http://主机:端口`。代理失败不会自动退回直连。
 5. 可先点“SSH Ping”和“测试代理”。前者是应用层 SSH 服务可达性，不是 ICMP；后者确认到目标 SSH 的实际代理隧道。配置代理时两者都不会偷偷改为直连。点击连接，必须等到界面报告真实远端挂载路径及目录可读后再使用。Linux/macOS 可在另一条同用户 SSH 会话中读取该路径；Windows 必须另验消费进程的登录会话可见性。
-6. 连接后会自动验证一次读写，等待临时文件的远端读取、写入和本地写回确认及清理。界面显示验证进度和结果；仍可点击“验证读写”手动重测，运行期间禁止重复验证。验证失败不会自动断开目录连接，也不会自动重试；按结果检查挂载与写回情况。它只验证分开的读取/保存流程，不保证所有 O_RDWR 操作。然后在远端对测试目录读取、创建、覆盖、改名、删除，并回本地确认结果；测试一个中文路径和二进制文件，必要时比对哈希。
+6. 连接后会自动验证一次读写，最多等待 20 秒，覆盖临时文件的远端读取、写入、本地写回确认、清理及两端结束确认。界面显示当前子阶段和结果，超时立即退出验证状态并显示错误；仍可点击“验证读写”手动重测，运行期间禁止重复验证。验证失败不会自动断开目录连接，也不会自动重试；按结果检查挂载与写回情况。它只验证分开的读取/保存流程，不保证所有 O_RDWR 操作。然后在远端对测试目录读取、创建、覆盖、改名、删除，并回本地确认结果；测试一个中文路径和二进制文件，必要时比对哈希。
 7. 主动断开，确认挂载释放；再测断网、关闭客户端后是否清理。切勿在未完成写入时直接关闭或断电。
 8. 只有上述验收通过后才共享实际项目。对重要项目先备份或提交版本控制；该方案不提供离线同步、冲突合并或数据恢复保证。
 

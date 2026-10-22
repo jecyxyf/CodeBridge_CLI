@@ -3,7 +3,7 @@ const paths={bridge:'M3 17V7m18 10V7M3 12h18M7 8l-4 4 4 4m10-8 4 4-4 4M9 19l6-14
 for(const node of document.querySelectorAll('[data-icon]')){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');const p=document.createElementNS(svg.namespaceURI,'path');p.setAttribute('d',paths[node.dataset.icon]||paths.info);svg.append(p);node.append(svg)}
 const $=id=>document.getElementById(id),form=$('connection-form');
 const token=new URLSearchParams(location.hash.slice(1)).get('token')||'';
-let state='disconnected',busy=false,initialized=false,toastTimer,localError='',diagnosticBusy='',phase='idle',sessionMount='',trustChallenge=null,trustBusy=false,refreshInFlight=false,statusGeneration=0,forgetHostTarget=null;
+let state='disconnected',busy=false,initialized=false,toastTimer,localError='',diagnosticBusy='',phase='idle',sessionMount='',trustChallenge=null,trustBusy=false,refreshInFlight=false,statusGeneration=0,forgetHostTarget=null,readwriteRequestError='';
 function showView(view){const settings=view==='settings';$('chat-view').hidden=settings;$('settings-view').hidden=!settings;$('page-title').textContent=settings?'设置':'新对话';$('page-subtitle').textContent=settings?'工作空间与连接':'远程 Agent 工作空间';document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.view===view));$('sidebar').classList.remove('open')}
 for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>showView(button.dataset.view));
 document.querySelector('.brand').addEventListener('click',e=>{e.preventDefault();showView('chat')});
@@ -12,8 +12,20 @@ $('menu').addEventListener('click',()=>$('sidebar').classList.toggle('open'));
 document.addEventListener('keydown',e=>{if(e.key==='Escape')$('sidebar').classList.remove('open');if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();showView('chat')}});
 function toast(message){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').hidden=false;toastTimer=setTimeout(()=>$('toast').hidden=true,5000)}
 $('toggle-password').addEventListener('click',()=>{const input=form.elements.password;input.type=input.type==='password'?'text':'password';$('toggle-password').setAttribute('aria-label',input.type==='password'?'显示密码':'隐藏密码')});
-$('pick-directory').addEventListener('click',async()=>{const button=$('pick-directory');button.disabled=true;try{const result=await api('/api/pick-directory',{});if(result.folder)form.elements.folder.value=result.folder}catch(error){toast(error.message);form.elements.folder.focus()}finally{setControls()}});
-async function api(path,data){if(!token)throw new Error('请通过 CodeBridge 启动器打开客户端，以获得安全会话。');const response=await fetch(path,{method:data===undefined?'GET':'POST',headers:{'X-CodeBridge-Token':token,...(data===undefined?{}:{'Content-Type':'application/json'})},body:data===undefined?undefined:JSON.stringify(data),cache:'no-store',credentials:'same-origin'});let result;try{result=await response.json()}catch{throw new Error('本地服务返回了无效响应，请重新启动客户端。')}if(!response.ok)throw new Error(result.error||'请求失败，请检查本地服务。');return result}
+$('pick-directory').addEventListener('click',async()=>{if(busy||diagnosticBusy||['connecting','connected','disconnecting'].includes(state))return;diagnosticBusy='directory';setControls();try{const result=await api('/api/pick-directory',{});if(result.folder)form.elements.folder.value=result.folder}catch(error){toast(error.message);form.elements.folder.focus()}finally{diagnosticBusy='';setControls()}});
+async function api(path,data){
+  if(!token)throw new Error('请通过 CodeBridge 启动器打开客户端，以获得安全会话。');
+  const timeoutMs=path==='/api/pick-directory'?125000:['/api/test-server','/api/test-proxy'].includes(path)?35000:10000;
+  const controller=new AbortController(),timeoutMessage='请求超时（'+timeoutMs/1000+' 秒）。'+(data===undefined?'正在等待本地服务恢复，稍后自动刷新状态。':'操作结果尚未确认，请等待状态刷新，不要重复提交。');
+  let timer;
+  const deadline=new Promise((resolve,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new Error(timeoutMessage))},timeoutMs)});
+  try{return await Promise.race([deadline,(async()=>{
+    const response=await fetch(path,{method:data===undefined?'GET':'POST',headers:{'X-CodeBridge-Token':token,...(data===undefined?{}:{'Content-Type':'application/json'})},body:data===undefined?undefined:JSON.stringify(data),cache:'no-store',credentials:'same-origin',signal:controller.signal});
+    let result;try{result=await response.json()}catch(error){if(controller.signal.aborted)throw error;throw new Error('本地服务返回了无效响应，请重新启动客户端。')}
+    if(!response.ok)throw new Error(result.error||'请求失败，请检查本地服务。');
+    return result;
+  })()])}catch(error){if(controller.signal.aborted)throw new Error(timeoutMessage);throw error}finally{clearTimeout(timer)}
+}
 function message(text,error=false){$('status-message').textContent=text;$('status-message').classList.toggle('error',error)}
 function setControls(){const running=['connecting','connected','disconnecting'].includes(state),locked=busy||!!diagnosticBusy;$('connect-button').disabled=locked||running||!token;$('disconnect-button').hidden=!running;$('disconnect-button').disabled=locked||state==='disconnecting';for(const element of form.querySelectorAll('input, select'))element.disabled=running||locked||!token;form.elements.remote_mount_path.disabled=running||locked||!token||form.elements.remote_os.value==='Windows';$('toggle-password').disabled=running||locked||!token;$('pick-directory').disabled=running||locked||!token;$('test-server').disabled=locked||running||!token;$('test-proxy').disabled=locked||running||!token;$('forget-host').disabled=locked||running||!token;$('forget-host-cancel').disabled=locked;$('forget-host-confirm').disabled=locked||running||!forgetHostTarget||!token;$('verify-readwrite').disabled=locked||state!=='connected'||!['readable','write_verified'].includes(phase)||!token;for(const id of ['host-trust-cancel','host-trust-accept'])$(id).disabled=locked||trustBusy||!trustChallenge||!token;$('host-trust-dialog').setAttribute('aria-busy',String(trustBusy))}
 function renderPhases(){const order=['ssh_authenticated','mounting','mounted','readable','write_verifying','write_verified'];const position=order.indexOf(phase);for(const [id,minimum] of [['phase-auth',0],['phase-mount',2],['phase-read',3],['phase-write',5]]){const element=$(id);element.classList.toggle('complete',position>=minimum);element.classList.toggle('current',(id==='phase-auth'&&['ssh_connecting','host_trust'].includes(phase))||(id==='phase-mount'&&phase==='mounting')||(id==='phase-write'&&phase==='write_verifying'));element.setAttribute('aria-label',element.textContent+(position>=minimum?'，已验证':'，未验证'))}}
@@ -24,11 +36,13 @@ function renderWarnings(result){
   $('connection-warning').textContent=warnings.join('\n');
 }
 function renderReadwrite(result){
-  if(diagnosticBusy==='readwrite')return;
+  if(state!=='connected')readwriteRequestError='';
   const checking=state==='connected'&&phase==='write_verifying';
-  $('verify-readwrite').textContent=checking?'正在验证读写…':'验证读写';
-  if(checking){diagnosticMessage('readwrite-result',result.message||'正在验证读写，等待远端读写和本地写回…')}
-  else if(state==='connected'&&result.readwrite_result){diagnosticMessage('readwrite-result',result.readwrite_result.message,result.readwrite_result.ok!==true)}
+  $('verify-readwrite').textContent=checking||diagnosticBusy==='readwrite'?'正在验证读写…':'验证读写';
+  if(checking){readwriteRequestError='';diagnosticMessage('readwrite-result',result.message||'正在验证读写，等待远端读写和本地写回…')}
+  else if(diagnosticBusy==='readwrite')return;
+  else if(state==='connected'&&result.readwrite_result){readwriteRequestError='';diagnosticMessage('readwrite-result',result.readwrite_result.message,result.readwrite_result.ok!==true)}
+  else if(state==='connected'&&readwriteRequestError){diagnosticMessage('readwrite-result',readwriteRequestError,true)}
   else{$('readwrite-result').hidden=true}
 }
 function renderHostTrust(result){
@@ -77,7 +91,22 @@ form.addEventListener('submit',async e=>{e.preventDefault();if(busy||diagnosticB
 $('disconnect-button').addEventListener('click',async()=>{if(busy||diagnosticBusy)return;statusGeneration++;busy=true;setControls();try{renderStatus(await api('/api/disconnect',{}))}catch(error){message(error.message,true)}finally{busy=false;setControls()}});
 function diagnosticMessage(id,text,error=false){const element=$(id);element.hidden=false;element.textContent=text;element.classList.toggle('error',error)}
 async function runDiagnostic(kind){if(busy||diagnosticBusy||!token)return;const isWrite=kind==='readwrite',resultId=isWrite?'readwrite-result':kind+'-test-result',buttonId=isWrite?'verify-readwrite':'test-'+kind;let payload={};if(isWrite){if(state!=='connected'||!['readable','write_verified'].includes(phase))return}else{if(['connecting','connected','disconnecting'].includes(state))return;for(const key of ['host','port']){if(!form.elements[key].reportValidity())return}payload={host:form.elements.host.value.trim(),port:Number(form.elements.port.value),proxy:form.elements.proxy.value.trim()};if(!payload.host){diagnosticMessage(resultId,'请先填写服务器地址。',true);return}if(kind==='proxy'&&!payload.proxy){diagnosticMessage(resultId,'请先填写代理地址。',true);return}}
-const button=$(buttonId),original=button.textContent;diagnosticBusy=kind;setControls();button.textContent=isWrite?'正在验证读写…':'正在测试…';diagnosticMessage(resultId,isWrite?'正在创建临时探针并验证回写，请稍候（最多约 45 秒）。':'正在探测 SSH 通道，请稍候（最多约 30 秒）。');try{const result=await api(isWrite?'/api/verify-readwrite':'/api/test-'+kind,payload);const detail=[result.message|| (result.ok?'验证通过':'验证未通过'),!isWrite&&Number.isFinite(result.elapsed_ms)?'耗时 '+result.elapsed_ms+' ms':'',!isWrite&&result.route?'通道：'+result.route:''].filter(Boolean).join(' · ');diagnosticMessage(resultId,detail,result.ok!==true)}catch(error){diagnosticMessage(resultId,error.message,true)}finally{diagnosticBusy='';button.textContent=original;setControls();await refresh()}}
+  const button=$(buttonId),original=button.textContent;diagnosticBusy=kind;
+  if(isWrite){readwriteRequestError='';statusGeneration++}
+  setControls();button.textContent=isWrite?'正在验证读写…':'正在测试…';
+  diagnosticMessage(resultId,isWrite?'正在请求读写验证…':'正在探测 SSH 通道，请稍候（最多约 30 秒）。');
+  try{
+    const result=await api(isWrite?'/api/verify-readwrite':'/api/test-'+kind,payload);
+    if(isWrite&&result.pending===true){
+      statusGeneration++;phase='write_verifying';renderPhases();
+      diagnosticMessage(resultId,result.message||'读写验证已启动，等待进度更新…');
+    }else{
+      const detail=[result.message|| (result.ok?'验证通过':'验证未通过'),!isWrite&&Number.isFinite(result.elapsed_ms)?'耗时 '+result.elapsed_ms+' ms':'',!isWrite&&result.route?'通道：'+result.route:''].filter(Boolean).join(' · ');
+      diagnosticMessage(resultId,detail,result.ok!==true);
+    }
+  }catch(error){if(isWrite){readwriteRequestError=error.message;toast(error.message)}diagnosticMessage(resultId,error.message,true)}
+  finally{diagnosticBusy='';button.textContent=isWrite&&phase==='write_verifying'?'正在验证读写…':original;setControls();await refresh()}
+}
 form.elements.remote_os.addEventListener('change',setControls);
 $('test-server').addEventListener('click',()=>runDiagnostic('server'));$('test-proxy').addEventListener('click',()=>runDiagnostic('proxy'));$('verify-readwrite').addEventListener('click',()=>runDiagnostic('readwrite'));
 for(const key of ['host','port','proxy'])form.elements[key].addEventListener('input',()=>{for(const id of ['server-test-result','proxy-test-result'])$(id).hidden=true});

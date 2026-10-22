@@ -75,10 +75,10 @@ class SecurityTests(unittest.TestCase):
             b.run(dict(folder=temp,host='host',port='22',username='user',fingerprint='SHA256:wrong',proxy='',remote_os='Linux'), 'secret')
             transport.return_value.auth_password.assert_not_called()
     def test_idle_channel_has_no_timeout_and_password_only(self):
-        with tempfile.TemporaryDirectory() as temp, mock.patch.object(bridge,'connect_socket'), mock.patch.object(bridge.paramiko,'Transport') as transport, mock.patch.object(bridge,'rclone_command',return_value=['rclone']), mock.patch.object(bridge.subprocess,'Popen'), mock.patch.object(bridge.threading,'Thread'), mock.patch.object(bridge.Path,'home',return_value=Path(temp)):
+        with tempfile.TemporaryDirectory() as temp, mock.patch.object(bridge,'connect_socket'), mock.patch.object(bridge.paramiko,'Transport') as transport, mock.patch.object(bridge,'rclone_command',return_value=['rclone']), mock.patch.object(bridge.subprocess,'Popen'), mock.patch.object(bridge.Bridge,'_pipe_to_remote'), mock.patch.object(bridge.Bridge,'_pipe_from_remote'), mock.patch.object(bridge.Bridge,'_collect_local_errors'), mock.patch.object(bridge.Path,'home',return_value=Path(temp)):
             key=transport.return_value.get_remote_server_key.return_value
             key.asbytes.return_value=b'test key'
-            b=bridge.Bridge(lambda message: b.stop.set() if message.startswith('身份已验证') else None)
+            b=bridge.Bridge(lambda message: b.stop.set() if message.startswith('身份已验证，正在挂载') else None)
             b.run(dict(folder=temp,host='host',port='22',username='user',fingerprint=bridge.fingerprint(key),proxy='',remote_os='Linux'),'secret')
             transport.return_value.open_session.return_value.settimeout.assert_called_once_with(None)
             transport.return_value.auth_password.assert_called_once_with('user','secret',fallback=False)

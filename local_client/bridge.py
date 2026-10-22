@@ -11,6 +11,7 @@ import shutil
 import socket
 import stat
 import subprocess
+import sys
 import threading
 import tempfile
 import time
@@ -19,6 +20,16 @@ import uuid
 
 import paramiko
 import socks
+
+from codebridge_logging import flush_logging, get_logger
+from .runtime import Deadline, OperationTimeout, background, bounded_call, bounded_process
+
+
+LOG = get_logger('codebridge.client')
+PROGRAM_DIR = Path(__file__).resolve().parents[1]
+VERIFY_TIMEOUT = 20
+CONNECT_TIMEOUT = 15
+AUTH_TIMEOUT = 15
 
 
 class BridgeError(Exception):
@@ -106,23 +117,11 @@ def rclone_command(root, cache):
 
 
 def execute_bounded(channel, command, timeout=10):
-    expired = threading.Event()
-    def cancel():
-        expired.set()
-        channel.close()  # Paramiko exec acknowledgment wait ignores settimeout.
-    timer = threading.Timer(timeout, cancel)
-    timer.daemon = True
-    timer.start()
     try:
-        channel.exec_command(command)
-        if expired.is_set():
-            raise BridgeError('远端命令确认超时；未重试此操作')
-    except Exception:
-        if expired.is_set():
-            raise BridgeError('远端命令确认超时；操作结果不确定，未重试') from None
-        raise
-    finally:
-        timer.cancel()
+        bounded_call(lambda: channel.exec_command(command), timeout, '远端命令确认')
+    except OperationTimeout:
+        background(channel.close)
+        raise BridgeError('远端命令确认超时；操作结果不确定，未重试') from None
 
 
 def mount_command(remote_os, session, mount_path=''):
@@ -161,18 +160,49 @@ class Bridge:
         self.mounted = False
         self.cache = None
         self.root = None
-        self.session = None
+        self.session = uuid.uuid4().hex
         self.mount = None
         self.remote_os = None
         self.verify_lock = threading.Lock()
+        self.stage = 1
+        self.verify_cancel = threading.Event()
+        self.verify_channel = None
+        self.closed = threading.Event()
+        self.cleanup_done = threading.Event()
+
+    def step(self, number, message):
+        self.stage = number
+        LOG.info('session=%s 步骤%d运行结束：%s', self.session, number, message)
+
+    def local_operation(self, operation, timeout, probe=None):
+        data = {'operation': operation, 'root': str(self.root), 'probe': probe, 'timeout': max(.01, timeout - .3)}
+        completed = bounded_process([sys.executable, '-m', 'local_client.probe'], timeout,
+                                    '本地' + {'root': '目录检查', 'create': '探针创建', 'wait': '写回确认',
+                                            'cleanup': '探针清理'}[operation],
+                                    input=json.dumps(data).encode(), cancel=self.verify_cancel if operation != 'root' else self.stop,
+                                    cwd=str(PROGRAM_DIR))
+        try:
+            result = json.loads(completed.stdout)
+        except (ValueError, UnicodeError):
+            raise BridgeError('本地文件检查未返回有效结果') from None
+        if completed.returncode:
+            raise BridgeError(result.get('message', '本地文件操作失败'))
+        return result
 
     def disconnect(self):
         self.stop.set()
-        # Closing SSH delivers EOF to remote foreground helper/SSHFS.
-        if self.channel:
-            self.channel.close()
-        if self.client:
-            self.client.close()
+        self.verify_cancel.set()
+        # Paramiko close can itself wait on a transport lock. The API must return.
+        if not self.closed.is_set():
+            self.closed.set()
+            for resource in (self.verify_channel, self.channel, self.client):
+                if resource is not None:
+                    background(resource.close)
+
+    def cancel_verification(self):
+        self.verify_cancel.set()
+        if self.verify_channel is not None:
+            background(self.verify_channel.close)
 
     def _pipe_to_remote(self):
         try:
@@ -208,7 +238,7 @@ class Bridge:
     def run(self, settings, password):
         failure = None
         try:
-            root = checked_root(settings['folder'])
+            root = bounded_call(lambda: checked_root(settings['folder']), 5, '本地共享目录检查', self.stop)
             self.root = root
             self.remote_os = settings['remote_os']
             host = settings['host'].strip()
@@ -216,32 +246,51 @@ class Bridge:
             port = int(settings['port'])
             if not host or not username or not 0 < port < 65536 or not password:
                 raise BridgeError('请填写服务器、端口、用户名和密码')
+            self.step(1, '连接设置和本地目录检查通过')
+            self.stage = 2
             self.notify('正在连接服务器…')
-            sock = connect_socket(host, port, settings['proxy'].strip())
+            sock = bounded_call(lambda: connect_socket(host, port, settings['proxy'].strip()),
+                                CONNECT_TIMEOUT, '网络连接（含 DNS/代理）', self.stop,
+                                late_cleanup=lambda resource: resource.close())
             self.client = paramiko.Transport(sock)
-            self.client.start_client(timeout=15)
+            self.client.auth_timeout = AUTH_TIMEOUT
+            self.client.banner_timeout = CONNECT_TIMEOUT
+            self.client.channel_timeout = 15
+            bounded_call(lambda: self.client.start_client(timeout=15), CONNECT_TIMEOUT,
+                         'SSH 握手', self.stop)
+            self.step(2, '网络连接及 SSH 握手完成')
+            self.stage = 3
             actual = fingerprint(self.client.get_remote_server_key())
             if self.verify_host is not None:
                 self.verify_host(self, host, port, actual)
             elif actual != settings.get('fingerprint', '').strip():
                 raise BridgeError('服务器指纹不匹配，已拒绝发送密码。实际指纹：' + actual)
             if self.stop.is_set():
+                LOG.warning('session=%s 连接流程运行结束：已取消 step=3', self.session)
                 return
-            self.client.auth_password(username, password, fallback=False)
+            bounded_call(lambda: self.client.auth_password(username, password, fallback=False),
+                         AUTH_TIMEOUT, 'SSH 密码认证', self.stop)
             password = None
-            session = uuid.uuid4().hex
-            self.session = session
+            self.step(3, '服务器身份确认和 SSH 认证通过')
+            session = self.session
+            self.stage = 4
             self.notify('身份已验证，正在启动文件服务…')
             self.cache = Path.home() / '.codebridge' / 'cache' / session
-            self.cache.mkdir(parents=True, mode=0o700)
-            self.process = subprocess.Popen(rclone_command(root, self.cache), stdin=subprocess.PIPE,
-                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                            bufsize=65536, env={k: v for k, v in os.environ.items()
-                                                           if not k.startswith('RCLONE_')})
-            self.channel = self.client.open_session(timeout=15)
+            bounded_call(lambda: self.cache.mkdir(parents=True, mode=0o700), 5, '本地缓存准备', self.stop)
+            self.process = bounded_call(
+                lambda: subprocess.Popen(rclone_command(root, self.cache), stdin=subprocess.PIPE,
+                                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                         bufsize=65536, env={k: v for k, v in os.environ.items()
+                                                            if not k.startswith('RCLONE_')}),
+                12, '本地文件服务启动', self.stop, late_cleanup=lambda process: process.kill())
+            self.channel = bounded_call(lambda: self.client.open_session(timeout=15), 15,
+                                        'SSH 挂载通道建立', self.stop,
+                                        late_cleanup=lambda resource: resource.close())
             self.channel.settimeout(None)
             execute_bounded(self.channel, mount_command(settings['remote_os'], session,
                                                        settings.get('remote_mount_path', '').strip()))
+            self.step(4, '本地文件服务已启动，远端挂载命令已接收')
+            self.stage = 5
             for target in (self._pipe_to_remote, self._pipe_from_remote):
                 threading.Thread(target=target, daemon=True).start()
             threading.Thread(target=self._collect_local_errors, daemon=True).start()
@@ -287,7 +336,12 @@ class Bridge:
                                 raise BridgeError('远端未确认目录可读，请更新远端部署')
                             self.mounted = True
                             self.mount = data['mount']
+                            self.step(5, '远端真实挂载成立，目录读取通过')
+                            self.stage = 6
                             self.notify('已连接，远端挂载路径：' + data['mount'])
+                        elif message.startswith('CODEBRIDGE_ERROR '):
+                            data = json.loads(message[len('CODEBRIDGE_ERROR '):])
+                            raise BridgeError('远端挂载失败：' + str(data.get('message', '未知错误'))[:1000])
                         elif message:
                             self.errors.put(message[:1000])
                 if self.channel.exit_status_ready() or self.process.poll() is not None or not self.client.is_active():
@@ -297,112 +351,189 @@ class Bridge:
         except Exception as exc:
             if not self.stop.is_set():
                 # Do not include configuration/password or proxy exception objects.
-                failure = str(exc) if isinstance(exc, BridgeError) else f'连接失败（{type(exc).__name__}）'
+                failure = str(exc) if isinstance(exc, (BridgeError, OperationTimeout)) else f'连接失败（{type(exc).__name__}）'
+                LOG.error('session=%s 步骤%d运行结束：失败 type=%s', self.session, self.stage, type(exc).__name__)
+                LOG.error('session=%s 连接流程运行结束：失败 step=%s', self.session, self.stage)
         finally:
             password = None
             self.disconnect()
-            if self.process:
-                try:
-                    self.process.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    self.process.terminate()
-                    try:
-                        self.process.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        self.process.kill()
-                        self.process.wait()
-                # Cache intentionally retained: interrupted writes can need recovery.
             suffix = '\n若断线时正在写入，请检查本地缓存：' + str(self.cache) if self.cache else ''
             self.notify((failure or '已断开') + suffix)
+            if self.process:
+                process = self.process
+                def cleanup():
+                    try:
+                        try:
+                            process.wait(timeout=3)
+                        except subprocess.TimeoutExpired:
+                            process.terminate()
+                            try:
+                                process.wait(timeout=2)
+                            except subprocess.TimeoutExpired:
+                                process.kill()
+                                try:
+                                    process.wait(timeout=2)
+                                except subprocess.TimeoutExpired:
+                                    pass
+                        status = process.poll()
+                        if status is None:
+                            LOG.error('session=%s 连接清理运行结束：本地文件服务尚未退出，已发送终止信号；缓存保留', self.session)
+                        else:
+                            LOG.info('session=%s 连接清理运行结束：本地文件服务已退出 code=%s，缓存保留', self.session, status)
+                    except Exception as exc:
+                        LOG.error('session=%s 连接清理运行结束：失败 type=%s，缓存保留', self.session, type(exc).__name__)
+                    finally:
+                        self.cleanup_done.set()
+                background(cleanup)
+            else:
+                try:
+                    LOG.info('session=%s 连接清理运行结束', self.session)
+                finally:
+                    self.cleanup_done.set()
 
-    def verify_readwrite(self):
-        if not self.verify_lock.acquire(blocking=False):
-            return {'ok': False, 'message': '读写验证正在进行，请稍候'}
-        path = None
-        created = False
-        issued = False
-        verified = False
-        channel = None
-        result = {'ok': False, 'message': '读写验证未完成'}
+    def _remote_json(self, command, deadline, cancel=None, track=True):
+        cancel = self.verify_cancel if cancel is None else cancel
+        channel = bounded_call(lambda: self.client.open_session(timeout=deadline.remaining(5)),
+                               deadline.remaining(5), '读写验证通道建立', cancel,
+                               late_cleanup=lambda resource: resource.close())
+        if track:
+            self.verify_channel = channel
         try:
-            if not self.mounted or self.stop.is_set() or not self.client or not self.client.is_active():
-                raise BridgeError('请先建立并确认目录挂载')
-            probe = uuid.uuid4().hex
-            path = self.root / ('.codebridge-probe-' + probe)
-            before = ('CodeBridge:' + probe + ':before').encode()
-            after = ('CodeBridge:' + probe + ':after').encode()
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            created = True
-            with os.fdopen(fd, 'wb') as file:
-                file.write(before)
-                file.flush()
-                os.fsync(file.fileno())
-            launcher = '.\\.codebridge\\codebridge-mount.cmd' if self.remote_os == 'Windows' else '.local/bin/codebridge-mount'
-            command = f'{launcher} --verify-readwrite --session {self.session} --probe {probe}'
-            if self.remote_os == 'Windows':
-                if not re.fullmatch('[D-Z]:', self.mount or ''):
-                    raise BridgeError('远端盘符格式无效')
-                command += ' --drive ' + self.mount[0]
-            channel = self.client.open_session(timeout=10)
-            channel.settimeout(10)
-            issued = True
-            execute_bounded(channel, command)
-            deadline = time.monotonic() + 20
+            channel.settimeout(.5)
+            execute_bounded(channel, command, timeout=deadline.remaining(5))
             response = b''
             errors = b''
-            while time.monotonic() < deadline and not self.stop.is_set():
+            expires = time.monotonic() + deadline.remaining(12)
+            while True:
+                if self.stop.is_set() or cancel.is_set():
+                    raise BridgeError('连接已取消，读写验证未完成')
+                deadline.remaining()
+                if time.monotonic() >= expires:
+                    raise OperationTimeout('远端读写操作超时，已停止等待')
                 if channel.recv_ready():
                     response += channel.recv(4096)
                 if channel.recv_stderr_ready():
                     errors += channel.recv_stderr(4096)
                 if len(response) + len(errors) > 16384:
                     raise BridgeError('读写验证返回异常数据')
-                if channel.exit_status_ready():
-                    while channel.recv_ready():
-                        response += channel.recv(4096)
-                        if len(response) > 16384:
-                            raise BridgeError('读写验证响应过长')
-                    break
-                time.sleep(.05)
-            if self.stop.is_set():
-                raise BridgeError('连接已断开，读写验证未完成')
-            if not channel.exit_status_ready():
-                raise BridgeError('远端读写验证超时；不能认定成功')
-            if channel.recv_exit_status() != 0:
-                raise BridgeError('远端读写检查失败；请检查挂载与目录权限')
-            remote_result = json.loads(response.decode('utf-8'))
+                if channel.exit_status_ready() and not channel.recv_ready() and not channel.recv_stderr_ready():
+                    status = bounded_call(channel.recv_exit_status, deadline.remaining(1),
+                                          '远端退出状态确认', cancel)
+                    if status != 0:
+                        try:
+                            error = json.loads(errors.decode('utf-8')).get('error', '')
+                        except (ValueError, UnicodeError, AttributeError):
+                            error = ''
+                        raise BridgeError('远端读写检查失败：' + (error[:500] or '请检查服务端日志及部署版本'))
+                    try:
+                        return json.loads(response.decode('utf-8'))
+                    except (ValueError, UnicodeError):
+                        raise BridgeError('远端读写确认格式无效') from None
+                cancel.wait(.02)
+        finally:
+            if self.verify_channel is channel:
+                self.verify_channel = None
+            background(channel.close)
+
+    def _result_command(self, result, probe, reason=None):
+        launcher = '.\\.codebridge\\codebridge-mount.cmd' if self.remote_os == 'Windows' else '.local/bin/codebridge-mount'
+        command = f'{launcher} --session {self.session} --connection-result {result} --probe {probe}'
+        if reason:
+            command += ' --reason ' + reason
+        if self.remote_os == 'Windows':
+            if not re.fullmatch('[D-Z]:', self.mount or ''):
+                raise BridgeError('远端盘符格式无效')
+            command += ' --drive ' + self.mount[0]
+        return command
+
+    def _report_failure(self, reason, probe):
+        if self.stop.is_set() or not self.client or not self.client.is_active():
+            return
+        try:
+            self._remote_json(self._result_command('error', probe, reason), Deadline(3),
+                              cancel=self.stop, track=False)
+        except Exception:
+            LOG.warning('session=%s 服务端失败结果确认未完成', self.session)
+
+    def verify_readwrite(self):
+        if not self.verify_lock.acquire(blocking=False):
+            return {'ok': False, 'message': '读写验证正在进行，请稍候'}
+        self.verify_cancel.clear()
+        deadline = Deadline(VERIFY_TIMEOUT)
+        probe = uuid.uuid4().hex
+        path = None
+        created = issued = cleaned = False
+        reason = 'internal'
+        phase = '开始验证'
+        result = {'ok': False, 'message': '读写验证未完成'}
+        try:
+            LOG.info('session=%s 步骤6开始：读写验证，总时限%s秒', self.session, VERIFY_TIMEOUT)
+            if not self.mounted or self.stop.is_set() or not self.client or not self.client.is_active():
+                raise BridgeError('请先建立并确认目录挂载')
+            path = self.root / ('.codebridge-probe-' + probe)
+            phase = '本地探针创建'
+            self.notify('正在验证读写：创建临时文件…')
+            # Creation can time out after creating the file; preserve it on uncertainty.
+            created = True
+            self.local_operation('create', deadline.remaining(3), probe)
+            LOG.debug('session=%s 步骤6：本地探针创建完成', self.session)
+            launcher = '.\\.codebridge\\codebridge-mount.cmd' if self.remote_os == 'Windows' else '.local/bin/codebridge-mount'
+            command = f'{launcher} --verify-readwrite --session {self.session} --probe {probe}'
+            if self.remote_os == 'Windows':
+                if not re.fullmatch('[D-Z]:', self.mount or ''):
+                    raise BridgeError('远端盘符格式无效')
+                command += ' --drive ' + self.mount[0]
+            phase, reason = '远端读取和修改', 'remote_verify'
+            self.notify('正在验证读写：等待远端读取并修改…')
+            issued = True
+            remote_result = self._remote_json(command, deadline)
             if remote_result != {'ok': True, 'probe': probe}:
                 raise BridgeError('远端读写确认不匹配')
-            deadline = time.monotonic() + 5
-            while time.monotonic() < deadline and not self.stop.is_set():
-                # rclone may atomically replace the local inode during write-back.
-                content, identity = probe_bytes(path, (before, after))
-                if content == after:
-                    verified = True
-                    result = {'ok': True, 'message': '读写验证通过：远端已读取并修改专用临时文件，本地已确认写回'}
-                    break
-                time.sleep(.1)
-            if not verified:
-                raise BridgeError('等待本地写回超时，写入尚未验证；不能认定成功')
+            LOG.debug('session=%s 步骤6：远端读写完成', self.session)
+            phase, reason = '本地写回确认', 'local_writeback'
+            self.notify('正在验证读写：确认本地写回…')
+            self.local_operation('wait', deadline.remaining(4), probe)
+            phase, reason = '临时文件清理', 'probe_cleanup'
+            self.notify('正在验证读写：清理临时文件…')
+            self.local_operation('cleanup', deadline.remaining(2), probe)
+            cleaned = True
+            phase, reason = '两端结束确认', 'internal'
+            self.notify('正在验证读写：确认两端完成…')
+            if not flush_logging(LOG, timeout=deadline.remaining(1)):
+                raise BridgeError('客户端日志写入失败或超时，请检查 logs 目录')
+            remote_result = self._remote_json(self._result_command('success', probe), deadline)
+            if remote_result != {'ok': True, 'session': self.session, 'result': 'success'}:
+                raise BridgeError('服务端结束确认不匹配，请更新服务端部署')
+            deadline.remaining()
+            if self.stop.is_set() or self.verify_cancel.is_set():
+                raise BridgeError('连接已取消，读写验证结果已作废')
+            result = {'ok': True, 'message': '读写验证通过：远端读写、本地写回、临时文件清理及两端结束确认均完成'}
         except Exception as exc:
-            result = {'ok': False, 'message': str(exc) if isinstance(exc, BridgeError) else '读写验证失败（' + type(exc).__name__ + '）'}
+            if isinstance(exc, OperationTimeout) or '超时' in str(exc):
+                reason = 'timeout'
+            message = str(exc) if isinstance(exc, (BridgeError, OperationTimeout)) else '操作失败（' + type(exc).__name__ + '）'
+            result = {'ok': False, 'message': '读写验证失败：' + phase + '；' + message}
+            LOG.error('session=%s 步骤6子阶段=%s 失败 type=%s', self.session, phase, type(exc).__name__)
         finally:
-            if channel:
-                channel.close()
-            if created:
-                try:
-                    # On uncertain remote outcome keep the probe: deleting now could race pending VFS write-back.
-                    if issued and not verified:
-                        raise BridgeError('结果未确定')
-                    content, identity = probe_bytes(path, (before, after))
-                    current = path.lstat()
-                    if path.is_symlink() or (current.st_dev, current.st_ino) != identity:
-                        raise BridgeError('验证文件再次被替换')
-                    path.unlink()
-                except (OSError, BridgeError):
+            if created and not cleaned:
+                # Do not race uncertain remote writes or a timed-out local worker.
+                if not issued and reason != 'timeout':
+                    try:
+                        self.local_operation('cleanup', deadline.remaining(1), probe)
+                        cleaned = True
+                    except Exception:
+                        pass
+                if not cleaned:
                     result['ok'] = False
-                    result['message'] += '；临时验证文件尚未安全清理，请确认连接停止后检查：' + str(path)
+                    result['message'] += '；临时验证文件可能保留，请连接停止后检查：' + str(path)
             self.verify_lock.release()
+        if result['ok']:
+            self.step(6, '远端读写、本地写回、清理及服务端结束确认完成')
+            LOG.info('session=%s 连接流程运行结束：成功，六个步骤完成', self.session)
+        else:
+            LOG.error('session=%s 步骤6运行结束：失败 phase=%s reason=%s', self.session, phase, reason)
+            LOG.error('session=%s 连接流程运行结束：失败 step=6', self.session)
+            background(lambda: self._report_failure(reason, probe))
         return result
 
     def _probe(self, done):

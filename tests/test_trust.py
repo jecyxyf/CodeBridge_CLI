@@ -36,7 +36,13 @@ class TrustFixture(unittest.TestCase):
         self.transport.get_remote_server_key.return_value.asbytes.return_value = b'fixture server key'
         # Stop at the authentication boundary, before any local service or mount.
         self.transport.auth_password.side_effect = bridge.BridgeError('fixture authentication boundary')
-        self.process = self.patch(bridge.subprocess, 'Popen', side_effect=AssertionError('must not run a service'))
+        original_popen = bridge.subprocess.Popen
+        self.process = mock.Mock(side_effect=AssertionError('must not run a file service'))
+        def launch(arguments, *args, **kwargs):
+            if arguments[1:3] == ['-m', 'local_client.state_worker']:
+                return original_popen(arguments, *args, **kwargs)
+            return self.process(arguments, *args, **kwargs)
+        self.patch(bridge.subprocess, 'Popen', side_effect=launch)
         self.application = app.Application()
         self.running = []
         self.addCleanup(self.finish_workers)
@@ -280,7 +286,7 @@ class FirstUseTrustTests(TrustFixture):
     def test_acceptance_write_failure_does_not_unlock_authentication(self):
         self.connect()
         challenge = self.challenge()
-        with mock.patch.object(self.application.trust, '_write', side_effect=OSError('fixture disk failure')):
+        with mock.patch.object(self.application, 'persist', side_effect=OSError('fixture disk failure')):
             with self.assertRaises(OSError):
                 self.application.decide_trust({'id': challenge['id'], 'accept': True})
         self.transport.auth_password.assert_not_called()
@@ -351,9 +357,10 @@ class ForgetHostTests(TrustFixture):
     def test_deleting_unknown_host_does_not_rewrite_other_records(self):
         self.application.trust.remember('server.example', 22, PIN)
         saved = self.store_path.read_bytes()
-        with mock.patch.object(self.application.trust, '_write', wraps=self.application.trust._write) as write:
-            self.application.forget_host({'host': 'unknown.example', 'port': 22})
-        write.assert_not_called()
+        identity = self.store_path.stat()
+        self.application.forget_host({'host': 'unknown.example', 'port': 22})
+        current = self.store_path.stat()
+        self.assertEqual((current.st_ino, current.st_mtime_ns), (identity.st_ino, identity.st_mtime_ns))
         self.assertEqual(self.store_path.read_bytes(), saved)
 
     def test_unknown_host_with_empty_store_is_noop(self):

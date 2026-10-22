@@ -1,5 +1,6 @@
 .venv/
 .tools/
+logs/
 __pycache__/
 *.py[cod]
 settings.json

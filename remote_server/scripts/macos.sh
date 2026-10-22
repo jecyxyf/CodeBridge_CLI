@@ -18,15 +18,22 @@ BREW_PREFIX=""
 if command -v brew >/dev/null 2>&1; then BREW_PREFIX="$(brew --prefix)"; fi
 PYTHON="${CODEBRIDGE_PYTHON:-${BREW_PREFIX:-/usr/local}/opt/python@3.13/bin/python3.13}"
 SOURCE="$ROOT/remote_server/mount.py"
-python_ok() { "$PYTHON" -c 'import sys; assert sys.version_info >= (3, 10)' >/dev/null 2>&1; }
+LOGGING_SOURCE="$ROOT/codebridge_logging.py"
+VENV_PYTHON="$ROOT/.venv/bin/python"
+python_ok() { "$PYTHON" -c 'import sys, venv, ensurepip; assert sys.version_info >= (3, 10)' >/dev/null 2>&1; }
+venv_ok() {
+  [[ ! -L "$ROOT/.venv" && -x "$VENV_PYTHON" ]] &&
+    "$VENV_PYTHON" -B -c 'import pathlib, sys; assert sys.version_info >= (3, 10); assert sys.prefix != sys.base_prefix; assert pathlib.Path(sys.prefix).resolve() == pathlib.Path(sys.argv[1]).resolve()' "$ROOT/.venv" >/dev/null 2>&1
+}
 if (( CHECK_ONLY )); then
-  python_ok || { echo 'Python >= 3.10 is required (or set CODEBRIDGE_PYTHON).' >&2; exit 1; }
-  "$PYTHON" "$SOURCE" --self-test
+  venv_ok || { echo 'Missing or incompatible repository .venv. Run the installer first; --check does not create it.' >&2; exit 1; }
+  [[ -f "$SOURCE" && -f "$LOGGING_SOURCE" ]] || { echo 'Missing remote helper or logging module.' >&2; exit 1; }
+  "$VENV_PYTHON" -B "$SOURCE" --self-test
   echo 'Dependency check only: this does not prove macFUSE driver approval or a working mount.'
   exit 0
 fi
 [[ "$EUID" != 0 ]] || { echo 'Run as the normal SSH account, not with sudo. Homebrew will request elevation if needed.' >&2; exit 1; }
-[[ -f "$SOURCE" ]] || { echo 'Extract the complete CodeBridge package first.' >&2; exit 1; }
+[[ -f "$SOURCE" && -f "$LOGGING_SOURCE" ]] || { echo 'Extract the complete CodeBridge package first.' >&2; exit 1; }
 if (( ! SKIP_DEPS )); then
   [[ -n "$BREW_PREFIX" ]] || { echo 'Install Homebrew from https://brew.sh/ then rerun. Or install official Python/macFUSE/SSHFS yourself and use --skip-deps with CODEBRIDGE_PYTHON.' >&2; exit 1; }
   echo 'Installing Python, macFUSE and SSHFS from Homebrew core packages.'
@@ -35,9 +42,15 @@ if (( ! SKIP_DEPS )); then
   brew install --cask macfuse sshfs-mac
 fi
 python_ok || { echo 'Python >= 3.10 is required. Set CODEBRIDGE_PYTHON to select another interpreter.' >&2; exit 1; }
-"$PYTHON" "$SOURCE" --self-test
+if [[ -e "$ROOT/.venv" || -L "$ROOT/.venv" ]]; then
+  venv_ok || { echo 'Existing .venv is incompatible or outside this repository. It was not deleted; inspect it before retrying.' >&2; exit 1; }
+else
+  "$PYTHON" -m venv "$ROOT/.venv"
+fi
+venv_ok || { echo 'Repository .venv validation failed.' >&2; exit 1; }
+"$VENV_PYTHON" -B "$SOURCE" --self-test
 umask 077
-"$PYTHON" - "$SOURCE" <<'PY'
+"$VENV_PYTHON" - "$SOURCE" "$LOGGING_SOURCE" <<'PY'
 import os, shlex, sys
 from pathlib import Path
 home = Path.home()
@@ -49,12 +62,15 @@ for directory in (base, target_dir, home / ".local", bin_dir):
         raise SystemExit(f"Refusing symlinked install directory: {directory}")
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
 target = target_dir / "mount.py"
+logging_target = target_dir / "codebridge_logging.py"
 wrapper = bin_dir / "codebridge-mount"
-for path in (target, wrapper):
+for path in (target, logging_target, wrapper):
     if path.is_symlink():
         raise SystemExit(f"Refusing symlinked install file: {path}")
 target.write_bytes(Path(sys.argv[1]).read_bytes())
 os.chmod(target, 0o600)
+logging_target.write_bytes(Path(sys.argv[2]).read_bytes())
+os.chmod(logging_target, 0o600)
 wrapper.write_text('#!/bin/sh\n# CodeBridge: keep stdout exclusively for SFTP.\n'
                    + 'export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"\n'
                    + "exec " + shlex.quote(sys.executable) + " " + shlex.quote(str(target)) + ' "$@"\n')

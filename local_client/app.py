@@ -6,20 +6,22 @@ import json
 import os
 from pathlib import Path
 import secrets
-import subprocess
 import sys
 import threading
 import time
 from urllib.parse import urlsplit
 import webbrowser
 
-from .bridge import Bridge, BridgeError
+from .bridge import Bridge, BridgeError, VERIFY_TIMEOUT
 from .trust import TrustStore, target_id
 from .diagnostics import bounded_test
+from .runtime import OperationTimeout, bounded_call, bounded_process
+from codebridge_logging import configure_logging, flush_logging, get_logger
 
 WEB = Path(__file__).with_name('web')
 CONFIG = Path.home() / '.codebridge' / 'settings.json'
 SETTING_KEYS = {'host', 'port', 'username', 'proxy', 'folder', 'remote_os', 'fingerprint', 'remote_mount_path'}
+LOG = get_logger('codebridge.client')
 
 
 class Application:
@@ -43,12 +45,32 @@ class Application:
             self.settings = {}
         self.trust = TrustStore(CONFIG.with_name('trusted_hosts.json'), self.settings)
 
+    def persist(self, operation, arguments=(), settings=None):
+        payload = {'operation': operation, 'arguments': arguments, 'config': str(CONFIG),
+                   'trust_path': str(self.trust.path), 'legacy': self.trust.legacy,
+                   'settings': self.settings if settings is None else settings}
+        completed = bounded_process([sys.executable, '-m', 'local_client.state_worker'], 3,
+                                    '客户端配置和信任记录保存', input=json.dumps(payload).encode(),
+                                    cwd=str(Path(__file__).resolve().parents[1]))
+        result = json.loads(completed.stdout)
+        if completed.returncode:
+            if result.get('kind') == 'BridgeError':
+                raise BridgeError(result['message'])
+            raise OSError(result.get('message', '配置保存失败'))
+        self.trust.legacy = result['legacy']
+
     def notify(self, message):
         with self.lock:
+            if message.startswith('正在验证读写：'):
+                if (self.state == 'connected' and self.phase == 'write_verifying' and
+                        self.bridge and not self.bridge.verify_cancel.is_set()):
+                    self.message = message
+                return
             if message.startswith('警告：'):
                 warning = message.split('：', 1)[1][:2000]
                 if warning not in self.warnings:
                     self.warnings = (self.warnings + [warning])[-8:]
+                LOG.warning('服务端返回配置警告，请检查界面详情和服务端日志')
                 return
             if message.startswith('已连接，远端挂载路径：'):
                 current = self.bridge
@@ -114,12 +136,15 @@ class Application:
             password = data.get('password', '')
             if not isinstance(password, str) or len(password) > 4096:
                 raise ValueError('密码格式无效')
-            self.trust.migrate()
+            self.persist('prepare', settings=settings)
             self.settings = settings
-            CONFIG.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-            # Allowlist prevents accidental credential persistence.
-            CONFIG.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding='utf-8')
             self.bridge = Bridge(self.notify, self.verify_host)
+            current = self.bridge
+            def notify_current(message):
+                with self.lock:
+                    if self.bridge is current:
+                        self.notify(message)
+            current.notify = notify_current
             self.auto_verify_bridge = None
             self.readwrite_worker = None
             self.readwrite_result = None
@@ -133,11 +158,11 @@ class Application:
         with self.lock:
             if self.bridge is not bridge or bridge.stop.is_set():
                 raise BridgeError('连接已取消')
-            expected = self.trust.expected(host, port)
+            expected = bounded_call(lambda: self.trust.expected(host, port), 3, '服务器信任记录读取')
             if expected is not None:
                 if expected != actual:
                     raise BridgeError('服务器身份不匹配，可能更换了服务器或连接被拦截。已拒绝发送密码，请核实后处理信任记录。当前指纹：' + actual)
-                self.trust.remember(host, port, actual)  # safely persist a matching legacy pin
+                self.persist('remember', (host, port, actual))
                 return
             pending = {'public': {'id': secrets.token_urlsafe(24), 'host': host, 'port': port, 'fingerprint': actual},
                        'bridge': bridge, 'event': threading.Event(), 'accepted': False,
@@ -145,6 +170,7 @@ class Application:
             self.pending_trust = pending
             self.phase = 'host_trust'
             self.message = '首次连接这台服务器，请确认是否信任；确认前不会发送密码'
+            LOG.info('session=%s 步骤3：等待首次服务器信任确认，时限120秒', bridge.session)
         try:
             while not pending['event'].wait(0.2):
                 if bridge.stop.is_set() or time.monotonic() >= pending['deadline']:
@@ -168,7 +194,7 @@ class Application:
             if data['accept']:
                 info = pending['public']
                 # The caller supplies only a nonce and decision, never a new key/host.
-                self.trust.remember(info['host'], info['port'], info['fingerprint'])
+                self.persist('remember', (info['host'], info['port'], info['fingerprint']))
                 pending['accepted'] = True
             pending['event'].set()
             self.pending_trust = None
@@ -182,18 +208,22 @@ class Application:
             host, port = data.get('host'), data.get('port')
             if not isinstance(host, str) or type(port) is not int:
                 raise ValueError('服务器地址或端口无效')
-            target_id(host, port)  # validate before any persistence or challenge changes
+            target = target_id(host, port)  # validate before any persistence or challenge changes
             # Revoke stale challenges before reset; never close an active mount.
             if self.pending_trust:
                 self.pending_trust['event'].set()
                 self.pending_trust = None
             # Remove legacy settings first so a crash cannot restore a deleted pin.
-            if 'fingerprint' in self.settings:
-                self.trust.migrate()
-                self.settings.pop('fingerprint', None)
-                CONFIG.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-                CONFIG.write_text(json.dumps(self.settings, ensure_ascii=False, indent=2), encoding='utf-8')
-            self.trust.forget(host, port)
+            legacy_target = target in self.trust.legacy
+            try:
+                self.persist('forget', (host, port))
+            finally:
+                # The worker may have committed the deletion before timing out.
+                # Never restore this authorized deletion from a stale fallback.
+                self.trust.legacy.pop(target, None)
+                if legacy_target:
+                    self.settings.pop('fingerprint', None)
+            self.settings.pop('fingerprint', None)
             self.state, self.phase, self.mount = 'disconnected', 'idle', ''
             self.message = '已清除这台服务器的已保存身份；下次连接时会重新询问是否信任。网络或密码错误不会因此修复。'
 
@@ -207,14 +237,23 @@ class Application:
             self.phase = 'write_verifying'
             self.message = '正在验证读写，等待远端读写和本地写回…'
             self.readwrite_result = None
-        return self._verify_readwrite(current)
+            self.readwrite_worker = threading.Thread(target=self._verify_readwrite,
+                                                    args=(current,), daemon=True)
+            self.readwrite_worker.start()
+        return {'ok': True, 'pending': True, 'message': '读写验证已启动，最多等待20秒'}
 
     def _verify_readwrite(self, current):
         with self.lock:
             if self.bridge is not current or self.state != 'connected' or current.stop.is_set():
                 return {'ok': False, 'message': '连接状态已改变，本次验证结果已作废'}
         try:
-            result = current.verify_readwrite()
+            result = bounded_call(current.verify_readwrite, VERIFY_TIMEOUT + .5,
+                                  '读写验证总时限（20秒）', current.stop)
+        except OperationTimeout as exc:
+            current.cancel_verification()
+            result = {'ok': False, 'message': str(exc) + '；请查看客户端和服务端日志'}
+            LOG.error('session=%s 步骤6运行结束：超时或取消', current.session)
+            LOG.error('session=%s 连接流程运行结束：失败 step=6', current.session)
         except Exception as exc:
             result = {'ok': False, 'message': '读写验证失败（' + type(exc).__name__ + '）'}
         with self.lock:
@@ -291,7 +330,8 @@ def make_handler(app, token):
                     finally:
                         app.diagnostics_limit.release()
                 if self.path == '/api/verify-readwrite':
-                    return self.send(200, app.verify_readwrite())
+                    result = app.verify_readwrite()
+                    return self.send(202 if result.get('pending') else 200, result)
                 if self.path == '/api/forget-host':
                     app.forget_host(body)
                     return self.send(200, app.snapshot())
@@ -306,15 +346,19 @@ def make_handler(app, token):
                     return self.send(202, app.snapshot())
                 if self.path == '/api/pick-directory':
                     try:
-                        selected = subprocess.run([sys.executable, '-m', 'local_client.picker'], capture_output=True, timeout=120)
+                        selected = bounded_process([sys.executable, '-m', 'local_client.picker'],
+                                                   120, '文件夹选择', cwd=str(Path(__file__).resolve().parents[1]))
                         if selected.returncode != 0:
                             return self.send(409, {'error': '系统文件夹选择器不可用，请直接填写绝对路径'})
                         return self.send(200, json.loads(selected.stdout))
-                    except subprocess.TimeoutExpired:
+                    except OperationTimeout:
                         return self.send(408, {'error': '文件夹选择超时，请重试或手动填写路径'})
                 return self.send(404, {'error': '接口不存在'})
             except BridgeError:
                 return self.send(409, {'error': '服务器信任记录无法安全保存，请检查本地信任记录并重新连接'})
+            except OperationTimeout as exc:
+                LOG.error('本地控制请求运行结束：超时')
+                return self.send(504, {'error': str(exc)})
             except (ValueError, TypeError):
                 return self.send(400, {'error': '设置无效，请检查输入和连接状态'})
             except OSError:
@@ -327,7 +371,10 @@ def main():
     parser.add_argument('--no-browser', action='store_true')
     parser.add_argument('--port', type=int, default=0)
     args = parser.parse_args()
-    app = Application()
+    bounded_call(lambda: configure_logging(Path(__file__).resolve().parents[1],
+                                          'codebridge.client', asynchronous=True), 3, '客户端日志初始化')
+    LOG.info('客户端程序启动')
+    app = bounded_call(Application, 5, '客户端配置读取')
     token = secrets.token_urlsafe(32)
     server = ThreadingHTTPServer(('127.0.0.1', args.port), make_handler(app, token))
     url = f'http://127.0.0.1:{server.server_port}/#token={token}'
@@ -343,7 +390,11 @@ def main():
         app.disconnect()
         if app.worker:
             app.worker.join(timeout=20)
+            if app.bridge and not app.bridge.cleanup_done.wait(timeout=8):
+                LOG.error('session=%s 客户端退出前连接清理超时，请检查本地文件服务和缓存', app.bridge.session)
         server.server_close()
+        LOG.info('客户端程序运行结束')
+        flush_logging(LOG, timeout=1)
 
 if __name__ == '__main__':
     main()
