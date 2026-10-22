@@ -1,0 +1,13 @@
+.venv/
+.tools/
+__pycache__/
+*.py[cod]
+settings.json
+*.log
+*.zip
+CodeBridge.cmd
+CodeBridge.sh
+CodeBridge.command
+Start-CodeBridge.cmd
+Start-CodeBridge.command
+start-codebridge.sh
