@@ -236,3 +236,23 @@ test('diagnostics and directory selection use their bounded longer deadlines', a
   assert.equal(app.element('pick-directory').disabled, false);
   assert.equal(app.evaluate('diagnosticBusy'), '');
 });
+
+test('mount occupancy errors preserve the server PID and recovery instructions without claiming readiness', async () => {
+  const app = await page({ state: 'connecting', phase: 'mounting', mount_path: '',
+    message: '正在挂载目录', settings: { remote_os: 'Linux' } });
+  const serverError = '远端挂载失败：挂载目录仍被旧终端占用：PID 4821（cwd）、PID 4822（目录 FD）。\n'
+    + '请在对应终端执行 cd ~，关闭占用该目录的编辑器工作区后重连。';
+  app.setStatus({ state: 'error', phase: 'error', message: serverError });
+  await app.clock.advance(2000);
+  assert.equal(app.element('status-message').textContent, serverError);
+  assert.equal(app.element('status-message').classList.contains('error'), true);
+  assert.equal(app.element('top-status').textContent, '连接失败');
+  assert.equal(app.element('connect-button').disabled, false);
+  assert.equal(app.element('verify-readwrite').disabled, true);
+  assert.equal(app.element('phase-mount').classList.contains('complete'), false);
+  assert.equal(app.element('phase-read').classList.contains('complete'), false);
+  assert.equal(app.element('readwrite-result').hidden, true);
+  assert.equal(app.requests.filter(request => request.url !== '/api/status').length, 0);
+  await app.clock.advance(2000);
+  assert.equal(app.element('status-message').textContent, serverError);
+});

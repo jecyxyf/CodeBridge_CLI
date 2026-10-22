@@ -8,29 +8,23 @@ for arg in "$@"; do
   case "$arg" in
     --skip-deps) SKIP_DEPS=1 ;;
     --check) CHECK_ONLY=1 ;;
-    -h|--help) printf 'Usage: bash local_client/scripts/linux.sh [--skip-deps] [--check]\n--skip-deps: use existing system dependencies; still installs Python requirements.\n--check: read-only dependency check; no installation or file changes.\n'; exit 0 ;;
+    -h|--help) printf 'Usage: bash local_client/scripts/linux.sh [--skip-deps] [--check]\n--skip-deps: use existing system dependencies and patched rclone; still installs Python requirements.\n--check: read-only dependency check; no installation or file changes.\n'; exit 0 ;;
     *) printf 'Unknown option: %s\n' "$arg" >&2; exit 2 ;;
   esac
 done
 [[ "$(uname -s)" == Linux ]] || { echo 'Use the macOS or Windows script on that platform.' >&2; exit 1; }
 export PATH="$ROOT/.tools:$HOME/.local/bin:$PATH"
 PYTHON="${CODEBRIDGE_PYTHON:-python3}"
-python_ok() { "$PYTHON" -c 'import sys, tkinter, venv, ensurepip; assert sys.version_info >= (3, 10)' >/dev/null 2>&1; }
+python_ok() { "$PYTHON" -B -c 'import sys, tkinter, venv, ensurepip; assert sys.version_info >= (3, 10)' >/dev/null 2>&1; }
 rclone_ok() {
-  "$PYTHON" -c 'import re, subprocess, sys
-try:
-    version = subprocess.check_output(["rclone", "version"], text=True, timeout=10)
-    match = re.search(r"rclone v(\d+)\.(\d+)\.(\d+)", version)
-    help_text = subprocess.check_output(["rclone", "serve", "sftp", "--help"], text=True, timeout=10)
-    sys.exit(0 if match and tuple(map(int, match.groups())) >= (1, 75, 0) and "--stdio" in help_text else 1)
-except (OSError, subprocess.SubprocessError):
-    sys.exit(1)' >/dev/null 2>&1
+  [[ -x "$ROOT/.venv/bin/python" ]] &&
+    "$ROOT/.venv/bin/python" -B "$ROOT/local_client/build_rclone.py" --check >/dev/null 2>&1
 }
 if (( CHECK_ONLY )); then
   python_ok || { echo 'Missing Python >= 3.10, Tkinter, or venv.' >&2; exit 1; }
-  rclone_ok || { echo 'Missing rclone >= 1.75.0 with serve sftp --stdio support.' >&2; exit 1; }
+  rclone_ok || { echo 'Missing verified CodeBridge rclone build. Run this installer without --check.' >&2; exit 1; }
   if [[ -x "$ROOT/.venv/bin/python" ]]; then
-    "$ROOT/.venv/bin/python" -c 'import tkinter, paramiko, socks; print("Client imports OK")'
+    "$ROOT/.venv/bin/python" -B -c 'import tkinter, paramiko, socks; print("Client imports OK")'
   else
     echo 'System dependencies OK; client .venv is not installed yet.'
   fi
@@ -57,51 +51,18 @@ if ! python_ok && (( ! SKIP_DEPS )); then
   fi
 fi
 python_ok || { echo 'Python >= 3.10 with tkinter and venv is required. CODEBRIDGE_PYTHON can select an existing interpreter.' >&2; exit 1; }
-if ! rclone_ok; then
-  (( ! SKIP_DEPS )) || { echo 'Install a recent rclone from https://rclone.org/install/ and rerun.' >&2; exit 1; }
-  echo 'Installing official rclone v1.75.2 in this project .tools directory (SHA-256 verified).'
-  "$PYTHON" - "$ROOT/.tools" <<'PY'
-import hashlib, io, os, platform, re, sys, urllib.request, zipfile
-from pathlib import Path
-arch = {"x86_64": "amd64", "aarch64": "arm64", "arm64": "arm64", "armv7l": "arm-v7", "i686": "386"}.get(platform.machine().lower())
-if not arch:
-    raise SystemExit("Unsupported rclone architecture. Install from https://rclone.org/downloads/ and rerun.")
-def fetch(url):
-    request = urllib.request.Request(url, headers={"User-Agent": "CodeBridge-deploy"})
-    with urllib.request.urlopen(request, timeout=60) as response:
-        return response.read()
-version = "v1.75.2"
-name = f"rclone-{version}-linux-{arch}.zip"
-base = f"https://downloads.rclone.org/{version}/"
-sums = fetch(base + "SHA256SUMS").decode()
-expected = None
-for line in sums.splitlines():
-    parts = line.split()
-    if len(parts) == 2 and parts[1].lstrip("*") == name and re.fullmatch(r"[0-9a-fA-F]{64}", parts[0]):
-        expected = parts[0].lower()
-if not expected:
-    raise SystemExit("Official release checksum is missing; nothing was installed.")
-data = fetch(base + name)
-if hashlib.sha256(data).hexdigest() != expected:
-    raise SystemExit("Checksum mismatch; refusing to install rclone.")
-with zipfile.ZipFile(io.BytesIO(data)) as archive:
-    binary = archive.read(f"rclone-{version}-linux-{arch}/rclone")
-destination = Path(sys.argv[1])
-destination.mkdir(parents=True, exist_ok=True)
-temporary = destination / "rclone.download"
-temporary.write_bytes(binary)
-os.chmod(temporary, 0o755)
-temporary.replace(destination / "rclone")
-print(f"Installed official rclone {version}")
-PY
-fi
-rclone_ok || { echo 'rclone >= 1.75.0 with serve sftp --stdio is required. Update it and rerun.' >&2; exit 1; }
 if [[ -e "$ROOT/.venv" && ! -x "$ROOT/.venv/bin/python" ]]; then
   echo 'Existing .venv is incompatible with Linux. Rename it before rerunning; it was not deleted.' >&2; exit 1
 fi
 "$PYTHON" -m venv "$ROOT/.venv"
 "$ROOT/.venv/bin/python" -m pip install --disable-pip-version-check -r "$ROOT/local_client/requirements.txt"
 "$ROOT/.venv/bin/python" -c 'import tkinter, paramiko, socks; print("Python client dependencies OK")'
+if ! rclone_ok; then
+  (( ! SKIP_DEPS )) || { echo 'Verified patched rclone is required. Run without --skip-deps to build it inside .tools.' >&2; exit 1; }
+  "$ROOT/.venv/bin/python" "$ROOT/local_client/build_rclone.py"
+fi
+rclone_ok || { echo 'Patched rclone build verification failed.' >&2; exit 1; }
+(cd "$ROOT" && "$ROOT/.venv/bin/python" -m local_client.rclone_check --rclone "$ROOT/.tools/rclone")
 cat > "$ROOT/start-codebridge.sh" <<'LAUNCHER'
 #!/usr/bin/env bash
 set -euo pipefail

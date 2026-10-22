@@ -1,4 +1,6 @@
-# CodeBridge 跨平台部署
+# CodeBridge 客户端部署与 Linux 服务端
+
+当前交付范围：客户端 Windows 11、Linux、macOS，服务端 Linux。下文其他服务端平台的历史适配说明不属于本次支持或验收范围。
 
 ## 先区分两端
 
@@ -25,7 +27,7 @@ powershell -NoProfile -File .\local_client\scripts\windows.ps1
 成功后双击根目录的 `Start-CodeBridge.cmd`。它会启动本地服务并打开浏览器；保持启动终端运行，使用页面“断开”结束连接，Ctrl+C 退出服务。
 
 - 自动寻找现有 Python 3.10+，缺少时通过 WinGet 安装 Python 3.13，包含 Tcl/Tk。
-- 缺少合格 rclone 时，从官方发布站下载 **1.75.2** 到项目 `.tools\rclone.exe`，核对同版本官方 SHA-256 后才安装。
+- 缺少已校验的补丁版 rclone 时，通过仓库 `.venv` 运行统一构建器，在 `.tools` 内准备校验过的 Go 工具链和固定版本源码，应用仓库补丁、运行定向测试，再生成 `.tools\rclone.exe` 及构建清单。首次构建需要网络和额外时间。
 - 如果 Windows 缺少 WinGet，先安装或更新微软 App Installer；也可从 Python 官网自行安装 Python 后重试。
 - 如果公司执行策略阻止脚本，请按公司的脚本审查/执行流程处理。脚本不会修改 ExecutionPolicy 或移除下载安全标记。
 - 本地 Windows **不需要 WinFsp 或 SSHFS-Win**，只有远端 Windows 挂载才需要它们。
@@ -44,7 +46,7 @@ bash local_client/scripts/linux.sh
 
 请以桌面普通用户运行，不要在整个脚本前加 sudo。脚本只在安装系统依赖时请求 sudo。支持 apt、dnf、pacman、zypper；对应发行版需提供 Python 3.10+、Tkinter 和 venv。
 
-缺少安全版本的 rclone 时，脚本下载官方 **1.75.2**，校验 SHA-256 后安装到项目 `.tools/rclone`，不覆盖系统 rclone。自动下载覆盖 x86_64、aarch64/arm64、armv7l、i686；其他架构可按官方文档自行安装后使用 `--skip-deps`。
+缺少已校验的补丁版 rclone 时，脚本调用统一构建器，在项目 `.tools` 内校验工具链和源码、应用补丁并运行定向测试，生成 `.tools/rclone` 及构建清单；不覆盖系统 rclone。首次构建需要网络和额外时间。`--skip-deps` 要求已存在经过校验的补丁版。
 
 无图形桌面的环境可运行本地网页服务，但不会有原生文件夹选择器，应填写绝对路径。不要把监听地址改成公网来解决浏览器访问问题。
 
@@ -56,7 +58,7 @@ bash local_client/scripts/linux.sh
 bash local_client/scripts/macos.sh
 ```
 
-成功后双击 `Start-CodeBridge.command`，或在终端运行它。使用 Homebrew core 的 `python@3.13`、`python-tk@3.13` 和 `rclone`，兼容 Homebrew 的 Intel 与 Apple Silicon 标准安装位置。本地端不需要安装 macFUSE。
+成功后双击 `Start-CodeBridge.command`，或在终端运行它。使用 Homebrew core 的 `python@3.13` 和 `python-tk@3.13`；rclone 与其他客户端共用统一补丁构建器，安装在项目 `.tools`，启动器优先使用它。兼容 Homebrew 的 Intel 与 Apple Silicon 标准安装位置。本地端不需要安装 macFUSE。
 
 若 macOS 阻止打开下载的启动器，请先审查来源，再按系统正常“打开”流程操作；脚本不会关闭 Gatekeeper。
 
@@ -64,7 +66,8 @@ bash local_client/scripts/macos.sh
 
 - Python 应用依赖装在项目根目录 `.venv`，不污染系统 Python：`paramiko==3.5.1`、`PySocks==1.7.1`。
 - 实际入口是 `./.venv/bin/python -m local_client.app`（Windows 使用 `.venv\Scripts\python.exe`）；Tkinter 只用于可选的原生目录选择。
-- rclone 必须 **>= 1.75.0** 且实际支持 `serve sftp --stdio`。旧版即使有 stdio 也不会通过检查；建议使用 1.75.2 或更新的安全稳定版。
+- rclone 固定为 **`v1.75.2-codebridge.1`**，来源和补丁保存在 `third_party/rclone/`。构建清单记录源码、补丁和二进制校验值；安装器 `--check` 只读检查该清单。连接时还必须通过有总时限的隔离 SFTP 行为自检，不能只凭版本号判定安全。
+- 手动构建使用 `./.venv/bin/python -m local_client.build_rclone`，Windows 使用 `.\.venv\Scripts\python.exe -m local_client.build_rclone`。工具链、源码和构建缓存都留在 `.tools`，不安装全局 Go；普通官方 rclone 或 Homebrew rclone 不能替代。
 - 不要把其他操作系统的 `.venv` 一起搬过来。脚本发现明显不兼容的环境会停止，不会擅自删除。重建前请自行重命名旧 `.venv`。
 - 安装后移动项目目录可能使 venv 内部路径失效，需在新位置重建 `.venv` 并重跑脚本。
 
@@ -190,6 +193,12 @@ Windows 等价选项：
 重复运行会更新 CodeBridge 自己的 helper/启动器，不会删除共享目录。正在连接时先断开，再做更新。更新 Python 安装路径后，需重跑远端安装器重新生成绝对路径 wrapper。
 
 日志与超时更新必须在服务端重跑部署脚本，确保 `mount.py` 与 `codebridge_logging.py` 同步安装。旧服务端不支持新的结束确认命令，新客户端会明确报告验证失败。
+
+Linux 目录占用保护也需要更新服务端 helper。正常顺序是先连接并等待读写验证通过，再在远端终端或编辑器中打开挂载目录。重连前先保存文件，让旧终端执行 `cd ~`，并关闭编辑器对目录的引用。挂载前已经进入目录的进程不会因新挂载而自动切换位置，继续相对路径写入可能落到被遮住的底层目录。
+
+服务端在挂载前及报告就绪前检查当前用户进程对原目录的 cwd 和目录文件描述符引用；每次扫描最多 3 秒，发现占用、检查失败或超时会报错。按错误中的 PID 找到相关终端或程序，主动离开目录或关闭对应句柄后重连。部分系统进程即使属于同一用户也不允许检查，页面会警告并列出对应 PID；这部分未知状态不代表已确认无占用。程序不会杀死用户进程，也不会替另一个终端执行 `cd`。若底层目录已有文件，先核对内容并备份到其他位置；不能靠删除目录或 `server.json` 来验证修复。不要对仍挂载的目录执行递归删除。
+
+这项进程检查仅适用于 Linux 可检查的当前用户进程，并非原子锁或持续监控。其他用户、不可见的进程或挂载命名空间及检查之后的并发操作仍有边界；macOS/Windows 没有这项 Linux `/proc` 检查。固定五字母目录和配置继续保留。
 
 客户端日志在项目根目录 `logs/`；服务端日志在已安装的 `mount.py` 同目录下 `logs/`，即 `~/.codebridge/remote_server/logs/`。文件名为各端本地日期 `YYYY-MM-DD.log`，保存最近 90 个自然日。每行是 `时间,消息类型,日志内容`，级别为 DEBUG/INFO/WARN/ERROR。排查时按同一个 `session` 查找双方步骤及“连接流程运行结束”；不要仅以“挂载可读”判断第 6 步已经成功。
 

@@ -23,6 +23,7 @@ import socks
 
 from codebridge_logging import flush_logging, get_logger
 from .runtime import Deadline, OperationTimeout, background, bounded_call, bounded_process
+from .rclone_check import CERTIFIED_VERSION, serve_command
 
 
 LOG = get_logger('codebridge.client')
@@ -98,22 +99,33 @@ def checked_root(folder):
     return path.resolve()
 
 
-def rclone_command(root, cache):
+def certify_rclone(executable, cancel=None):
+    completed = bounded_process(
+        [sys.executable, '-m', 'local_client.rclone_check', '--rclone', executable],
+        10, 'rclone 隔离安全自检', cancel=cancel, cwd=str(PROGRAM_DIR))
+    if completed.returncode in (-9, 124):
+        raise BridgeError('rclone 隔离安全自检超时，未启动共享目录文件服务')
+    try:
+        result = json.loads(completed.stdout)
+    except (ValueError, UnicodeError):
+        raise BridgeError('rclone 隔离安全自检未返回有效结果，未启动共享目录文件服务') from None
+    if completed.returncode or result != {'ok': True, 'version': CERTIFIED_VERSION}:
+        message = result.get('message') if isinstance(result, dict) else None
+        raise BridgeError(message if isinstance(message, str) else 'rclone 隔离安全自检失败，未启动共享目录文件服务')
+
+
+def rclone_command(root, cache, cancel=None):
     executable = shutil.which('rclone')
     if not executable:
         raise BridgeError('未安装 rclone，请先运行客户端部署脚本')
-    version = subprocess.run([executable, 'version'], capture_output=True, timeout=10)
-    match = re.search(rb'rclone v(\d+)\.(\d+)\.(\d+)', version.stdout)
-    if not match or tuple(map(int, match.groups())) < (1, 75, 0):
-        raise BridgeError('rclone 版本过旧；安全要求至少 1.75.0，请重新运行部署脚本')
+    certify_rclone(executable, cancel)
+    if cancel is not None and cancel.is_set():
+        raise OperationTimeout('本地文件服务启动已取消')
     # rclone rejects Windows NUL as --config. Use an exclusive-created regular
     # file in this session's cache, never the user's default config or an old file.
     fd, config = tempfile.mkstemp(prefix='rclone-empty-', suffix='.conf', dir=Path(cache).resolve())
     os.close(fd)
-    return [executable, 'serve', 'sftp', str(root), '--stdio', '--config', config,
-            '--cache-dir', str(cache), '--vfs-cache-mode', 'writes', '--vfs-write-back', '0s',
-            '--dir-cache-time', '1s', '--poll-interval', '0', '--buffer-size', '0',
-            '--copy-links=false', '--links=false', '--vfs-links=false', '--log-level', 'ERROR', '--stats', '0']
+    return serve_command(executable, root, cache, config)
 
 
 def execute_bounded(channel, command, timeout=10):
@@ -278,11 +290,11 @@ class Bridge:
             self.cache = Path.home() / '.codebridge' / 'cache' / session
             bounded_call(lambda: self.cache.mkdir(parents=True, mode=0o700), 5, '本地缓存准备', self.stop)
             self.process = bounded_call(
-                lambda: subprocess.Popen(rclone_command(root, self.cache), stdin=subprocess.PIPE,
+                lambda: subprocess.Popen(rclone_command(root, self.cache, self.stop), stdin=subprocess.PIPE,
                                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                          bufsize=65536, env={k: v for k, v in os.environ.items()
                                                             if not k.startswith('RCLONE_')}),
-                12, '本地文件服务启动', self.stop, late_cleanup=lambda process: process.kill())
+                15, '本地文件服务启动', self.stop, late_cleanup=lambda process: process.kill())
             self.channel = bounded_call(lambda: self.client.open_session(timeout=15), 15,
                                         'SSH 挂载通道建立', self.stop,
                                         late_cleanup=lambda resource: resource.close())

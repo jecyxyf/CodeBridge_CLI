@@ -3,6 +3,7 @@
 import argparse
 from contextlib import nullcontext
 import ctypes
+import errno
 import json
 import os
 from pathlib import Path
@@ -37,6 +38,7 @@ LOCK_TIMEOUT = 3.0
 OPERATION_TIMEOUT = 12.0
 RESULT_TIMEOUT = 5.0
 PROCESS_START_TIMEOUT = 5.0
+OCCUPANCY_TIMEOUT = 3.0
 STAGE_TIMEOUTS = {'prepare': 15.0, 'mount': 30.0, 'readable': OPERATION_TIMEOUT,
                   'active': None, 'cleanup': 15.0}
 RESULT_REASONS = ('remote_verify', 'local_writeback', 'probe_cleanup', 'timeout',
@@ -79,7 +81,7 @@ def wait_process(process, timeout):
     return True
 
 
-def stop_process(process, grace=.2, kill_grace=.2, group=False):
+def stop_process(process, grace=.2, kill_grace=.2, group=False, force=False):
     """Never wait indefinitely for an uninterruptible process or inherited pipe."""
     def send(force=False):
         try:
@@ -91,6 +93,9 @@ def stop_process(process, grace=.2, kill_grace=.2, group=False):
                 process.terminate()
         except (OSError, ProcessLookupError):
             pass
+    if force:
+        send(force=True)
+        return wait_process(process, kill_grace)
     send()
     exited = wait_process(process, grace)
     if not exited or (group and os.name != 'nt'):
@@ -140,9 +145,6 @@ def windows_process_job(process):
 
 
 def bounded_process(command, timeout, phase):
-    # communicate() may still wait forever after kill when a descendant or an
-    # uninterruptible filesystem operation holds a pipe. Only a daemon reader
-    # waits on pipes; the controlling thread always has its own deadline.
     process = subprocess.Popen(command, stdin=subprocess.DEVNULL,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     complete = threading.Event()
@@ -161,6 +163,58 @@ def bounded_process(command, timeout, phase):
     if 'error' in result:
         raise result['error']
     stdout, stderr = result['streams']
+    return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+
+
+def bounded_readonly_process(command, timeout, phase, pass_fds=(), close_pass_fds=False):
+    # communicate() may still wait forever after kill when a descendant or an
+    # uninterruptible filesystem operation holds a pipe. Only a daemon reader
+    # waits on pipes; the controlling thread always has its own deadline.
+    complete = threading.Event()
+    lock = threading.Lock()
+    result = {}
+    def communicate():
+        process = None
+        try:
+            try:
+                process = subprocess.Popen(command, stdin=subprocess.DEVNULL,
+                                           stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                           **({'pass_fds': pass_fds} if pass_fds else {}))
+            finally:
+                if close_pass_fds:
+                    for descriptor in pass_fds:
+                        os.close(descriptor)
+            with lock:
+                result['process'] = process
+                cancelled = result.get('cancelled', False)
+            if cancelled:
+                stop_process(process)
+                process.stdout.close()
+                process.stderr.close()
+                return
+            result['streams'] = process.communicate()
+        except Exception as exc:
+            result['error'] = exc
+        finally:
+            complete.set()
+    try:
+        threading.Thread(target=communicate, daemon=True).start()
+    except Exception:
+        if close_pass_fds:
+            for descriptor in pass_fds:
+                os.close(descriptor)
+        raise
+    if not complete.wait(timeout):
+        with lock:
+            result['cancelled'] = True
+            process = result.get('process')
+        if process is not None:
+            stop_process(process)
+        raise TimeoutError(f'{phase}超时（{timeout:g} 秒），已停止等待；请检查挂载状态')
+    if 'error' in result:
+        raise result['error']
+    stdout, stderr = result['streams']
+    process = result['process']
     return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
 
 
@@ -335,7 +389,7 @@ def supervise(arguments, timeout, phase, mount_session=False, worker_command=Non
                 if events.empty() and (stderr_finished or time.monotonic() - exited_at >= .2):
                     return process.returncode
             if deadline is not None and time.monotonic() >= deadline:
-                stopped = stop_process(process, group=True)
+                stopped = stop_process(process, group=True, force=mount_session)
                 message = f'服务端阶段 {current} 超时，已停止本次操作'
                 if not stopped:
                     message += '；进程尚未退出，请检查不可中断的文件系统或挂载'
@@ -347,7 +401,7 @@ def supervise(arguments, timeout, phase, mount_session=False, worker_command=Non
         for signum, handler in previous.items():
             signal.signal(signum, handler)
         if os.name != 'nt' or process.poll() is None:
-            stop_process(process, group=True)
+            stop_process(process, group=True, force=mount_session)
         if close_job:
             close_job()
 
@@ -432,11 +486,17 @@ def server_directory():
 
 
 def checked_directory(path, require_empty=True, allow_mounted=False):
+    # mountinfo remains readable when an abandoned FUSE mount returns ENOTCONN
+    # for stat/resolve on its root.
+    if sys.platform.startswith('linux') and linux_mount_entry(path) is not None:
+        if allow_mounted:
+            return Path(os.path.abspath(path))
+        raise RuntimeError('远端目录已被挂载，请先断开原连接或处理遗留挂载')
     for part in (path, *path.parents):
         if part.is_symlink():
             raise RuntimeError('远端挂载目录及其父目录不能是符号链接')
     path = path.resolve()
-    if os.path.ismount(path):
+    if is_mounted(path):
         if allow_mounted:
             return path
         raise RuntimeError('远端目录已被挂载，请先断开原连接或处理遗留挂载')
@@ -501,21 +561,195 @@ def mountpoint(session, mount_path=''):
     return str(checked_directory(path))
 
 
+def linux_mount_entry(path, mountinfo='/proc/self/mountinfo'):
+    target = os.path.normpath(os.path.abspath(path))
+    found = None
+    try:
+        with open(mountinfo, encoding='utf-8', errors='surrogateescape') as file:
+            for line in file:
+                fields = line.rstrip('\n').split(' ')
+                try:
+                    separator = fields.index('-')
+                    point = re.sub(r'\\([0-7]{3})', lambda match: chr(int(match[1], 8)), fields[4])
+                    if os.path.normpath(point) == target:
+                        source = re.sub(r'\\([0-7]{3})', lambda match: chr(int(match[1], 8)), fields[separator + 2])
+                        found = {'id': int(fields[0]), 'mount': point,
+                                 'type': fields[separator + 1], 'source': source}
+                except (ValueError, IndexError):
+                    raise RuntimeError('Linux 挂载记录格式无效，无法安全确认挂载状态') from None
+    except OSError as exc:
+        raise RuntimeError('无法读取 Linux 挂载记录，无法安全确认挂载状态') from exc
+    return found
+
+
 def is_mounted(path):
+    if sys.platform.startswith('linux') and linux_mount_entry(path) is not None:
+        return True
     return os.path.ismount(path + '\\' if os.name == 'nt' else path)
 
 
-def unmount(path):
+class MountDirectoryGuard:
+    def __init__(self, descriptor, info):
+        self.fd = descriptor
+        self.device = info.st_dev
+        self.inode = info.st_ino
+
+    def close(self):
+        if self.fd is not None:
+            descriptor, self.fd = self.fd, None
+            os.close(descriptor)
+
+
+def open_mount_guard(path):
+    if linux_mount_entry(path) is not None:
+        raise RuntimeError('远端目录已被挂载，已拒绝接管其他挂载')
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISDIR(info.st_mode) or linux_mount_entry(path) is not None:
+            raise RuntimeError('远端挂载目录已改变，已拒绝连接')
+        return MountDirectoryGuard(descriptor, info)
+    except Exception:
+        os.close(descriptor)
+        raise
+
+
+def scan_directory_references(guard_fd, owner_pid, owner_fd, phase, proc_root='/proc', timeout=OCCUPANCY_TIMEOUT):
+    """Inspect directory identities only; never read process command lines."""
+    deadline = time.monotonic() + timeout
+    identity = os.fstat(guard_fd)
+    if not stat.S_ISDIR(identity.st_mode):
+        raise RuntimeError('原挂载目录句柄无效')
+    def check_time():
+        if time.monotonic() >= deadline:
+            raise TimeoutError('挂载目录占用检查超时，无法确认旧目录引用已释放')
+    with os.scandir(guard_fd) as entries:
+        if next(entries, None) is not None:
+            if phase == 'after':
+                raise RuntimeError('挂载点底层目录出现新文件，已拒绝报告就绪；文件将保留，请检查底层目录后重新连接')
+            raise RuntimeError('远端挂载目录不是空目录，已拒绝遮盖已有文件')
+    ignored = {(owner_pid, owner_fd), (owner_pid, guard_fd), (os.getpid(), guard_fd)}
+    occupied = {}
+    unreadable = set()
+    checked = 0
+    vanished = (errno.ENOENT, errno.ESRCH)
+    def reference(pid, candidate, label):
+        check_time()
+        try:
+            info = os.stat(candidate)
+        except OSError as exc:
+            if exc.errno in vanished:
+                return
+            if exc.errno in (errno.EACCES, errno.EPERM):
+                unreadable.add(pid)
+                return
+            raise RuntimeError(f'无法检查 PID {pid} 的目录引用（{type(exc).__name__}），已停止连接') from exc
+        if stat.S_ISDIR(info.st_mode) and (info.st_dev, info.st_ino) == (identity.st_dev, identity.st_ino):
+            occupied.setdefault(pid, set()).add(label)
+    with os.scandir(proc_root) as processes:
+        for entry in processes:
+            check_time()
+            if not entry.name.isdigit():
+                continue
+            pid = int(entry.name)
+            process = Path(proc_root) / entry.name
+            try:
+                # /proc/<pid>'s owner may be root for a nondumpable process;
+                # use its actual effective UID instead of directory ownership.
+                with (process / 'status').open(encoding='ascii', errors='replace') as status_file:
+                    uid = None
+                    for line in status_file:
+                        if line.startswith('Uid:'):
+                            uid = int(line.split()[2])
+                            break
+                if uid is None:
+                    raise ValueError('missing process UID')
+                if uid != os.getuid():
+                    continue
+                checked += 1
+                reference(pid, process / 'cwd', 'cwd')
+                with os.scandir(process / 'fd') as descriptors:
+                    for descriptor in descriptors:
+                        check_time()
+                        if not descriptor.name.isdigit() or (pid, int(descriptor.name)) in ignored:
+                            continue
+                        reference(pid, Path(descriptor.path), '目录FD')
+            except OSError as exc:
+                if exc.errno in vanished:
+                    continue
+                if exc.errno in (errno.EACCES, errno.EPERM):
+                    unreadable.add(pid)
+                    continue
+                raise RuntimeError(f'无法检查 PID {pid} 的进程目录（{type(exc).__name__}），已停止连接') from exc
+            except (ValueError, IndexError):
+                raise RuntimeError(f'PID {pid} 的身份记录无效，无法完成挂载目录占用检查') from None
+    check_time()
+    if occupied:
+        details = '；'.join(f'PID {pid}: {"/".join(sorted(kinds))}' for pid, kinds in sorted(occupied.items())[:12])
+        raise RuntimeError('远端挂载目录仍被进程占用（' + details + '）；请让对应终端执行 cd ~，关闭持有该目录的程序或目录句柄后重新连接')
+    return {'ok': True, 'checked': checked, 'unreadable_pids': sorted(unreadable)[:12],
+            'unreadable_count': len(unreadable)}
+
+
+def check_mount_occupancy(guard, session, phase):
+    # This duplicate belongs to the launching thread until Popen returns. A
+    # late spawn cannot accidentally inherit a reused/closed guard descriptor.
+    inherited = os.dup(guard.fd)
+    command = [sys.executable, '-B', str(Path(__file__).resolve()), '--session', session,
+               '--internal-worker', '--occupancy-worker', '--guard-fd', str(inherited),
+               '--guard-owner', str(os.getpid()), '--guard-owner-fd', str(guard.fd),
+               '--scan-phase', phase]
+    result = bounded_readonly_process(command, OCCUPANCY_TIMEOUT, '挂载目录占用检查',
+                                      pass_fds=(inherited,), close_pass_fds=True)
+    if result.returncode:
+        try:
+            message = json.loads(result.stderr.decode('utf-8', 'replace').splitlines()[-1])['error']
+        except (ValueError, IndexError, KeyError, TypeError):
+            message = '挂载目录占用检查失败，未报告就绪'
+        raise RuntimeError(message)
+    status = json.loads(result.stdout)
+    if status.get('unreadable_count'):
+        pids = ', '.join(str(pid) for pid in status['unreadable_pids'])
+        emit('WARNING', {'message': f'Linux 占用检查仅覆盖当前用户可读取的 cwd/目录FD；有 {status["unreadable_count"]} 个进程无法检查（PID {pids}），不能保证这些进程没有旧目录引用。'})
+    LOGGER.info('session=%s 挂载目录占用检查完成 phase=%s checked=%s unreadable=%s',
+                session, phase, status['checked'], status['unreadable_count'])
+    return status
+
+
+def unmount(path, expected_source=None, expected_id=None):
     if os.name == 'nt':
         # Foreground sshfs termination releases the WinFsp filesystem.
         return
-    if not is_mounted(path):
+    if sys.platform.startswith('linux') and expected_source is not None:
+        entry = linux_mount_entry(path)
+        if entry is None:
+            return
+        if entry['source'] != expected_source or (expected_id is not None and entry['id'] != expected_id):
+            raise RuntimeError('远端挂载归属已改变，已拒绝卸载其他挂载')
+    elif not is_mounted(path):
         return
     command = (['/sbin/umount', path] if sys.platform == 'darwin' else
                [shutil.which('fusermount3') or shutil.which('fusermount') or 'fusermount', '-u', path])
     result = bounded_process(command, 10, '远端卸载')
     if result.returncode:
         raise RuntimeError('远端正常卸载失败，请检查繁忙挂载；未执行强制卸载')
+
+
+def stop_mount_process(process, path, expected_source=None, expected_id=None):
+    force = False
+    if sys.platform.startswith('linux') and expected_source is not None:
+        try:
+            entry = linux_mount_entry(path)
+            force = entry is not None and (entry['source'] != expected_source or
+                                          (expected_id is not None and entry['id'] != expected_id))
+        except RuntimeError:
+            force = True
+        if force:
+            # SSHFS handles SIGTERM by unmounting its pathname. If another
+            # mount now covers that pathname, only terminate our own process
+            # without running its pathname-based graceful-unmount handler.
+            emit('WARNING', {'message': '挂载归属已改变或无法确认；仅终止本次 SSHFS 进程，保留其他挂载，请检查挂载状态。'})
+    return stop_process(process, grace=2, kill_grace=1, force=force)
 
 
 def windows_session_file(session):
@@ -583,15 +817,40 @@ def checked_operation(session, operation, probe=None, drive=None):
         original = os.fstat(file.fileno())
         if not stat.S_ISREG(original.st_mode) or file.read(256) != before:
             raise RuntimeError('不是本次专用验证文件；拒绝修改')
-    fd = os.open(target, os.O_WRONLY | getattr(os, 'O_NOFOLLOW', 0))
-    with os.fdopen(fd, 'wb') as file:
+    fd = os.open(target, os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0))
+    with os.fdopen(fd, 'r+b', buffering=0) as file:
         current = os.fstat(file.fileno())
         if not stat.S_ISREG(current.st_mode) or (current.st_dev, current.st_ino) != (original.st_dev, original.st_ino):
             raise RuntimeError('验证文件已替换；拒绝修改')
-        file.write(after)
+        # Separate read/write handles miss SFTP servers that misroute READ on
+        # an O_RDWR handle into a write. Exercise that exact handle first.
+        if file.read(256) != before:
+            raise RuntimeError('同一读写句柄读取验证失败；未执行探针写入')
+        file.seek(0)
+        if file.read(256) != before:
+            raise RuntimeError('同一读写句柄重复读取内容改变；未执行探针写入')
+        offset = len(before) // 2
+        patch = b'\x00RW\xff'
+        intermediate = before[:offset] + patch + before[offset + len(patch):]
+        file.seek(offset)
+        if file.write(patch) != len(patch):
+            raise RuntimeError('随机写入未完成；探针内容保留供检查')
+        file.flush()
+        os.fsync(file.fileno())
+        file.seek(0)
+        if file.read(256) != intermediate:
+            raise RuntimeError('随机写入或同句柄读回验证失败；探针内容保留供检查')
+        # Preserve the existing client acknowledgement/cleanup protocol. The
+        # final marker is one byte shorter, so truncate only this owned probe.
+        file.seek(0)
+        if file.write(after) != len(after):
+            raise RuntimeError('最终验证标记写入未完成；探针内容保留供检查')
         file.truncate()
         file.flush()
         os.fsync(file.fileno())
+        file.seek(0)
+        if file.read(256) != after:
+            raise RuntimeError('同一读写句柄最终读回验证失败；探针内容保留供检查')
     return {'ok': True, 'probe': probe}
 
 
@@ -685,6 +944,9 @@ def run(session, mount_path=''):
     reserved = False
     windows_record = None
     ready = False
+    guard = None
+    mounted_id = None
+    expected_source = 'codebridge:' + session if sys.platform.startswith('linux') else None
     try:
         stage('prepare', session)
         LOGGER.info('session=%s 步骤1-3由客户端建立SSH并完成身份认证；服务端helper现在开始工作', session)
@@ -697,6 +959,9 @@ def run(session, mount_path=''):
             owner = mount_lock('mount-session.json')
         with mount_access(exclusive=True) if owner else nullcontext():
             path = mountpoint(session, mount_path)
+            if expected_source is not None:
+                guard = open_mount_guard(path)
+                check_mount_occupancy(guard, session, 'before')
             if owner:
                 owner.seek(0)
                 json.dump({'session': session, 'mount': path}, owner)
@@ -717,6 +982,8 @@ def run(session, mount_path=''):
         command = [binary, ':/', path, '-f', '-o', option,
                    '-o', 'cache=no', '-o', 'attr_timeout=0', '-o', 'entry_timeout=0',
                    '-o', 'negative_timeout=0']
+        if expected_source is not None:
+            command += ['-o', 'fsname=' + expected_source]
         # Windows OpenSSH pipes must never undergo CRT newline translation.
         if os.name == 'nt':
             import msvcrt
@@ -739,10 +1006,19 @@ def run(session, mount_path=''):
             if time.monotonic() > deadline:
                 raise RuntimeError('SSHFS 未在 30 秒内形成真实挂载')
             time.sleep(0.1)
+        if expected_source is not None:
+            entry = linux_mount_entry(path)
+            if entry is None or entry['source'] != expected_source or entry['type'] != 'fuse.sshfs':
+                raise RuntimeError('远端挂载归属不属于本次连接，已拒绝报告就绪')
+            mounted_id = entry['id']
         emit('MOUNTED', {'session': session, 'mount': path})
         stage('readable', session)
         LOGGER.info('session=%s 第5步 操作系统已确认挂载，开始目录读取', session)
         bounded_operation(session, 'list', drive=path[0] if os.name == 'nt' else None)
+        if guard is not None:
+            check_mount_occupancy(guard, session, 'after')
+            guard.close()
+            guard = None
         emit('READY', {'session': session, 'mount': path, 'readable': True})
         ready = True
         LOGGER.info('session=%s 第5步完成：挂载目录可读；等待第6步读写验证', session)
@@ -759,15 +1035,20 @@ def run(session, mount_path=''):
     finally:
         stage('cleanup', session)
         try:
+            # Holding the covered directory itself can make normal unmount
+            # busy. Release only our guard before attempting any teardown.
+            if guard is not None:
+                guard.close()
+                guard = None
             with mount_access(exclusive=True) if owner else nullcontext():
-                if path:
+                if path and process is not None:
                     try:
-                        unmount(path)
+                        unmount(path, expected_source=expected_source, expected_id=mounted_id)
                     except Exception as exc:
                         LOGGER.error('session=%s 远端卸载失败或超时：%s', session, str(exc))
                         emit('WARNING', {'message': str(exc)})
                 if process and process.poll() is None:
-                    if not stop_process(process, grace=2, kill_grace=1):
+                    if not stop_mount_process(process, path, expected_source, mounted_id):
                         LOGGER.error('session=%s SSHFS终止超时，需检查挂载状态', session)
                 if owner and reserved:
                     if ready:
@@ -791,7 +1072,7 @@ def run(session, mount_path=''):
             LOGGER.error('session=%s 连接流程运行结束 result=error reason=cleanup', session)
             emit('WARNING', {'message': '远端清理失败或超时：' + str(exc)})
             if process and process.poll() is None:
-                stop_process(process, grace=2, kill_grace=1)
+                stop_mount_process(process, path, expected_source, mounted_id)
         finally:
             if owner:
                 owner.close()
@@ -812,6 +1093,11 @@ def main():
     parser.add_argument('--reason', choices=RESULT_REASONS)
     parser.add_argument('--internal-worker', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--start-gate', type=int, help=argparse.SUPPRESS)
+    parser.add_argument('--occupancy-worker', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--guard-fd', type=int, help=argparse.SUPPRESS)
+    parser.add_argument('--guard-owner', type=int, help=argparse.SUPPRESS)
+    parser.add_argument('--guard-owner-fd', type=int, help=argparse.SUPPRESS)
+    parser.add_argument('--scan-phase', choices=('before', 'after'), help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.start_gate is not None:
         descriptor = args.start_gate
@@ -823,7 +1109,7 @@ def main():
                 return 1
         finally:
             os.close(descriptor)
-    if args.internal_worker and not args.self_test:
+    if args.internal_worker and not args.self_test and not args.occupancy_worker:
         try:
             configure_logging(Path(__file__).resolve().parent, 'codebridge.server')
         except Exception as exc:
@@ -863,6 +1149,17 @@ def main():
             return 1
     if not args.session or not re.fullmatch('[a-f0-9]{32}', args.session):
         parser.error('session must be a 32-character lowercase hexadecimal identifier')
+    if args.occupancy_worker:
+        try:
+            if (not sys.platform.startswith('linux') or args.guard_fd is None or
+                    args.guard_owner is None or args.guard_owner_fd is None or args.scan_phase is None):
+                raise RuntimeError('挂载目录占用检查参数无效')
+            result = scan_directory_references(args.guard_fd, args.guard_owner, args.guard_owner_fd, args.scan_phase)
+            print(json.dumps(result), flush=True)
+            return 0
+        except Exception as exc:
+            print(json.dumps({'ok': False, 'error': str(exc)}), file=sys.stderr, flush=True)
+            return 1
     if args.connection_result:
         try:
             result = connection_result(args.session, args.connection_result, args.reason, args.drive, args.probe)

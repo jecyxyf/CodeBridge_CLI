@@ -47,3 +47,4 @@ button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid #9b
 
 .diagnostic-result.warning{color:#826b4d;background:#f8f3e8;border-color:#eee4ce;white-space:pre-line}
 .remote-mount-field{margin-top:16px}
+.status-message{white-space:pre-wrap}

@@ -14,6 +14,7 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 
 import paramiko
+from paramiko.sftp import CMD_CLOSE, CMD_HANDLE, CMD_OPEN, CMD_READ, SFTP_FLAG_WRITE, int64
 from local_client import bridge, app
 from remote_server import mount
 
@@ -44,12 +45,12 @@ class SecurityTests(unittest.TestCase):
         with self.assertRaises(bridge.BridgeError):
             bridge.connect_socket('x',22,'http://user:secret@localhost:8080')
     def test_old_rclone_rejected(self):
-        with mock.patch('shutil.which', return_value='rclone'), mock.patch('subprocess.run') as run:
-            run.return_value.stdout=b'rclone v1.60.1'
+        failed = subprocess.CompletedProcess([], 1, stdout=b'{"ok": false, "message": "unsupported rclone"}')
+        with mock.patch('shutil.which', return_value='rclone'), mock.patch.object(bridge, 'bounded_process', return_value=failed):
             with self.assertRaises(bridge.BridgeError):
                 bridge.rclone_command(Path('/tmp'),Path('/tmp/cache'))
     def test_windows_null_device_never_used_as_rclone_config(self):
-        with tempfile.TemporaryDirectory() as temp, mock.patch.object(bridge.shutil, 'which', return_value='rclone.exe'), mock.patch.object(bridge.subprocess, 'run', return_value=mock.Mock(stdout=b'rclone v1.75.2')), mock.patch.object(bridge.os, 'devnull', 'nul'):
+        with tempfile.TemporaryDirectory() as temp, mock.patch.object(bridge.shutil, 'which', return_value='rclone.exe'), mock.patch.object(bridge, 'certify_rclone'), mock.patch.object(bridge.os, 'devnull', 'nul'):
             cache = Path(temp) / 'session-cache'
             cache.mkdir()
             preserved = cache / 'old-unsynced-data'
@@ -195,6 +196,51 @@ class RcloneIntegration(unittest.TestCase):
         while time.monotonic()<deadline and path.read_bytes()!=b'after!':time.sleep(.05)
         self.assertEqual(path.read_bytes(),b'after!')
         self.assertEqual(bridge.probe_bytes(path,(b'before',b'after!'))[0],b'after!')
+    def test_readwrite_read_does_not_zero_requested_or_remaining_bytes(self):
+        data = bytes(index % 255 + 1 for index in range(4096))
+        target = self.root / 'read-only-operation'
+        target.write_bytes(data)
+        with self.sftp.open('/read-only-operation', 'r+') as file:
+            file.seek(128)
+            self.assertEqual(file.read(32), data[128:160])
+        with self.sftp.open('/read-only-operation', 'r') as file:
+            self.assertEqual(file.read(), data)
+        self.assertEqual(target.read_bytes(), data)
+
+    def test_same_readwrite_handle_reads_writes_and_preserves_remainder(self):
+        data = bytes(index % 255 + 1 for index in range(4096))
+        target = self.root / 'same-handle'
+        target.write_bytes(data)
+        replacement = b'new-content-with-zero\x00and-binary\xff'
+        expected = data[:128] + replacement + data[128 + len(replacement):]
+        with self.sftp.open('/same-handle', 'r+') as file:
+            file.seek(128)
+            self.assertEqual(file.read(32), data[128:160])
+            file.seek(128)
+            file.write(replacement)
+            file.seek(0)
+            self.assertEqual(file.read(4096), expected)
+        expires = time.monotonic() + 3
+        while target.read_bytes() != expected and time.monotonic() < expires:
+            time.sleep(.02)
+        self.assertEqual(target.read_bytes(), expected)
+
+    def test_writeonly_handle_rejects_read_and_preserves_file(self):
+        data = bytes(index % 255 + 1 for index in range(4096))
+        target = self.root / 'write-only-operation'
+        target.write_bytes(data)
+        kind, message = self.sftp._request(CMD_OPEN, '/write-only-operation', SFTP_FLAG_WRITE,
+                                           paramiko.SFTPAttributes())
+        self.assertEqual(kind, CMD_HANDLE)
+        handle = message.get_binary()
+        try:
+            with self.assertRaises(OSError):
+                self.sftp._request(CMD_READ, handle, int64(128), 32)
+        finally:
+            self.sftp._request(CMD_CLOSE, handle)
+        with self.sftp.open('/write-only-operation', 'r') as file:
+            self.assertEqual(file.read(), data)
+        self.assertEqual(target.read_bytes(), data)
     def test_traversal_and_symlink_not_exposed(self):
         self.assertNotIn('escape',self.sftp.listdir('/'))
         for path in ('/escape','/../outside-secret','/../../outside-secret'):
