@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title><!--EC:TITLE--></title>
+  <!--EC:STYLE-->
+</head>
+<body>
+  <header class="toolbar">
+    <button class="project-button" data-action="edit-project" title="编辑项目名称与用途"><span class="brand-mark" aria-hidden="true">◇</span><span><strong id="ec-project-name">模块画布</strong><small id="ec-project-description"></small></span><span aria-hidden="true">⌄</span></button>
+    <nav aria-label="画布操作"><button data-action="add-module">＋ 添加模块</button><button data-action="add-group">创建分组</button><button data-action="add-relation">连接模块</button></nav>
+    <div class="save-actions"><button class="primary" data-action="save" title="Ctrl / ⌘ + S">保存</button><button data-action="save-as" title="Ctrl / ⌘ + Shift + S">另存为</button></div>
+  </header>
+  <main id="ec-viewport" aria-label="模块编辑画布" tabindex="0">
+    <div id="ec-world"><div id="ec-groups"></div><svg id="ec-edges" aria-label="模块关系"></svg><div id="ec-nodes"></div></div>
+    <div id="ec-empty" hidden>从一个模块开始<button data-action="add-module">＋ 添加模块</button></div>
+  </main>
+  <footer class="statusbar">
+    <div class="zoom-controls"><button data-action="zoom-out" aria-label="缩小">−</button><output id="ec-zoom">100%</output><button data-action="zoom-in" aria-label="放大">＋</button><button data-action="fit">适应视野</button></div>
+    <span class="canvas-hint">拖动标题移动 · 拖动空白平移 · 滚轮缩放</span>
+    <div class="save-state"><span id="ec-file-name">尚未选定文件</span><span id="ec-status" role="status" aria-live="polite"></span></div>
+  </footer>
+  <div id="ec-notice" role="alert" hidden></div>
+  <dialog id="ec-dialog" aria-labelledby="ec-dialog-title"></dialog>
+  <!--EC:NODE-->
+  <!--EC:DATA-->
+  <!--EC:BUNDLE-->
+  <!--EC:RUNTIME-->
+</body>
+</html>
