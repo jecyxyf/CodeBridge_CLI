@@ -2,7 +2,7 @@
 
 The agent reads source; the HTML only records and edits findings. Start with the user's scope and existing canvas, if supplied. Inspect repository instructions and the relevant source files before naming interfaces or relationships. Use `rg` to locate definitions and callers, then read their surrounding code; a filename or search hit alone is not enough.
 
-Record `repository.path`, exact revision (`git rev-parse HEAD`), and whether the inspected source has local changes. If dirty, explain affected source files in project description/unknowns so a commit alone is not presented as complete provenance. Store portable repository-relative paths and 1-based line ranges in `sources`; include a symbol when useful. Line numbers describe the recorded revision and need rechecking after changes.
+Record `repository.path` and the exact source revision (normally `git rev-parse HEAD`). Set `repository.dirty` from the whole repository's uncommitted changes (`git status --porcelain`), not just the inspected files. Separately check and explain whether cited files match that revision using file diffs or hashes; describe changed source files in project description/unknowns. Store portable repository-relative paths and 1-based line ranges in `sources`; include a symbol when useful. Line numbers describe the recorded revision and need rechecking after changes.
 
 | Claim | Evidence required before marking verified |
 | --- | --- |
