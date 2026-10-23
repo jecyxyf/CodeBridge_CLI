@@ -574,7 +574,7 @@ dialog .dialog-actions {
   gap: 8px;
   padding-top: 7px
 }
-dialog .dialog-actions .danger-text {
+dialog .dialog-actions .dialog-delete {
   margin-right: auto
 }
 .dialog-error {

@@ -18,9 +18,9 @@
       const form = node('form'), heading = node('h2',title); heading.id = 'ec-dialog-title'; form.append(heading);
       const controls = build(form), error = node('p','', 'dialog-error'); error.setAttribute('role','alert'); form.append(error);
       const actions = node('div',undefined,'dialog-actions');
-      if (remove) {const button = node('button',undefined,'danger-text'); EC.Icons.set(button,remove.icon || 'trash',remove.label); button.type = 'button'; button.addEventListener('click',() => {try {if (remove.run() !== false) {dialog.close(); onChange({semantic:true,render:true});}} catch (issue) {error.textContent = issue.message;}}); actions.append(button);}
+      if (remove) {const button = node('button',undefined,'dialog-delete'); EC.Icons.set(button,remove.icon || 'trash',remove.label); button.type = 'button'; button.addEventListener('click',() => {try {if (remove.run() !== false) {dialog.close(); onChange({semantic:true,render:true});}} catch (issue) {error.textContent = issue.message;}}); actions.append(button);}
       const cancel = node('button'); EC.Icons.set(cancel,'close','取消'); cancel.type = 'button'; cancel.addEventListener('click',() => dialog.close());
-      const save = node('button',undefined,'primary'); EC.Icons.set(save,'check','确定'); save.type = 'submit'; actions.append(cancel,save); form.append(actions); dialog.append(form);
+      const save = node('button'); EC.Icons.set(save,'check','确定'); save.type = 'submit'; actions.append(cancel,save); form.append(actions); dialog.append(form);
       form.addEventListener('submit',event => {event.preventDefault(); try {submit(controls); dialog.close(); onChange({semantic:true,render:true});} catch (issue) {error.textContent = issue.message || '修改失败，请检查填写内容。';}});
       dialog.showModal();
     }
@@ -40,7 +40,7 @@
           const viewport = document.getElementById('ec-viewport');
           project.groups.push({id:EC.Model.createModule().id.replace(/^module-/,'group-'),name:name.value,color:color.value,backgroundColor:backgroundColor.value,x:(viewport.clientWidth / 2 - project.view.x) / project.view.scale - 200,y:(viewport.clientHeight / 2 - project.view.y) / project.view.scale - 85});
         }
-      },group ? {label:'解散分组',icon:'ungroup',run() {EC.Model.removeGroup(project,group.id);}} : null);
+      },group ? {label:'删除层级',icon:'trash',run() {EC.Model.removeGroup(project,group.id);}} : null);
     }
     function editRelation(id,fromId) {
       const relation = project.relations.find(item => item.id === id);
