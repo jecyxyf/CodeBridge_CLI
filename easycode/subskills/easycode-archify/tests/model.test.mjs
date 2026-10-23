@@ -36,6 +36,18 @@ test('改接口内容使接口和模块待核对，位置变化不改变核对�
   Model.updateInterface(p,a.id,i.id,{purpose:'新行为'});
   assert.equal(a.status,'modified'); assert.equal(i.status,'modified');
 });
+test('替换接口列表清除已删除接口的展开记录，保留其他有效展开项', () => {
+  const {p,a,b,i}=fixture(), retained=Model.createInterface(), other=Model.createInterface();
+  a.interfaces.push(retained); b.interfaces.push(other);
+  p.view.expandedInterfaces=[i.id,retained.id,other.id];
+  assert.deepEqual(Model.validate(p).errors,[]);
+  Model.updateModule(p,a.id,{interfaces:[retained]});
+  assert.deepEqual(Model.validate(p).errors,[]);
+  assert.deepEqual(p.view.expandedInterfaces,[retained.id,other.id]);
+  Model.updateModule(p,a.id,{interfaces:[]});
+  assert.deepEqual(Model.validate(p).errors,[]);
+  assert.deepEqual(p.view.expandedInterfaces,[other.id]);
+});
 test('重命名保留标识及连线，布局分组和无变化不影响核对状态', () => {
   const {p,a,b,i}=fixture(), id=a.id;
   p.groups.push({id:'group-a',name:'组',color:'#123456',x:0,y:0});

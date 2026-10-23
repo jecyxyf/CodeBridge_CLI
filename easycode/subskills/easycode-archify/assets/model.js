@@ -50,6 +50,10 @@
     const module = project.modules.find(item => item.id === moduleId);
     if (!module) return null;
     applyPatch(module, patch, ['name','purpose','groupId','x','y','status','sources','unknowns','interfaces'], ['groupId','x','y']);
+    if (Array.isArray(patch?.interfaces)) {
+      const interfaceIds = new Set(project.modules.flatMap(item => item.interfaces.map(entry => entry.id)));
+      project.view.expandedInterfaces = project.view.expandedInterfaces.filter(value => interfaceIds.has(value));
+    }
     return module;
   }
   function updateInterface(project, moduleId, interfaceId, patch) {
