@@ -8,8 +8,8 @@
     if (text !== undefined) node.textContent = text;
     return node;
   }
-  function button(text, action, className = '') {
-    const node = element('button',className,text); node.type = 'button'; node.addEventListener('click',action); return node;
+  function button(icon, label, action, className = '') {
+    const node = element('button',className); EC.Icons.set(node,icon,label); node.type = 'button'; node.addEventListener('click',action); return node;
   }
   function field(label, value, change, kind = 'input') {
     const wrapper = element('label','field'); wrapper.append(element('span','',label));
@@ -87,11 +87,11 @@
             const input = field(label,source[key],value => change(key,value)); input.querySelector('input').type = 'number'; input.querySelector('input').min = '1'; row.append(input);
           }
           const symbol = field('函数或类名',source.symbol,value => change('symbol',value)); symbol.classList.add('wide');
-          row.append(symbol,button('移除出处',() => {update(module,entry,{sources:item.sources.filter((_,i) => i !== index)}); paintSources();},'danger-text'));
+          row.append(symbol,button('trash','移除出处',() => {update(module,entry,{sources:item.sources.filter((_,i) => i !== index)}); paintSources();},'danger-text'));
           sources.append(row);
         });
       }
-      content.append(heading('代码出处',button('＋ 添加出处',() => {update(module,entry,{sources:[...item.sources,{path:''}]}); paintSources();})),sources);
+      content.append(heading('代码出处',button('add','添加出处',() => {update(module,entry,{sources:[...item.sources,{path:''}]}); paintSources();})),sources);
       paintSources();
       content.append(field('待确认事项（每行一项）',item.unknowns.join('\n'),value => update(module,entry,{unknowns:value.split('\n').filter(line => line.trim())}),'textarea'));
       return details;
@@ -109,23 +109,26 @@
           const description = field('参数说明',parameter.description,value => patch('description',value),'textarea'); description.classList.add('wide'); row.append(description);
           const bottom = element('div','row-bottom wide');
           if (isInput) bottom.append(check('必填',parameter.required,value => patch('required',value)));
-          bottom.append(button('删除参数',() => {update(module,entry,{[direction]:entry[direction].filter(item => item.id !== parameter.id)}); paintRows();},'danger-text'));
+          bottom.append(button('trash','删除参数',() => {update(module,entry,{[direction]:entry[direction].filter(item => item.id !== parameter.id)}); paintRows();},'danger-text'));
           row.append(bottom); list.append(row);
         });
       }
-      section.append(heading(label,button(`＋ 添加${label}`,() => {update(module,entry,{[direction]:[...entry[direction],EC.Model.createParameter()]}); paintRows();})),check(`已确认${label}`,entry[confirmed],value => {update(module,entry,{[confirmed]:value}); paintNote();}),note,list);
+      section.append(heading(label,button('add',`添加${label}`,() => {update(module,entry,{[direction]:[...entry[direction],EC.Model.createParameter()]}); paintRows();})),check(`已确认${label}`,entry[confirmed],value => {update(module,entry,{[confirmed]:value}); paintNote();}),note,list);
       paintRows(); return section;
     }
     function interfaceEditor(module, entry) {
       const section = element('section','interface-editor'); section.dataset.interfaceId = entry.id;
-      const header = element('div','interface-heading'), body = element('div','interface-body');
-      const toggle = button('',() => {
+      const header = element('div','interface-heading'), body = element('div','interface-body'), name = element('span','interface-name');
+      const toggle = button('chevron-right','展开接口',() => {
         const ids = project.view.expandedInterfaces, open = ids.includes(entry.id);
         project.view.expandedInterfaces = open ? ids.filter(id => id !== entry.id) : [...ids,entry.id];
         syncToggle(); notify(false,false);
       },'interface-toggle'); toggle.dataset.interfaceAction = 'toggle';
-      function syncToggle() {body.hidden = !project.view.expandedInterfaces.includes(entry.id); toggle.textContent = `${body.hidden ? '▸' : '▾'} ${entry.name || '未命名接口'}`; toggle.setAttribute('aria-expanded',String(!body.hidden));}
-      header.append(toggle,button('删除',() => {
+      function syncToggle() {
+        body.hidden = !project.view.expandedInterfaces.includes(entry.id); name.textContent = entry.name || '未命名接口';
+        EC.Icons.set(toggle,body.hidden ? 'chevron-right' : 'chevron-down',`${body.hidden ? '展开' : '收起'}接口：${name.textContent}`); toggle.setAttribute('aria-expanded',String(!body.hidden));
+      }
+      header.append(toggle,name,button('trash','删除接口',() => {
         if (!confirm(`删除接口“${entry.name || '未命名接口'}”及其参数？`)) return;
         EC.Model.updateModule(project,module.id,{interfaces:module.interfaces.filter(item => item.id !== entry.id)}); notify(true);
       },'danger-text'));
@@ -137,7 +140,7 @@
     function details(module) {
       const body = element('div','editor-section');
       body.append(field('模块名称',module.name,value => update(module,null,{name:value})),field('模块职责',module.purpose,value => update(module,null,{purpose:value}),'textarea'),select('所属分组',module.groupId,[['','不分组'],...project.groups.map(group => [group.id,group.name || '未命名分组'])],value => update(module,null,{groupId:value})));
-      body.append(heading('对外接口',button('＋ 添加接口',() => {
+      body.append(heading('对外接口',button('add','添加接口',() => {
         const entry = EC.Model.createInterface(); EC.Model.updateModule(project,module.id,{interfaces:[...module.interfaces,entry]}); project.view.expandedInterfaces.push(entry.id); notify(true);
       })));
       for (const entry of module.interfaces) body.append(interfaceEditor(module,entry));
@@ -148,11 +151,12 @@
       layer.replaceChildren(); elements.clear();
       for (const module of project.modules) {
         const fragment = template.content.cloneNode(true), node = fragment.querySelector('.module-node');
+        EC.Icons.hydrate(node);
         node.dataset.moduleId = module.id; node.setAttribute('aria-label',`模块：${module.name || '未命名'}`);
         node.style.left = `${module.x}px`; node.style.top = `${module.y}px`; node.classList.toggle('selected',selected === module.id);
         const body = node.querySelector('.module-details'); body.append(details(module));
         const toggle = node.querySelector('[data-node-action=toggle]');
-        function syncToggle() {body.hidden = !project.view.expanded.includes(module.id); toggle.textContent = body.hidden ? '⌄' : '⌃'; toggle.setAttribute('aria-expanded',String(!body.hidden)); toggle.setAttribute('aria-label',body.hidden ? '展开模块' : '收起模块');}
+        function syncToggle() {body.hidden = !project.view.expanded.includes(module.id); EC.Icons.set(toggle,body.hidden ? 'chevron-down' : 'chevron-up',body.hidden ? '展开模块' : '收起模块'); toggle.setAttribute('aria-expanded',String(!body.hidden));}
         toggle.addEventListener('click',() => {project.view.expanded = body.hidden ? [...project.view.expanded,module.id] : project.view.expanded.filter(id => id !== module.id); syncToggle(); notify(false,false);});
         node.querySelector('[data-node-action=relation]').addEventListener('click',() => onRelation(module.id));
         node.querySelector('[data-node-action=delete]').addEventListener('click',() => {

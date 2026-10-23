@@ -7,6 +7,7 @@
     root.addEventListener('error',event => showError(event.error || event.message));
     root.addEventListener('unhandledrejection',event => {event.preventDefault(); showError(event.reason);});
     try {
+      EC.Icons.hydrate(document);
       const project = JSON.parse(get('ec-project').textContent), bundle = JSON.parse(get('ec-bundle').textContent);
       const validation = EC.Model.validate(project);
       if (validation.errors.length) throw new Error(`项目数据有问题：${validation.errors[0].message}`);
@@ -35,7 +36,7 @@
       let canvas, nodes;
       function refreshHeader() {
         get('ec-project-name').textContent = project.name || '未命名项目';
-        get('ec-project-description').textContent = project.description || '点击填写项目用途';
+        get('ec-project-description').textContent = project.description || '用编辑按钮填写项目用途';
         get('ec-empty').hidden = project.modules.length > 0 || project.groups.length > 0;
         document.title = `${storage.isDirty() ? '● ' : ''}${project.name || '模块画布'}`;
       }

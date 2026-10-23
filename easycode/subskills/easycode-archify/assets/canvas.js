@@ -19,7 +19,7 @@
     function groupBounds(group) {
       const members = project.modules.filter(module => module.groupId === group.id).map(nodeBounds);
       if (!members.length) return {x:group.x,y:group.y,width:400,height:170};
-      const left = Math.min(...members.map(item => item.x)) - 20, top = Math.min(...members.map(item => item.y)) - 48;
+      const left = Math.min(...members.map(item => item.x)) - 20, top = Math.min(...members.map(item => item.y)) - 56;
       return {x:left,y:top,width:Math.max(...members.map(item => item.x + item.width)) - left + 20,height:Math.max(...members.map(item => item.y + item.height)) - top + 20};
     }
     function paintGroups() {
@@ -31,16 +31,18 @@
           node = document.createElement('section'); node.className = 'group-frame'; node.dataset.groupId = group.id;
           const header = document.createElement('header'); header.className = 'group-header'; header.dataset.groupId = group.id;
           const title = document.createElement('span'); title.className = 'group-title';
-          const edit = document.createElement('button'); edit.type = 'button'; edit.textContent = '编辑'; edit.addEventListener('click',() => onGroupEdit(group.id));
+          const edit = document.createElement('button'); edit.type = 'button'; EC.Icons.set(edit,'edit','编辑分组'); edit.addEventListener('click',() => onGroupEdit(group.id));
           const empty = document.createElement('span'); empty.className = 'group-empty'; empty.textContent = '展开模块，在“所属分组”中加入此组';
           header.append(title,edit); node.append(header,empty); groupLayer.append(node); groupElements.set(group.id,node);
         }
         const bounds = groupBounds(group);
         Object.assign(node.style,{left:`${bounds.x}px`,top:`${bounds.y}px`,width:`${bounds.width}px`,height:`${bounds.height}px`});
         // Only allow an actual color, never arbitrary CSS from the project.
-        const color = /^#[\da-f]{6}$/i.test(group.color) ? group.color : '#6da89a';
-        node.style.borderColor = `${color}70`; node.style.backgroundColor = `${color}06`;
-        node.querySelector('.group-title').textContent = group.name || '未命名分组'; node.querySelector('.group-header').style.color = color;
+        const color = /^#[\da-f]{6}$/i.test(group.color) ? group.color : '#ffffff';
+        const backgroundColor = /^#[\da-f]{6}$/i.test(group.backgroundColor) ? group.backgroundColor : '#81b3e9';
+        const rgb = backgroundColor.slice(1).match(/../g).map(pair => parseInt(pair,16));
+        node.style.borderColor = 'transparent'; node.style.backgroundColor = `rgba(${rgb.join(',')},0.5)`;
+        const title = node.querySelector('.group-title'); title.textContent = group.name || '未命名分组'; title.style.color = color;
         node.querySelector('.group-empty').hidden = project.modules.some(module => module.groupId === group.id);
       }
     }

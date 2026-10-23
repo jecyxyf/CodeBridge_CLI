@@ -18,26 +18,29 @@
       const form = node('form'), heading = node('h2',title); heading.id = 'ec-dialog-title'; form.append(heading);
       const controls = build(form), error = node('p','', 'dialog-error'); error.setAttribute('role','alert'); form.append(error);
       const actions = node('div',undefined,'dialog-actions');
-      if (remove) {const button = node('button',remove.label,'danger-text'); button.type = 'button'; button.addEventListener('click',() => {try {if (remove.run() !== false) {dialog.close(); onChange({semantic:true,render:true});}} catch (issue) {error.textContent = issue.message;}}); actions.append(button);}
-      const cancel = node('button','取消'); cancel.type = 'button'; cancel.addEventListener('click',() => dialog.close());
-      const save = node('button','确定','primary'); save.type = 'submit'; actions.append(cancel,save); form.append(actions); dialog.append(form);
+      if (remove) {const button = node('button',undefined,'danger-text'); EC.Icons.set(button,remove.icon || 'trash',remove.label); button.type = 'button'; button.addEventListener('click',() => {try {if (remove.run() !== false) {dialog.close(); onChange({semantic:true,render:true});}} catch (issue) {error.textContent = issue.message;}}); actions.append(button);}
+      const cancel = node('button'); EC.Icons.set(cancel,'close','取消'); cancel.type = 'button'; cancel.addEventListener('click',() => dialog.close());
+      const save = node('button',undefined,'primary'); EC.Icons.set(save,'check','确定'); save.type = 'submit'; actions.append(cancel,save); form.append(actions); dialog.append(form);
       form.addEventListener('submit',event => {event.preventDefault(); try {submit(controls); dialog.close(); onChange({semantic:true,render:true});} catch (issue) {error.textContent = issue.message || '修改失败，请检查填写内容。';}});
       dialog.showModal();
     }
     function editGroup(id) {
       const group = project.groups.find(item => item.id === id);
       open(group ? '编辑分组' : '创建分组',form => {
-        const name = input(form,'分组名称',group?.name || '',{required:true}), color = input(form,'分组颜色',/^#[\da-f]{6}$/i.test(group?.color || '') ? group.color : '#6da89a',{type:'color'});
+        const name = input(form,'分组名称',group?.name || '',{required:true});
+        const color = input(form,'标题字体颜色',/^#[\da-f]{6}$/i.test(group?.color || '') ? group.color : '#ffffff',{type:'color'});
+        const backgroundColor = input(form,'背景颜色',/^#[\da-f]{6}$/i.test(group?.backgroundColor || '') ? group.backgroundColor : '#81b3e9',{type:'color'});
+        form.append(node('p','背景透明度固定为 50%。','dialog-note'));
         form.append(node('p','展开模块，在“所属分组”中选择此组。拖动组标题可一起移动组内模块。','dialog-note'));
-        return {name,color};
-      },({name,color}) => {
+        return {name,color,backgroundColor};
+      },({name,color,backgroundColor}) => {
         if (!name.value.trim()) throw new Error('请填写分组名称。');
-        if (group) {group.name = name.value; group.color = color.value;}
+        if (group) {group.name = name.value; group.color = color.value; group.backgroundColor = backgroundColor.value;}
         else {
           const viewport = document.getElementById('ec-viewport');
-          project.groups.push({id:EC.Model.createModule().id.replace(/^module-/,'group-'),name:name.value,color:color.value,x:(viewport.clientWidth / 2 - project.view.x) / project.view.scale - 200,y:(viewport.clientHeight / 2 - project.view.y) / project.view.scale - 85});
+          project.groups.push({id:EC.Model.createModule().id.replace(/^module-/,'group-'),name:name.value,color:color.value,backgroundColor:backgroundColor.value,x:(viewport.clientWidth / 2 - project.view.x) / project.view.scale - 200,y:(viewport.clientHeight / 2 - project.view.y) / project.view.scale - 85});
         }
-      },group ? {label:'解散分组',run() {EC.Model.removeGroup(project,group.id);}} : null);
+      },group ? {label:'解散分组',icon:'ungroup',run() {EC.Model.removeGroup(project,group.id);}} : null);
     }
     function editRelation(id,fromId) {
       const relation = project.relations.find(item => item.id === id);

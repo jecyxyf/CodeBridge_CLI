@@ -173,6 +173,7 @@
     groups.forEach((group,index) => {
       const path = `groups[${index}]`; if (!record(group,path)) return;
       identity(group.id,at(path,'id')); string(group.name,at(path,'name'),true); string(group.color,at(path,'color'));
+      if (group.backgroundColor !== undefined && (typeof group.backgroundColor !== 'string' || !/^#[\da-f]{6}$/i.test(group.backgroundColor))) error(at(path,'backgroundColor'), '背景颜色须为 #rrggbb 格式');
       number(group.x,at(path,'x')); number(group.y,at(path,'y'));
     });
     modules.forEach((module,index) => {

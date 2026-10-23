@@ -1,9 +1,9 @@
 <template id="ec-module-template">
   <article class="module-node" tabindex="0">
-    <header class="module-header"><span class="node-grip" aria-hidden="true">⠿</span><h2 class="module-name"></h2><button type="button" data-node-action="toggle" aria-label="展开模块">⌄</button></header>
+    <header class="module-header"><span class="node-grip" aria-hidden="true">⠿</span><h2 class="module-name"></h2><button type="button" data-node-action="toggle" data-icon="chevron-down" aria-label="展开模块" title="展开模块"></button></header>
     <p class="module-purpose"></p>
     <div class="module-summary"></div>
     <div class="module-details" hidden></div>
-    <footer class="module-footer"><span class="module-status" data-module-status></span><button type="button" data-node-action="relation">连接</button><button type="button" data-node-action="delete" class="danger-text">删除</button></footer>
+    <footer class="module-footer"><span class="module-status" data-module-status></span><button type="button" data-node-action="relation" data-icon="link" aria-label="连接模块" title="连接模块"></button><button type="button" data-node-action="delete" data-icon="trash" aria-label="删除模块" title="删除模块" class="danger-text"></button></footer>
   </article>
 </template>

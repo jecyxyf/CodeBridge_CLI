@@ -6,9 +6,9 @@
   "mode": "design",
   "repository": {"path": "", "revision": "", "dirty": false},
   "groups": [
-    {"id": "group-ui", "name": "界面层", "color": "#81b3e9", "x": 60, "y": 100},
-    {"id": "group-business", "name": "业务层", "color": "#c5a3ed", "x": 550, "y": 100},
-    {"id": "group-data", "name": "数据层", "color": "#80c7a3", "x": 1040, "y": 100}
+    {"id": "group-ui", "name": "界面层", "color": "#ffffff", "backgroundColor": "#81b3e9", "x": 60, "y": 100},
+    {"id": "group-business", "name": "业务层", "color": "#ffffff", "backgroundColor": "#81b3e9", "x": 550, "y": 100},
+    {"id": "group-data", "name": "数据层", "color": "#ffffff", "backgroundColor": "#81b3e9", "x": 1040, "y": 100}
   ],
   "modules": [
     {

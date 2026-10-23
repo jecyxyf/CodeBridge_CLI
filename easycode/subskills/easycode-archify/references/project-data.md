@@ -6,7 +6,7 @@
 | --- | --- |
 | project | `formatVersion:1`, `id`, `name`, `description`, `mode:design/change/analysis`, `repository`, `groups:[]`, `modules:[]`, `relations:[]`, `view` |
 | repository | `path:string`, `revision:string`, `dirty:boolean`; version identifies the code inspected, not the HTML version |
-| group | `id`, `name`, `color` (use `#rrggbb`), `x:number`, `y:number` |
+| group | `id`, `name`, `color` (title text, use `#rrggbb`), optional `backgroundColor` (`#rrggbb`), `x:number`, `y:number` |
 | module | `id`, `name`, `purpose`, `groupId` (existing group ID or `''`), `x`, `y`, `status`, `sources:[]`, `unknowns:string[]`, `interfaces:[]` |
 | interface | `id`, `name` (signature allowed), `purpose`, `status`, `sources:[]`, `unknowns:string[]`, `inputsConfirmed:boolean`, `outputsConfirmed:boolean`, `inputs:[]`, `outputs:[]` |
 | parameter | `id`, `name`, `type:string`, `description`; inputs require `required:boolean`; output `required` may be omitted (if supplied, boolean) and has no UI meaning |
@@ -15,6 +15,10 @@
 | view | finite `x`, `y`, positive `scale`, `expanded:moduleId[]`, `expandedInterfaces:interfaceId[]` |
 
 All IDs are globally unique strings, starting with a letter and containing only letters, digits, `_` and `-`. Creation helpers generate them; retain existing IDs on updates. Coordinates must be finite. The UI constrains zoom to 25%–180%. A relation needs two different existing modules; identical `(from,to,type,label)` entries are rejected. Expanded IDs must exist and cannot repeat.
+
+Group borders are transparent. `color` controls the group title text; titles use 20px semibold type, defaulting to white (`#ffffff`). Background color defaults to `#81b3e9` (RGB 129, 179, 233), independently of the title color, with fixed 50% transparency. Existing groups without `backgroundColor` use that default blue. New groups should include both defaults. Only the background fill is translucent; titles and module content keep their normal opacity. Preserve explicitly chosen colors when updating or saving a project; do not add an adjustable opacity field.
+
+Action buttons use the local SVG icons in `assets/icons.js`, with descriptive `aria-label` and hover `title` text. Project and interface names remain readable content beside their icon buttons. Keep icons embedded in the generated HTML; do not introduce external fonts, assets, or network requests.
 
 ## Meaning of evidence and unknowns
 

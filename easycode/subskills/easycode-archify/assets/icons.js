@@ -1,0 +1,40 @@
+(function (root) {
+  'use strict';
+  const EC = root.EasyCode ||= {};
+  const svgNS = 'http://www.w3.org/2000/svg';
+  // Local line icons: no fonts, downloads, or user-supplied SVG markup.
+  const paths = {
+    add:'M12 5v14M5 12h14',
+    'module-add':'M9 4H4v16h16v-5M16 3v8M12 7h8',
+    'group-add':'M8 4H4v4M16 4h4v4M4 16v4h4M20 16v4h-4M12 8v8M8 12h8',
+    ungroup:'M8 4H4v4M16 4h4v4M4 16v4h4M20 16v4h-4M8 12h8',
+    link:'M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2',
+    edit:'M4 16 16 4l4 4L8 20l-5 1 1-5ZM13 7l4 4',
+    trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',
+    save:'M4 3h13l4 4v14H3V3h1M7 3v6h10V3M7 21v-7h10v7',
+    'save-as':'M4 3h12l4 4v5M4 3v18h7M7 3v6h9V3M7 21v-7h5M14 18h8M18 14l4 4-4 4',
+    'zoom-in':'M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0ZM15 15l6 6M7 10h6M10 7v6',
+    'zoom-out':'M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0ZM15 15l6 6M7 10h6',
+    fit:'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5M8 8h8v8H8Z',
+    check:'M5 12l4 4L19 6',
+    close:'m6 6 12 12M6 18 18 6',
+    'chevron-down':'m6 9 6 6 6-6',
+    'chevron-up':'m6 15 6-6 6 6',
+    'chevron-right':'m9 6 6 6-6 6'
+  };
+  function create(name) {
+    if (!Object.hasOwn(paths,name)) throw new Error(`未知图标：${name}`);
+    const svg = document.createElementNS(svgNS,'svg');
+    for (const [key,value] of Object.entries({viewBox:'0 0 24 24',class:'icon',fill:'none',stroke:'currentColor','stroke-width':'1.8','stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true',focusable:'false'})) svg.setAttribute(key,value);
+    const path = document.createElementNS(svgNS,'path'); path.setAttribute('d',paths[name]); svg.append(path); return svg;
+  }
+  function set(button,name,label,title = label) {
+    button.classList.add('icon-button'); button.dataset.icon = name;
+    button.setAttribute('aria-label',label); button.title = title;
+    button.replaceChildren(create(name)); return button;
+  }
+  function hydrate(container) {
+    for (const button of container.querySelectorAll('button[data-icon]')) set(button,button.dataset.icon,button.getAttribute('aria-label'),button.title || button.getAttribute('aria-label'));
+  }
+  EC.Icons = {create,set,hydrate};
+})(globalThis);

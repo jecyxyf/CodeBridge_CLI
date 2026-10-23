@@ -68,7 +68,7 @@ test('组装覆盖指定文件，失败保留旧文件，临时完整模板按�
     await writeFile(path.join(dir,'templates/canvas.html'),bundle.canvas);
     await writeFile(path.join(dir,'templates/module-node.html'),bundle.node);
     await writeFile(path.join(dir,'assets/editor.css'),bundle.css);
-    const scripts=['model','serialization','storage','feedback','nodes','canvas','dialogs','app'];
+    const scripts=['model','serialization','storage','feedback','icons','nodes','canvas','dialogs','app'];
     for(const name of scripts) await writeFile(path.join(dir,`assets/${name}.js`),`/* ${name} */`);
     const loaded=await loadBundle(pathToFileURL(dir+path.sep));
     assert.deepEqual(loaded,{...bundle,runtime:scripts.map(name=>`/* ${name} */`).join('\n;\n')});
