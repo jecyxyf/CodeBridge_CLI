@@ -150,8 +150,9 @@ label.field>input,label.field>textarea,label.field>select {
   inset: 70px 0 44px;
   overflow: hidden;
   background-color: var(--canvas);
-  background-image: radial-gradient(#344055 1px,transparent 1px);
-  background-size: 24px 24px;
+  background-image: radial-gradient(circle,#344055 var(--grid-dot-radius,1px),transparent var(--grid-dot-radius,1px));
+  background-size: 10px 10px;
+  background-position: -5px -5px;
   touch-action: none
 }
 #ec-world {

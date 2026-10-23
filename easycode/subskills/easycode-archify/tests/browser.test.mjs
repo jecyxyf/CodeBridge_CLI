@@ -69,6 +69,7 @@ test('opt-in file canvas: DOM edits, gestures, evidence, mock save and real HTML
 
   await page.click('[data-action="add-module"]');
   const first = await page.evaluate(`${data}.modules[0].id`), firstNode = `.module-node[data-module-id="${first}"]`;
+  assert.equal(await page.evaluate(`${data}.modules[0].x % 10 === 0 && ${data}.modules[0].y % 10 === 0`),true,'new module starts on the grid');
   await page.fill(`${firstNode} [aria-label="模块名称"]`,'修改后的任务模块');
   await page.fill(`${firstNode} [aria-label="模块职责"]`,'收集并保存任务');
   await page.click(`${firstNode} button[aria-label="添加接口"]`);
@@ -112,6 +113,7 @@ test('opt-in file canvas: DOM edits, gestures, evidence, mock save and real HTML
   await page.fill('#ec-dialog [aria-label="分组名称"]','任务组');
   await page.click('#ec-dialog button[aria-label="确定"]');
   const groupId = await page.evaluate(`${data}.groups[0].id`);
+  assert.equal(await page.evaluate(`${data}.groups[0].x % 10 === 0 && ${data}.groups[0].y % 10 === 0`),true,'new empty group starts on the grid');
   await page.select(`${firstNode} [aria-label="所属分组"]`,groupId);
   await page.click(`${firstNode} [data-node-action="toggle"]`);
   await page.click('[data-action="add-module"]');
@@ -124,12 +126,15 @@ test('opt-in file canvas: DOM edits, gestures, evidence, mock save and real HTML
   const beforeDrag = await page.evaluate(`${data}.modules[1].x`);
   await page.drag(`${secondNode} .module-header`,520,160);
   assert.notEqual(await page.evaluate(`${data}.modules[1].x`),beforeDrag,'drag changes stored coordinates');
+  assert.equal(await page.evaluate(`${data}.modules[1].x % 10 === 0 && ${data}.modules[1].y % 10 === 0`),true,'dragged module snaps at the current zoom');
   await page.click('[data-action="fit"]');
   const offsets = await page.evaluate(`({x:${data}.modules[1].x - ${data}.modules[0].x,y:${data}.modules[1].y - ${data}.modules[0].y,firstX:${data}.modules[0].x})`);
   await page.drag(`.group-header[data-group-id="${groupId}"]`,70,45);
   const moved = await page.evaluate(`({x:${data}.modules[1].x - ${data}.modules[0].x,y:${data}.modules[1].y - ${data}.modules[0].y,firstX:${data}.modules[0].x})`);
   assert.ok(Math.abs(moved.x - offsets.x) < 1e-7 && Math.abs(moved.y - offsets.y) < 1e-7,'group move preserves offsets');
   assert.notEqual(moved.firstX,offsets.firstX,'group actually moved');
+  assert.equal(await page.evaluate(`${data}.modules.every(module => module.x % 10 === 0 && module.y % 10 === 0)`),true,'group drag retains aligned member positions');
+  assert.equal(await page.evaluate(`(() => {const frame = document.querySelector('.group-frame'); return parseFloat(frame.style.left) % 10 === 0 && parseFloat(frame.style.top) % 10 === 0;})()`),true,'visible group frame aligns with the grid');
   const scale = await page.evaluate(`${data}.view.scale`);
   await page.click('[data-action="zoom-in"]');
   assert.ok(await page.evaluate(`${data}.view.scale > ${scale}`));

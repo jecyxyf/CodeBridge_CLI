@@ -1,8 +1,36 @@
 (function (root) {
   'use strict';
   const EC = root.EasyCode ||= {};
+  const gridSize = 10;
   const svgNS = 'http://www.w3.org/2000/svg';
   const interactive = 'input,textarea,select,button,a,label,summary,dialog,[contenteditable=true]';
+  function snapPoint({x,y}) {
+    return {x:Math.round(x / gridSize) * gridSize || 0,y:Math.round(y / gridSize) * gridSize || 0};
+  }
+  function gridStyle(view) {
+    const size = gridSize * view.scale;
+    // The gradient's dot is at the tile center; offset half a tile to put it at world (0,0).
+    return {backgroundSize:`${size}px ${size}px`,backgroundPosition:`${view.x - size / 2}px ${view.y - size / 2}px`};
+  }
+  function groupBounds(group,members) {
+    if (!members.length) return {x:group.x,y:group.y,width:400,height:170};
+    // Round the enclosing frame outwards, keeping the existing member layout intact.
+    const left = Math.floor((Math.min(...members.map(item => item.x)) - 20) / gridSize) * gridSize;
+    const top = Math.floor((Math.min(...members.map(item => item.y)) - 56) / gridSize) * gridSize;
+    const right = Math.ceil((Math.max(...members.map(item => item.x + item.width)) + 20) / gridSize) * gridSize;
+    const bottom = Math.ceil((Math.max(...members.map(item => item.y + item.height)) + 20) / gridSize) * gridSize;
+    return {x:left,y:top,width:right - left,height:bottom - top};
+  }
+  function moveSelection(project,selection,dx,dy,scale) {
+    const target = snapPoint({x:selection.anchor.x + dx / scale,y:selection.anchor.y + dy / scale});
+    const offsetX = target.x - selection.anchor.x, offsetY = target.y - selection.anchor.y;
+    // One shared offset preserves member spacing, including older layouts that are off-grid.
+    for (const item of selection.positions) EC.Model.updateModule(project,item.module.id,selection.group ? {x:item.x + offsetX,y:item.y + offsetY} : target);
+    if (selection.group) {
+      selection.group.x = offsetX || offsetY ? target.x : selection.groupX;
+      selection.group.y = offsetX || offsetY ? target.y : selection.groupY;
+    }
+  }
   function svg(tag, attributes = {}) {
     const node = document.createElementNS(svgNS,tag);
     for (const [key,value] of Object.entries(attributes)) node.setAttribute(key,String(value));
@@ -16,12 +44,7 @@
       const node = nodes.getElement(module.id);
       return {x:module.x,y:module.y,width:node?.offsetWidth || 360,height:node?.offsetHeight || 190};
     }
-    function groupBounds(group) {
-      const members = project.modules.filter(module => module.groupId === group.id).map(nodeBounds);
-      if (!members.length) return {x:group.x,y:group.y,width:400,height:170};
-      const left = Math.min(...members.map(item => item.x)) - 20, top = Math.min(...members.map(item => item.y)) - 56;
-      return {x:left,y:top,width:Math.max(...members.map(item => item.x + item.width)) - left + 20,height:Math.max(...members.map(item => item.y + item.height)) - top + 20};
-    }
+    const boundsForGroup = group => groupBounds(group,project.modules.filter(module => module.groupId === group.id).map(nodeBounds));
     function paintGroups() {
       const active = new Set(project.groups.map(group => group.id));
       for (const [id,node] of groupElements) if (!active.has(id)) {node.remove(); groupElements.delete(id);}
@@ -35,7 +58,7 @@
           const empty = document.createElement('span'); empty.className = 'group-empty'; empty.textContent = '展开模块，在“所属分组”中加入此组';
           header.append(title,edit); node.append(header,empty); groupLayer.append(node); groupElements.set(group.id,node);
         }
-        const bounds = groupBounds(group);
+        const bounds = boundsForGroup(group);
         Object.assign(node.style,{left:`${bounds.x}px`,top:`${bounds.y}px`,width:`${bounds.width}px`,height:`${bounds.height}px`});
         // Only allow an actual color, never arbitrary CSS from the project.
         const color = /^#[\da-f]{6}$/i.test(group.color) ? group.color : '#ffffff';
@@ -72,8 +95,8 @@
     function refresh() {
       if (destroyed) return;
       world.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.scale})`;
-      viewport.style.backgroundSize = `${24 * view.scale}px ${24 * view.scale}px`;
-      viewport.style.backgroundPosition = `${view.x}px ${view.y}px`;
+      Object.assign(viewport.style,gridStyle(view));
+      viewport.style.setProperty('--grid-dot-radius',`${Math.min(1,view.scale)}px`);
       for (const module of project.modules) {
         const node = nodes.getElement(module.id); if (node) {node.style.left = `${module.x}px`; node.style.top = `${module.y}px`;}
       }
@@ -90,7 +113,7 @@
     }
     function zoomBy(factor) {zoomAt(factor,viewport.clientWidth / 2,viewport.clientHeight / 2);}
     function fit({notify = true} = {}) {
-      const bounds = [...project.modules.map(nodeBounds),...project.groups.map(groupBounds)];
+      const bounds = [...project.modules.map(nodeBounds),...project.groups.map(boundsForGroup)];
       if (!bounds.length) {view.x = 0; view.y = 0; view.scale = 1;}
       else {
         const left = Math.min(...bounds.map(item => item.x)), top = Math.min(...bounds.map(item => item.y));
@@ -115,10 +138,10 @@
       if (event.button === 1 || !header && !groupHeader) drag = {...start,type:'pan',viewX:view.x,viewY:view.y};
       else if (header) {
         const module = project.modules.find(item => item.id === header.closest('.module-node').dataset.moduleId);
-        drag = {...start,type:'nodes',positions:[{module,x:module.x,y:module.y}]};
+        drag = {...start,type:'nodes',anchor:{x:module.x,y:module.y},positions:[{module,x:module.x,y:module.y}]};
       } else {
         const group = project.groups.find(item => item.id === groupHeader.dataset.groupId);
-        drag = {...start,type:'nodes',group,groupX:group.x,groupY:group.y,positions:project.modules.filter(module => module.groupId === group.id).map(module => ({module,x:module.x,y:module.y}))};
+        drag = {...start,type:'nodes',anchor:boundsForGroup(group),group,groupX:group.x,groupY:group.y,positions:project.modules.filter(module => module.groupId === group.id).map(module => ({module,x:module.x,y:module.y}))};
       }
       event.preventDefault(); viewport.setPointerCapture(event.pointerId); viewport.style.cursor = 'grabbing';
     });
@@ -128,15 +151,15 @@
       if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 3) return;
       drag.moved = true;
       if (drag.type === 'pan') {view.x = drag.viewX + dx; view.y = drag.viewY + dy;}
-      else {
-        for (const item of drag.positions) EC.Model.updateModule(project,item.module.id,{x:item.x + dx / view.scale,y:item.y + dy / view.scale});
-        if (drag.group) {drag.group.x = drag.groupX + dx / view.scale; drag.group.y = drag.groupY + dy / view.scale;}
-      }
+      else moveSelection(project,drag,dx,dy,view.scale);
       scheduleRefresh();
     });
     function endDrag(event) {
       if (!drag || event.pointerId !== drag.pointerId) return;
-      const moved = drag.moved; drag = null; viewport.style.cursor = '';
+      const moved = drag.type === 'pan' ? view.x !== drag.viewX || view.y !== drag.viewY :
+        drag.positions.some(item => item.module.x !== item.x || item.module.y !== item.y) ||
+        Boolean(drag.group && (drag.group.x !== drag.groupX || drag.group.y !== drag.groupY));
+      drag = null; viewport.style.cursor = '';
       if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
       if (moved) {refresh(); changed();}
     }
@@ -149,5 +172,5 @@
     refresh();
     return {refresh,fit,zoomBy,centerPoint,destroy() {destroyed = true; listeners.forEach(remove => remove()); observer?.disconnect(); mutation.disconnect(); if (frame) cancelAnimationFrame(frame); groupLayer.replaceChildren(); edgeLayer.replaceChildren();}};
   }
-  EC.Canvas = {create};
+  EC.Canvas = {create,snapPoint,gridStyle,groupBounds,moveSelection};
 })(globalThis);

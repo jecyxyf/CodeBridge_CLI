@@ -38,7 +38,8 @@
         if (group) {group.name = name.value; group.color = color.value; group.backgroundColor = backgroundColor.value;}
         else {
           const viewport = document.getElementById('ec-viewport');
-          project.groups.push({id:EC.Model.createModule().id.replace(/^module-/,'group-'),name:name.value,color:color.value,backgroundColor:backgroundColor.value,x:(viewport.clientWidth / 2 - project.view.x) / project.view.scale - 200,y:(viewport.clientHeight / 2 - project.view.y) / project.view.scale - 85});
+          const position = EC.Canvas.snapPoint({x:(viewport.clientWidth / 2 - project.view.x) / project.view.scale - 200,y:(viewport.clientHeight / 2 - project.view.y) / project.view.scale - 85});
+          project.groups.push({id:EC.Model.createModule().id.replace(/^module-/,'group-'),name:name.value,color:color.value,backgroundColor:backgroundColor.value,...position});
         }
       },group ? {label:'删除层级',icon:'trash',run() {EC.Model.removeGroup(project,group.id);}} : null);
     }

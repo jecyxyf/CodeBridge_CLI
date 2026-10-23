@@ -82,7 +82,8 @@
       }
       const actions = {
         'add-module'() {
-          const center = canvas.centerPoint(), module = EC.Model.createModule({name:'新模块',x:center.x - 180,y:center.y - 100});
+          const center = canvas.centerPoint(), position = EC.Canvas.snapPoint({x:center.x - 180,y:center.y - 100});
+          const module = EC.Model.createModule({name:'新模块',...position});
           project.modules.push(module); project.view.expanded.push(module.id); onChange({render:true});
           nodes.getElement(module.id)?.querySelector('[aria-label="模块名称"]')?.focus();
         },
