@@ -117,3 +117,73 @@ test('模块被外部修改或删除时阻止旧草稿覆盖',() => {
   assert.throws(() => E.commit(project,session),/标识不能修改/);
   assert.throws(() => E.begin(project,'module-missing'),/不存在/);
 });
+
+test('五组内容在草稿中独立编辑，确认后可完整保存读回',async() => {
+  const {project,module,api} = fixture(), before = structuredClone(project), session = E.begin(project,module.id);
+  const setting = {...M.createParameter(),name:'重试次数',englishName:'retryCount',type:'number',description:'失败后重试次数',defaultValue:'3'};
+  const event = {...M.createEvent(),name:'任务完成',englishName:'taskCompleted',description:'任务处理完毕',trigger:'保存成功',parameters:[{...M.createParameter(),name:'任务编号',englishName:'taskId',type:'string',description:'完成的任务'}]};
+  const check = {...M.createTest(),name:'保存任务',steps:'输入有效任务并保存',expected:'发出任务完成事件'};
+  M.updateModule(session.project,module.id,{englishName:'TaskModule',codeLocation:'src/task.js:1-80',parameters:[setting],events:[event],tests:[check]});
+  M.updateInterface(session.project,module.id,api.id,{name:'创建任务',englishName:'createTask',flow:'1. 检查输入\n2. 保存\n3. 发出事件',errors:'无效输入时返回错误'});
+  M.updateMember(session.project,module.id,'events',event.id,{direction:'receive'});
+  M.updateMember(session.project,module.id,'tests',check.id,{expected:'接收任务完成事件'});
+  assert.deepEqual(project,before,'nested edits remain isolated until confirmation');
+  assert.equal(E.commit(project,session),true);
+  assert.equal(module.status,'modified'); assert.equal(module.interfaces[0].status,'modified');
+  assert.equal(module.interfaces[0].id,api.id); assert.deepEqual(module.sources,before.modules[0].sources);
+  assert.equal(module.events[0].direction,'receive'); assert.equal(module.parameters[0].defaultValue,'3');
+  assert.equal(module.tests[0].expected,'接收任务完成事件');
+  assert.deepEqual(M.validate(project),{errors:[],warnings:[]});
+  assert.deepEqual(S.readProject(assemble(project,await loadBundle())),project);
+});
+
+test('旧模块缺少新增字段时，打开或无修改确认不会补写或丢失旧数据',async() => {
+  const {project,module,api,parameter} = fixture();
+  for (const field of ['englishName','codeLocation','parameters','events','tests']) delete module[field];
+  for (const field of ['englishName','flow','errors']) delete api[field];
+  for (const field of ['englishName','defaultValue']) delete parameter[field];
+  const before = structuredClone(project), session = E.begin(project,module.id);
+  assert.equal(E.hasChanges(session),false); assert.equal(E.commit(project,session),false);
+  assert.deepEqual(project,before); assert.deepEqual(M.validate(project),{errors:[],warnings:[]});
+  assert.deepEqual(S.readProject(assemble(project,await loadBundle())),before);
+  M.updateInterface(session.project,module.id,api.id,{englishName:'createTask'});
+  E.commit(project,session);
+  before.modules[0].interfaces[0].englishName = 'createTask';
+  before.modules[0].status = before.modules[0].interfaces[0].status = 'modified';
+  assert.deepEqual(project,before,'adding one bilingual name leaves legacy data and absent groups untouched');
+});
+
+test('新分组中的坏结构、重复 ID 或非文字字段不能部分提交',() => {
+  const patches = [
+    {parameters:null}, {events:{}}, {tests:[null]}, {englishName:{trim:42}}, {codeLocation:42},
+    {parameters:[{...M.createParameter(),defaultValue:3}]},
+    {events:[{...M.createEvent(),direction:'invalid'}]},
+    {events:[{...M.createEvent(),parameters:[null]}]},
+    {tests:[{...M.createTest(),expected:[]}]}
+  ];
+  for (const patch of patches) {
+    const {project,module} = fixture(), before = structuredClone(project), session = E.begin(project,module.id);
+    Object.assign(session.module,patch);
+    assert.doesNotThrow(() => M.validate(session.project));
+    assert.throws(() => E.commit(project,session)); assert.deepEqual(project,before);
+  }
+  const {project,module,api} = fixture(), session = E.begin(project,module.id);
+  session.module.events = [{...M.createEvent(),id:api.id}];
+  assert.throws(() => E.commit(project,session),/标识重复/);
+});
+
+test('仅填英文名可用，新增成员修改只标记所属模块且拒绝未知分组',() => {
+  const {project,module,other} = fixture();
+  module.name = ''; module.englishName = 'TaskModule';
+  const parameter = {...M.createParameter(),englishName:'enabled',description:'是否启用',type:'boolean'};
+  module.parameters = [parameter];
+  assert.deepEqual(M.validate(project),{errors:[],warnings:[]});
+  assert.equal(M.displayName(module),'TaskModule'); assert.equal(M.displayName(parameter),'enabled');
+  assert.equal(M.displayName({name:42,englishName:[]},'未命名'),'未命名');
+  const oldOther = structuredClone(other);
+  M.updateMember(project,module.id,'parameters',parameter.id,{defaultValue:'true'});
+  assert.equal(module.status,'modified'); assert.deepEqual(other,oldOther);
+  assert.equal(M.updateMember(project,module.id,'events','missing',{}),null);
+  assert.throws(() => M.updateMember(project,module.id,'sources',parameter.id,{}),/不支持/);
+  assert.deepEqual(M.validate(project).errors,[]);
+});

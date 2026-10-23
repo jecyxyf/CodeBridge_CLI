@@ -12,7 +12,7 @@ test('草稿提示说明模块、接口和参数位置，修正后消失',() => 
   const result = Model.validate(project);
   assert.deepEqual(result.errors,[]);
   assert.equal(Feedback.formatWarnings(project,result.warnings),
-    '草稿还有 3 处待补充（可以保存）：\n模块 1“任务模块” / 模块职责：内容尚未填写\n模块 1“任务模块” / 接口 1“createTask” / 接口用途：内容尚未填写\n模块 1“任务模块” / 接口 1“createTask” / 输入参数 1“title” / 参数说明：内容尚未填写');
+    '草稿还有 3 处待补充（可以保存）：\n模块 1“任务模块” / 模块职责：内容尚未填写\n模块 1“任务模块” / 方法 1“createTask” / 方法用途：内容尚未填写\n模块 1“任务模块” / 方法 1“createTask” / 输入参数 1“title” / 参数说明：内容尚未填写');
   module.purpose = '管理任务'; entry.purpose = '创建任务'; entry.inputs[0].description = '任务名称';
   assert.equal(Feedback.formatWarnings(project,Model.validate(project).warnings),'');
 });
@@ -26,4 +26,14 @@ test('提示区分重名、未命名项，保留不认识的检查位置',() => 
   for (const location of ['项目 / 项目名称','项目 / 项目用途','分组 1“未命名” / 分组名称','模块 1“任务” / 模块职责','模块 2“任务” / 模块职责']) assert.ok(text.includes(location),location);
   assert.ok(!text.includes('关系说明'));
   assert.match(Feedback.formatWarnings(project,[{path:'future.field',message:'请补充'}]),/future\.field：请补充/);
+});
+
+test('新分组中的待补充提示指向参数、事件数据和测试项',() => {
+  const project = Model.createProject('提示'); project.description = '新增分组';
+  const module = Model.createModule({name:'任务模块',purpose:'任务处理'});
+  const parameter = {...Model.createParameter(),englishName:'limit',type:'number'};
+  const event = {...Model.createEvent(),englishName:'done',description:'完成事件',parameters:[{...Model.createParameter(),englishName:'result',type:'string'}]};
+  module.parameters = [parameter]; module.events = [event]; module.tests = [{...Model.createTest(),name:'正常完成'}]; project.modules = [module];
+  const text = Feedback.formatWarnings(project,Model.validate(project).warnings);
+  for (const expected of ['参数 1“limit” / 参数说明','事件 1“done” / 参数 1“result” / 参数说明','测试项 1“正常完成” / 测试步骤','测试项 1“正常完成” / 预期结果']) assert.ok(text.includes(expected),expected);
 });

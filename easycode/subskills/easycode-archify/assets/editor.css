@@ -339,42 +339,6 @@ label.field>input,label.field>textarea,label.field>select {
   font-size: 12px;
   padding: 4px 7px
 }
-.interface-editor {
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  overflow: hidden
-}
-.interface-heading {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  background: #263449;
-  padding: 5px
-}
-.interface-name {
-  flex: 1;
-  min-width: 0;
-  text-align: left;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  font-family: Consolas,"Courier New",monospace;
-  font-size: 12px;
-  line-height: 1.5
-}
-.interface-heading>.interface-toggle {
-  border: 0;
-  background: transparent
-}
-.interface-heading>.danger-text {
-  padding: 4px 7px;
-  border: 0;
-  background: transparent
-}
-.interface-body {
-  padding: 10px;
-  display: grid;
-  gap: 12px
-}
 .parameter-list {
   display: grid;
   gap: 7px
@@ -676,17 +640,42 @@ dialog.module-dialog {
   overflow: auto;
   overscroll-behavior: contain
 }
-.module-editor,.interface-list {
+.module-editor,.member-list {
   display: grid;
-  gap: 16px;
+  gap: 10px;
   min-width: 0
 }
-.module-basics,.module-interfaces {
-  padding: 16px;
+.editor-fold {
+  min-width: 0;
   background: #1c2533;
   border: 1px solid var(--line);
   border-radius: 6px
 }
+.fold-heading {display: flex; align-items: center; gap: 6px; padding-right: 8px}
+.fold-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  white-space: normal
+}
+.fold-icon {display: flex; flex-shrink: 0}
+.fold-title {flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.5}
+.fold-count {color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums}
+.fold-count:empty {display: none}
+.fold-body {display: grid; gap: 12px; padding: 14px; border-top: 1px solid var(--line); min-width: 0}
+.member-editor {background: #192331}
+.member-editor .fold-toggle {font-size: 12px}
+.bilingual-fields {display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px}
+.bilingual-fields input {min-width: 0}
+.module-editor .empty-note {margin: 0}
+.group-add,.member-delete {flex-shrink: 0}
+.group-add:hover {border-color: var(--blue)}
 .module-dialog .dialog-actions {
   padding: 14px 24px;
   border-top: 1px solid var(--line)

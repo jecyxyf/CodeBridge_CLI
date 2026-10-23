@@ -44,7 +44,7 @@
       if (!module || !Object.hasOwn(portNames,port)) return false;
       if (project.modules.length < 2) {start(); return false;}
       source = {moduleId,port}; active = true;
-      publish(`起点：${module.name || '未命名模块'}（${portNames[port]}）· 拖到另一个模块的圆点后松开 · Esc 取消`);
+      publish(`起点：${EC.Model.displayName(module,'未命名模块')}（${portNames[port]}）· 拖到另一个模块的圆点后松开 · Esc 取消`);
       return true;
     }
     function complete(moduleId,port) {
@@ -196,7 +196,7 @@
           entry = {group,line,hit,label}; relationElements.set(relation.id,entry); edgeLayer.insertBefore(group,preview);
         }
         const {group,line,hit,label} = entry; entry.point = point;
-        group.setAttribute('aria-label',`${from.name} → ${to.name}：${relation.label || '无备注'}；双击编辑备注`);
+        group.setAttribute('aria-label',`${EC.Model.displayName(from,'未命名模块')} → ${EC.Model.displayName(to,'未命名模块')}：${relation.label || '无备注'}；双击编辑备注`);
         group.classList.toggle('selected',selectedRelation === relation.id); group.setAttribute('aria-pressed',String(selectedRelation === relation.id));
         line.setAttribute('d',path); hit.setAttribute('d',path);
         label.setAttribute('y',point.y); label.classList.toggle('is-empty',!relation.label);
@@ -330,7 +330,7 @@
         event.preventDefault();
         const relation = project.relations.find(item => item.id === selectedRelation);
         if (!relation) return;
-        const name = id => project.modules.find(item => item.id === id)?.name || '未命名模块';
+        const name = id => EC.Model.displayName(project.modules.find(item => item.id === id),'未命名模块');
         if (!confirm(`删除箭头“${name(relation.from)} → ${name(relation.to)}”${relation.label ? `（${relation.label}）` : ''}？`)) return;
         if (EC.Model.removeRelation(project,relation.id)) {selectedRelation = ''; onChange({semantic:true,render:false}); viewport.focus({preventScroll:true});}
       }

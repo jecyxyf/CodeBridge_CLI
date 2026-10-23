@@ -39,7 +39,7 @@
         const module = project.modules.find(item => item.id === id);
         if (!module) return false;
         const count = project.relations.filter(item => item.from === id || item.to === id).length;
-        if (!confirm(`删除模块“${module.name || '未命名模块'}”？同时删除 ${count} 条关联关系及模块内全部接口。`)) return false;
+        if (!confirm(`删除模块“${EC.Model.displayName(module,'未命名模块')}”？同时删除 ${count} 条关联关系及模块内全部对外接口内容。`)) return false;
         return EC.Model.removeModule(project,id);
       }} : null,{className:'module-dialog',noValidate:true});
       moduleSession = session;

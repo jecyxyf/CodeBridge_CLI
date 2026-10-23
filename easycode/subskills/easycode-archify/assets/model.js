@@ -19,19 +19,22 @@
   }
   function createModule(options = {}) {
     return {
-      id: id('module'), name: options.name ?? '', purpose: options.purpose ?? '', groupId: options.groupId ?? '',
-      x: options.x ?? 0, y: options.y ?? 0, status: 'planned', sources: [], unknowns: [], interfaces: []
+      id: id('module'), name: options.name ?? '', englishName: '', purpose: options.purpose ?? '', codeLocation: '', groupId: options.groupId ?? '',
+      x: options.x ?? 0, y: options.y ?? 0, status: 'planned', sources: [], unknowns: [], interfaces: [], parameters: [], events: [], tests: []
     };
   }
   function createInterface() {
     return {
-      id: id('interface'), name: '', purpose: '', status: 'planned', sources: [], unknowns: [],
+      id: id('interface'), name: '', englishName: '', purpose: '', flow: '', errors: '', status: 'planned', sources: [], unknowns: [],
       inputsConfirmed: false, outputsConfirmed: false, inputs: [], outputs: []
     };
   }
   function createParameter() {
-    return {id: id('param'), name: '', type: '未知', required: false, description: ''};
+    return {id: id('param'), name: '', englishName: '', type: '未知', required: false, description: '', defaultValue: ''};
   }
+  function createEvent() {return {id:id('event'),name:'',englishName:'',description:'',direction:'emit',trigger:'',parameters:[]};}
+  function createTest() {return {id:id('test'),name:'',steps:'',expected:''};}
+  function displayName(item,fallback = '') {return (typeof item?.name === 'string' && item.name.trim()) || (typeof item?.englishName === 'string' && item.englishName.trim()) || fallback;}
   function markEdited(item) {
     if (item?.status === 'verified') item.status = 'modified';
     return item;
@@ -50,7 +53,7 @@
   function updateModule(project, moduleId, patch) {
     const module = project.modules.find(item => item.id === moduleId);
     if (!module) return null;
-    applyPatch(module, patch, ['name','purpose','groupId','x','y','status','sources','unknowns','interfaces'], ['groupId','x','y']);
+    applyPatch(module, patch, ['name','englishName','purpose','codeLocation','groupId','x','y','status','sources','unknowns','interfaces','parameters','events','tests'], ['groupId','x','y']);
     if (Array.isArray(patch?.interfaces)) {
       const interfaceIds = new Set(project.modules.flatMap(item => item.interfaces.map(entry => entry.id)));
       project.view.expandedInterfaces = project.view.expandedInterfaces.filter(value => interfaceIds.has(value));
@@ -61,7 +64,19 @@
     const module = project.modules.find(item => item.id === moduleId);
     const item = module?.interfaces.find(entry => entry.id === interfaceId);
     if (!item) return null;
-    if (applyPatch(item, patch, ['name','purpose','status','sources','unknowns','inputsConfirmed','outputsConfirmed','inputs','outputs'])) markEdited(module);
+    if (applyPatch(item, patch, ['name','englishName','purpose','flow','errors','status','sources','unknowns','inputsConfirmed','outputsConfirmed','inputs','outputs'])) markEdited(module);
+    return item;
+  }
+  function updateMember(project,moduleId,collection,itemId,patch) {
+    const fields = {
+      parameters:['name','englishName','type','description','defaultValue','required'],
+      events:['name','englishName','description','direction','trigger','parameters'],
+      tests:['name','steps','expected']
+    };
+    if (!Object.hasOwn(fields,collection)) throw new Error('不支持的模块内容分组。');
+    const module = project.modules.find(item => item.id === moduleId), item = module?.[collection]?.find(item => item.id === itemId);
+    if (!item) return null;
+    if (applyPatch(item,patch,fields[collection])) markEdited(module);
     return item;
   }
   function removeModule(project, moduleId) {
@@ -148,6 +163,14 @@
       if (typeof value !== 'number' || !Number.isFinite(value) || (positive && value <= 0)) error(path, positive ? '应为大于零的有限数值' : '应为有限数值');
     }
     function boolean(value, path) { if (typeof value !== 'boolean') error(path, '应为 true 或 false'); }
+    function optionalText(item,fields,path) {
+      for (const field of fields) if (item[field] !== undefined) string(item[field],at(path,field));
+    }
+    function bilingualName(item,path) {
+      // Existing files keep their name field unchanged; either language may be filled first.
+      string(item.name,at(path,'name'),!(typeof item.englishName === 'string' && item.englishName.trim()));
+      optionalText(item,['englishName'],path);
+    }
     function enumeration(value, choices, path) { if (!choices.includes(value)) error(path, `应为 ${choices.join(' / ')}`); }
     function identity(value, path) {
       if (typeof value !== 'string' || !/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value)) {error(path, '标识须以字母开头，只能含字母、数字、下划线和短横线'); return;}
@@ -176,17 +199,30 @@
     }
     function parameter(value, path, input) {
       if (!record(value, path)) return;
-      identity(value.id, at(path,'id')); string(value.name, at(path,'name'), true);
+      identity(value.id, at(path,'id')); bilingualName(value,path);
       string(value.type, at(path,'type'), true); string(value.description, at(path,'description'), true);
+      optionalText(value,['defaultValue'],path);
       if (input || value.required !== undefined) boolean(value.required, at(path,'required'));
     }
     function interfaceItem(value, path) {
       if (!record(value, path)) return;
-      identity(value.id, at(path,'id')); string(value.name, at(path,'name'), true); string(value.purpose, at(path,'purpose'), true);
+      identity(value.id, at(path,'id')); bilingualName(value,path); string(value.purpose, at(path,'purpose'), true);
+      optionalText(value,['flow','errors'],path);
       evidence(value, path); boolean(value.inputsConfirmed, at(path,'inputsConfirmed')); boolean(value.outputsConfirmed, at(path,'outputsConfirmed'));
       for (const field of ['inputs','outputs']) {
         array(value[field], at(path,field)).forEach((entry, index) => parameter(entry, `${path}.${field}[${index}]`, field === 'inputs'));
       }
+    }
+    function eventItem(value,path) {
+      if (!record(value,path)) return;
+      identity(value.id,at(path,'id')); bilingualName(value,path); string(value.description,at(path,'description'),true);
+      enumeration(value.direction,['emit','receive'],at(path,'direction')); string(value.trigger,at(path,'trigger'));
+      array(value.parameters,at(path,'parameters')).forEach((entry,index) => parameter(entry,`${path}.parameters[${index}]`,false));
+    }
+    function testItem(value,path) {
+      if (!record(value,path)) return;
+      identity(value.id,at(path,'id')); string(value.name,at(path,'name'),true);
+      string(value.steps,at(path,'steps'),true); string(value.expected,at(path,'expected'),true);
     }
     if (!record(project, '$')) return {errors, warnings};
     if (project.formatVersion !== 1) error('formatVersion', '仅支持格式版本 1');
@@ -206,13 +242,17 @@
     });
     modules.forEach((module,index) => {
       const path = `modules[${index}]`; if (!record(module,path)) return;
-      identity(module.id,at(path,'id')); string(module.name,at(path,'name'),true); string(module.purpose,at(path,'purpose'),true);
+      identity(module.id,at(path,'id')); bilingualName(module,path); string(module.purpose,at(path,'purpose'),true);
+      optionalText(module,['codeLocation'],path);
       string(module.groupId,at(path,'groupId'));
       if (module.groupId !== '' && !groupIds.has(module.groupId)) error(at(path,'groupId'), '分组不存在');
       number(module.x,at(path,'x')); number(module.y,at(path,'y')); evidence(module,path);
       array(module.interfaces,at(path,'interfaces')).forEach((item,index) => {
         interfaceItem(item,`${path}.interfaces[${index}]`); if (object(item)) interfaceIds.add(item.id);
       });
+      for (const [field,check] of [['parameters',(item,path) => parameter(item,path,false)],['events',eventItem],['tests',testItem]]) {
+        if (module[field] !== undefined) array(module[field],at(path,field)).forEach((item,index) => check(item,`${path}.${field}[${index}]`));
+      }
     });
     const relationKeys = new Set();
     array(project.relations,'relations').forEach((relation,index) => {
@@ -239,5 +279,5 @@
     }
     return {errors, warnings};
   }
-  namespace.Model = {createProject,createModule,createInterface,createParameter,validate,markEdited,updateModule,updateInterface,removeModule,removeGroup,addRelation,updateRelation,removeRelation};
+  namespace.Model = {createProject,createModule,createInterface,createParameter,createEvent,createTest,displayName,validate,markEdited,updateModule,updateInterface,updateMember,removeModule,removeGroup,addRelation,updateRelation,removeRelation};
 })(globalThis);

@@ -23,7 +23,7 @@
     const removed = new Set(current?.interfaces.filter(entry => !module.interfaces.some(item => item.id === entry.id)).map(entry => entry.id));
     trial.view.expandedInterfaces = trial.view.expandedInterfaces.filter(id => !removed.has(id));
     const {errors} = EC.Model.validate(trial);
-    if (errors.length) throw new Error(`无法确定：${errors[0].message}。请检查层级、接口和代码出处。`);
+    if (errors.length) throw new Error(`无法确定：${errors[0].message}。请检查模块内容、层级和代码出处。`);
     if (current) Object.assign(current,module); else project.modules.push(module);
     project.view.expandedInterfaces = trial.view.expandedInterfaces;
     return true;
@@ -56,8 +56,55 @@
   function heading(text, action) {const node = element('div','section-heading',text); if (action) node.append(action); return node;}
   function create({session,confirm = message => root.confirm(message)}) {
     const {project,module} = session, editor = element('div','module-editor');
-    const expanded = new Set(project.view.expandedInterfaces);
-    const interfaces = element('div','interface-list');
+    let sectionId = 0;
+    const itemName = item => [item.name,item.englishName].filter(value => value?.trim()).join(' / ');
+    function fold(title,{open = false,key = '',className = ''} = {}) {
+      const section = element('section',`editor-fold ${className}`.trim()), header = element('div','fold-heading');
+      const toggle = element('button','fold-toggle'), icon = element('span','fold-icon'), name = element('span','fold-title'), count = element('span','fold-count');
+      const body = element('div','fold-body'); body.id = `${module.id}-section-${++sectionId}`;
+      toggle.type = 'button'; toggle.setAttribute('aria-controls',body.id); toggle.append(icon,name,count); header.append(toggle); section.append(header,body);
+      if (key) section.dataset.editorGroup = key;
+      function sync() {
+        body.hidden = !open; icon.replaceChildren(EC.Icons.create(open ? 'chevron-down' : 'chevron-right'));
+        name.textContent = title; toggle.setAttribute('aria-expanded',String(open)); toggle.setAttribute('aria-label',`${open ? '收起' : '展开'}${title}`);
+      }
+      function expand(value = true) {open = value; sync();}
+      toggle.addEventListener('click',() => expand(!open)); sync();
+      return {section,header,body,toggle,expand,setTitle(value) {title = value; sync();},setCount(value) {count.textContent = String(value);}};
+    }
+    function names(kind,item,patch) {
+      const row = element('div','bilingual-fields');
+      row.append(field(`${kind}中文名`,item.name,value => patch('name',value)),field(`${kind}英文名`,item.englishName,value => patch('englishName',value)));
+      return row;
+    }
+    function collection({title,key,kind,getItems,setItems,createItem,build,confirmDelete = false,afterChange = () => {}}) {
+      const group = fold(title,{key}), list = element('div','member-list'), empty = element('p','empty-note',`尚未添加${title}。`);
+      group.body.append(empty,list);
+      function syncCount() {group.setCount(getItems().length); empty.hidden = !!getItems().length; afterChange();}
+      function append(item,open = false) {
+        const row = fold(itemName(item) || `未命名${kind}`,{open,className:'member-editor'});
+        row.section.dataset.memberId = item.id;
+        if (key === 'methods') {
+          row.section.classList.add('interface-editor'); row.section.dataset.interfaceId = item.id;
+          row.body.classList.add('interface-body'); row.toggle.dataset.interfaceAction = 'toggle';
+        } else if (kind === '参数') row.section.dataset.parameterId = item.id;
+        row.header.append(button('trash',`删除${kind}`,() => {
+          const current = getItems().find(value => value.id === item.id);
+          if (confirmDelete && !confirm(`删除${kind}“${itemName(current) || `未命名${kind}`}”及其内容？`)) return;
+          setItems(getItems().filter(value => value.id !== item.id)); row.section.remove(); syncCount(); group.toggle.focus({preventScroll:true});
+        },'member-delete'));
+        build(item,row.body,() => row.setTitle(itemName(getItems().find(value => value.id === item.id)) || `未命名${kind}`));
+        list.append(row.section);
+        if (open) row.body.querySelector('input,textarea,select')?.focus({preventScroll:true});
+        return row;
+      }
+      group.header.append(button('add',`添加${title}`,() => {
+        const item = createItem(); setItems([...getItems(),item]); group.expand(); const row = append(item,true); syncCount();
+        row.section.scrollIntoView?.({block:'nearest'});
+      },'group-add'));
+      for (const item of getItems()) append(item);
+      syncCount(); return group;
+    }
     function update(module, entry, patch) {
       if (entry) EC.Model.updateInterface(project,module.id,entry.id,patch);
       else EC.Model.updateModule(project,module.id,patch);
@@ -115,61 +162,52 @@
       content.append(field('待确认事项（每行一项）',item.unknowns.join('\n'),value => update(module,entry,{unknowns:value.split('\n').filter(line => line.trim())}),'textarea'));
       return details;
     }
-    function parameters(module, entry, direction) {
-      const isInput = direction === 'inputs', label = isInput ? '输入' : '输出', confirmed = `${direction}Confirmed`;
-      const section = element('section','editor-section'), list = element('div','parameter-list'), note = element('p','empty-note');
-      function paintNote() {note.textContent = entry[confirmed] ? (entry[direction].length ? `已确认 ${entry[direction].length} 项${label}` : `已确认：无${label}参数`) : `${label}尚未确认${entry[direction].length ? '，下方为已记录的草稿' : '，不代表无参数'}`;}
-      function paintRows() {
-        list.replaceChildren(); paintNote();
-        entry[direction].forEach(parameter => {
-          const row = element('div','parameter-row'); row.dataset.parameterId = parameter.id;
-          const patch = (key,value) => update(module,entry,{[direction]:entry[direction].map(item => item.id === parameter.id ? {...item,[key]:value} : item)});
-          row.append(field('参数名',parameter.name,value => patch('name',value)),field('类型',parameter.type,value => patch('type',value)));
-          const description = field('参数说明',parameter.description,value => patch('description',value),'textarea'); description.classList.add('wide'); row.append(description);
-          const bottom = element('div','row-bottom wide');
-          if (isInput) bottom.append(check('必填',parameter.required,value => patch('required',value)));
-          bottom.append(button('trash','删除参数',() => {update(module,entry,{[direction]:entry[direction].filter(item => item.id !== parameter.id)}); paintRows();},'danger-text'));
-          row.append(bottom); list.append(row);
-        });
-      }
-      section.append(heading(label,button('add',`添加${label}`,() => {update(module,entry,{[direction]:[...entry[direction],EC.Model.createParameter()]}); paintRows();})),check(`已确认${label}`,entry[confirmed],value => {update(module,entry,{[confirmed]:value}); paintNote();}),note,list);
-      paintRows(); return section;
+    function parameterFields(item,body,patch,{required = false,defaults = false} = {}) {
+      body.append(names('参数',item,patch),field('类型',item.type,value => patch('type',value)),field('参数说明',item.description,value => patch('description',value),'textarea'));
+      if (defaults) body.append(field('默认值（选填）',item.defaultValue,value => patch('defaultValue',value)));
+      if (required) body.append(check('必填',item.required,value => patch('required',value)));
     }
-    function interfaceEditor(module, entry) {
-      const section = element('section','interface-editor'); section.dataset.interfaceId = entry.id;
-      const header = element('div','interface-heading'), body = element('div','interface-body'), name = element('span','interface-name');
-      const toggle = button('chevron-right','展开接口',() => {
-        if (expanded.has(entry.id)) expanded.delete(entry.id); else expanded.add(entry.id);
-        syncToggle();
-      },'interface-toggle'); toggle.dataset.interfaceAction = 'toggle';
-      function syncToggle() {
-        body.hidden = !expanded.has(entry.id); name.textContent = entry.name || '未命名接口';
-        EC.Icons.set(toggle,body.hidden ? 'chevron-right' : 'chevron-down',`${body.hidden ? '展开' : '收起'}接口：${name.textContent}`); toggle.setAttribute('aria-expanded',String(!body.hidden));
-      }
-      header.append(toggle,name,button('trash','删除接口',() => {
-        if (!confirm(`删除接口“${entry.name || '未命名接口'}”及其参数？`)) return;
-        update(module,null,{interfaces:module.interfaces.filter(item => item.id !== entry.id)}); expanded.delete(entry.id); paintInterfaces();
-      },'danger-text'));
-      body.append(field('接口名称 / 签名',entry.name,value => {update(module,entry,{name:value}); syncToggle();}),field('接口用途',entry.purpose,value => update(module,entry,{purpose:value}),'textarea'));
-      const state = element('span','module-status',statusNames[entry.status]); state.dataset.editorStatus = entry.id; body.append(state);
-      body.append(parameters(module,entry,'inputs'),parameters(module,entry,'outputs'),evidence(module,entry));
-      section.append(header,body); syncToggle(); return section;
+    function parameterGroup({title,key,getItems,setItems,required = false,defaults = false,afterChange}) {
+      return collection({title,key,kind:'参数',getItems,setItems,createItem:EC.Model.createParameter,afterChange,
+        build(item,body,rename) {
+          parameterFields(item,body,(key,value) => {setItems(getItems().map(current => current.id === item.id ? {...current,[key]:value} : current)); rename();},{required,defaults});
+        }});
     }
-    const basics = element('section','editor-section module-basics');
+    function methodParameters(entry,direction) {
+      const isInput = direction === 'inputs', title = isInput ? '输入参数' : '返回结果', confirmed = `${direction}Confirmed`, note = element('p','empty-note');
+      function paintNote() {note.textContent = entry[confirmed] ? (entry[direction].length ? `已确认 ${entry[direction].length} 项${title}` : `已确认：无${title}`) : `${title}尚未确认，不代表没有。`;}
+      const group = parameterGroup({title,key:direction,getItems:() => entry[direction],setItems:items => update(module,entry,{[direction]:items}),required:isInput,defaults:isInput,afterChange:paintNote});
+      group.body.prepend(check(`已确认${title}`,entry[confirmed],value => {update(module,entry,{[confirmed]:value}); paintNote();}),note);
+      return group.section;
+    }
+    function methodFields(entry,body,rename) {
+      body.append(names('方法',entry,(key,value) => {update(module,entry,{[key]:value}); rename();}),field('方法用途',entry.purpose,value => update(module,entry,{purpose:value}),'textarea'));
+      body.append(methodParameters(entry,'inputs'),methodParameters(entry,'outputs'));
+      const flow = fold('实现流程',{key:'flow'});
+      flow.body.append(field('实现流程（选填）',entry.flow,value => update(module,entry,{flow:value}),'textarea'));
+      body.append(flow.section,field('可能的错误（选填）',entry.errors,value => update(module,entry,{errors:value}),'textarea'));
+      const state = element('span','module-status',statusNames[entry.status]); state.dataset.editorStatus = entry.id;
+      body.append(state,evidence(module,entry));
+    }
+    const basics = fold('模块信息',{open:true,key:'basics',className:'module-basics'});
+    const location = field('代码位置',module.codeLocation ?? module.sources.map(source => `${source.path}${source.line ? `:${source.line}` : ''}`).join('\n'),value => update(module,null,{codeLocation:value}),'textarea');
     const state = element('span','module-status'); state.dataset.editorStatus = module.id;
-    basics.append(heading('基本信息'),field('模块名称',module.name,value => update(module,null,{name:value})),field('模块职责',module.purpose,value => update(module,null,{purpose:value}),'textarea'),select('所属层级',module.groupId,[['','不属于层级'],...project.groups.map(group => [group.id,group.name || '未命名层级'])],value => update(module,null,{groupId:value})),state);
-    const apiSection = element('section','editor-section module-interfaces');
-    function paintInterfaces() {
-      interfaces.replaceChildren();
-      if (!module.interfaces.length) interfaces.append(element('p','empty-note','尚未添加接口。'));
-      for (const entry of module.interfaces) interfaces.append(interfaceEditor(module,entry));
-      refreshStatus();
-    }
-    apiSection.append(heading('对外接口',button('add','添加接口',() => {
-      const entry = EC.Model.createInterface(); update(module,null,{interfaces:[...module.interfaces,entry]}); expanded.add(entry.id); paintInterfaces();
-    })),interfaces);
-    editor.append(element('p','dialog-note','修改后点击“确定”更新模块，再用顶部“保存”写入 HTML。'),basics,apiSection,evidence(module,null));
-    paintInterfaces(); return editor;
+    basics.body.append(names('模块',module,(key,value) => update(module,null,{[key]:value})),field('模块职责',module.purpose,value => update(module,null,{purpose:value}),'textarea'),location,select('所属层级',module.groupId,[['','不属于层级'],...project.groups.map(group => [group.id,group.name || '未命名层级'])],value => update(module,null,{groupId:value})),state,evidence(module,null));
+    const parameters = parameterGroup({title:'参数',key:'parameters',getItems:() => module.parameters || [],setItems:items => update(module,null,{parameters:items}),defaults:true});
+    const methods = collection({title:'方法',key:'methods',kind:'方法',getItems:() => module.interfaces,setItems:items => update(module,null,{interfaces:items}),createItem:EC.Model.createInterface,confirmDelete:true,build:methodFields});
+    const events = collection({title:'消息事件',key:'events',kind:'事件',getItems:() => module.events || [],setItems:items => update(module,null,{events:items}),createItem:EC.Model.createEvent,confirmDelete:true,
+      build(entry,body,rename) {
+        const patch = (key,value) => {EC.Model.updateMember(project,module.id,'events',entry.id,{[key]:value}); refreshStatus();};
+        body.append(names('事件',entry,(key,value) => {patch(key,value); rename();}),field('事件说明',entry.description,value => patch('description',value),'textarea'),select('事件方向',entry.direction,[['emit','发出'],['receive','接收']],value => patch('direction',value)),field('触发条件',entry.trigger,value => patch('trigger',value),'textarea'));
+        body.append(parameterGroup({title:'携带的数据',key:'payload',getItems:() => entry.parameters,setItems:items => patch('parameters',items)}).section);
+      }});
+    const tests = collection({title:'测试项',key:'tests',kind:'测试项',getItems:() => module.tests || [],setItems:items => update(module,null,{tests:items}),createItem:EC.Model.createTest,confirmDelete:true,
+      build(entry,body,rename) {
+        const patch = (key,value) => {EC.Model.updateMember(project,module.id,'tests',entry.id,{[key]:value}); refreshStatus();};
+        body.append(field('测试名称',entry.name,value => {patch('name',value); rename();}),field('测试步骤',entry.steps,value => patch('steps',value),'textarea'),field('预期结果',entry.expected,value => patch('expected',value),'textarea'));
+      }});
+    editor.append(element('p','dialog-note','点击组标题展开或收起。修改后点“确定”，再用顶部“保存”写入 HTML。'),basics.section,heading('对外接口'),parameters.section,methods.section,events.section,tests.section);
+    refreshStatus(); return editor;
   }
   EC.ModuleEditor = {begin,hasChanges,commit,create};
 })(globalThis);
