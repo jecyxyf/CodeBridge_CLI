@@ -40,13 +40,13 @@
       const node = elements.get(module.id); if (!node) return;
       node.querySelector('.module-name').textContent = module.name || '未命名模块';
       node.querySelector('.module-purpose').textContent = module.purpose || '展开模块，补充它负责的事情。';
-      const state = node.querySelector('.module-status'); state.textContent = statusNames[module.status]; state.dataset.status = module.status;
+      const state = node.querySelector('[data-module-status]'); state.textContent = statusNames[module.status]; state.dataset.status = module.status;
       const summary = node.querySelector('.module-summary'); summary.replaceChildren();
       if (!module.interfaces.length) summary.append(element('span','empty-note','尚未添加对外接口'));
       for (const entry of module.interfaces) summary.append(element('div','interface-preview',entry.name || '未命名接口'));
       for (const label of node.querySelectorAll('[data-interface-status]')) {
         const entry = module.interfaces.find(item => item.id === label.dataset.interfaceStatus);
-        if (entry) label.textContent = statusNames[entry.status];
+        if (entry) {label.textContent = statusNames[entry.status]; label.dataset.status = entry.status;}
       }
       // Updating badges never replaces the control receiving keystrokes.
       for (const control of node.querySelectorAll('[data-status-owner]')) {

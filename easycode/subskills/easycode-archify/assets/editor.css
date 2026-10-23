@@ -505,12 +505,18 @@ nav,.save-actions {
 #ec-status[data-status=saved] {
   color: #92c9b8
 }
-#ec-notice {
+#ec-feedback {
   position: absolute;
   right: 20px;
   top: 82px;
   z-index: 10;
   max-width: 480px;
+  max-height: calc(100vh - 150px);
+  overflow: auto;
+  display: grid;
+  gap: 8px
+}
+#ec-notice,#ec-warnings {
   padding: 12px 16px;
   background: #3c2d31;
   border: 1px solid #87585f;
@@ -518,6 +524,13 @@ nav,.save-actions {
   border-radius: 6px;
   white-space: pre-wrap;
   font-size: 12px
+}
+#ec-warnings {
+  background: #332e22;
+  border-color: #887449;
+  color: #e8d4a6;
+  max-height: 28vh;
+  overflow: auto
 }
 #ec-empty {
   position: absolute;
@@ -629,7 +642,7 @@ dialog .dialog-actions .danger-text {
     gap: 4px;
     padding: 0 6px
   }
-  #ec-notice {
+  #ec-feedback {
     top: 118px;
     left: 12px;
     right: 12px

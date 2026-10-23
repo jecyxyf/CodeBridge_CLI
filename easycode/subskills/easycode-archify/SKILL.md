@@ -24,10 +24,11 @@ Run these commands from this skill's directory, replacing the example paths with
 ```powershell
 node scripts/build.mjs examples/task-board.json examples/task-board.html
 node scripts/check.mjs examples/task-board.html
-node --test tests/*.test.mjs
 ```
 
 The JSON is an agent-side build input, not a second file the user must maintain. Deliver the HTML. `examples/task-board.*` is a design example, not evidence about real code. Webpage and module templates are maintained separately in `templates/canvas.html` and `templates/module-node.html`.
+
+For ordinary canvas authoring, build, check, and read back the project data. Run `node --test tests/*.test.mjs` when changing this package's code, templates, or tooling; it is not a step for every generated canvas.
 
 ## Update an existing HTML
 

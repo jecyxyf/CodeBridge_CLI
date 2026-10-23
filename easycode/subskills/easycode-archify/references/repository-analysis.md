@@ -2,7 +2,9 @@
 
 The agent reads source; the HTML only records and edits findings. Start with the user's scope and existing canvas, if supplied. Inspect repository instructions and the relevant source files before naming interfaces or relationships. Use `rg` to locate definitions and callers, then read their surrounding code; a filename or search hit alone is not enough.
 
-Record `repository.path` and the exact source revision (normally `git rev-parse HEAD`). Set `repository.dirty` from the whole repository's uncommitted changes (`git status --porcelain`), not just the inspected files. Separately check and explain whether cited files match that revision using file diffs or hashes; describe changed source files in project description/unknowns. Store portable repository-relative paths and 1-based line ranges in `sources`; include a symbol when useful. Line numbers describe the recorded revision and need rechecking after changes.
+Record `repository.path`. For Git sources, record `git rev-parse HEAD` in `repository.revision` as a baseline, then check whether the cited files match it. Set `repository.dirty` from the entire actual repository worktree (`git status --porcelain`), not just the inspected files or the use of a local snapshot. Git HEAD alone does not prove the contents of modified, untracked, or ignored files.
+
+Store portable repository-relative paths and 1-based line ranges in `sources`; include a symbol when useful. Lines describe the exact bytes you actually read, which may differ from HEAD. For modified, untracked, or ignored source, record file diffs and/or content hashes and explain the snapshot in project description/unknowns. For a non-Git directory, `repository.revision` may be empty: disclose that no Git revision is available and record snapshot details or file hashes instead. Do not invent revision evidence or use `repository.dirty` as a generic snapshot flag. Recheck line ranges and hashes after source changes.
 
 | Claim | Evidence required before marking verified |
 | --- | --- |

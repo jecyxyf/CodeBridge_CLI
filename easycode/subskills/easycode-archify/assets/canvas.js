@@ -87,7 +87,7 @@
       view.scale = next; view.x = x - wx * next; view.y = y - wy * next; refresh(); changed();
     }
     function zoomBy(factor) {zoomAt(factor,viewport.clientWidth / 2,viewport.clientHeight / 2);}
-    function fit() {
+    function fit({notify = true} = {}) {
       const bounds = [...project.modules.map(nodeBounds),...project.groups.map(groupBounds)];
       if (!bounds.length) {view.x = 0; view.y = 0; view.scale = 1;}
       else {
@@ -97,7 +97,7 @@
         view.x = (viewport.clientWidth - width * view.scale) / 2 - left * view.scale;
         view.y = (viewport.clientHeight - height * view.scale) / 2 - top * view.scale;
       }
-      refresh(); changed();
+      refresh(); if (notify) changed();
     }
     listen(viewport,'wheel',event => {
       // Text boxes and selects retain normal scrolling and selection behavior.

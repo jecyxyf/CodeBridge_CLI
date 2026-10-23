@@ -1,7 +1,7 @@
 (function (root) {
   'use strict';
   const EC = root.EasyCode ||= {};
-  function create({project,onChange = () => {}}) {
+  function create({project,onChange = () => {},confirm = message => root.confirm(message)}) {
     const dialog = document.getElementById('ec-dialog');
     function node(tag,text,className) {const result = document.createElement(tag); if (text !== undefined) result.textContent = text; if (className) result.className = className; return result;}
     function input(form,label,value,options) {
@@ -56,7 +56,12 @@
           if (project.relations.some(item => item.id !== relation.id && ['from','to','type','label'].every(key => item[key] === patch[key]))) throw new Error('这条关系已经存在。');
           if (Object.entries(patch).some(([key,value]) => relation[key] !== value)) {Object.assign(relation,patch); EC.Model.markEdited(relation);}
         } else EC.Model.addRelation(project,patch);
-      },relation ? {label:'删除关系',run() {project.relations = project.relations.filter(item => item.id !== relation.id);}} : null);
+      },relation ? {label:'删除关系',run() {
+        if (!project.relations.includes(relation)) return false;
+        const name = id => project.modules.find(module => module.id === id)?.name || '未命名模块';
+        if (!confirm(`删除关系“${name(relation.from)} → ${name(relation.to)}”（${relation.type === 'call' ? '调用' : '依赖'}：${relation.label || '无说明'}）？`)) return false;
+        project.relations = project.relations.filter(item => item.id !== relation.id);
+      }} : null);
     }
     function editProject() {
       open('项目设置',form => ({

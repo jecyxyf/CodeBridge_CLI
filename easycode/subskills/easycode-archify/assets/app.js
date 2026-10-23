@@ -8,6 +8,13 @@
     root.addEventListener('unhandledrejection',event => {event.preventDefault(); showError(event.reason);});
     try {
       const project = JSON.parse(get('ec-project').textContent), bundle = JSON.parse(get('ec-bundle').textContent);
+      const validation = EC.Model.validate(project);
+      if (validation.errors.length) throw new Error(`项目数据有问题：${validation.errors[0].message}`);
+      function refreshWarnings() {
+        const warnings = get('ec-warnings');
+        warnings.textContent = EC.Feedback.formatWarnings(project,EC.Model.validate(project).warnings);
+        warnings.hidden = !warnings.textContent;
+      }
       const fileTypes = [{description:'模块画布 HTML',accept:{'text/html':['.html']}}];
       const supported = typeof root.showOpenFilePicker === 'function' && typeof root.showSaveFilePicker === 'function';
       // Capture the original embedded project before any layout, fit or UI edits.
@@ -21,11 +28,10 @@
           get('ec-status').textContent = state.message; get('ec-status').dataset.status = state.status;
           get('ec-file-name').textContent = state.fileName || '尚未选定文件';
           if (state.status === 'error') showError(state.message);
+          refreshWarnings();
           document.title = `${state.dirty ? '● ' : ''}${project.name || '模块画布'}`;
         }
       });
-      const validation = EC.Model.validate(project);
-      if (validation.errors.length) throw new Error(`项目数据有问题：${validation.errors[0].message}`);
       let canvas, nodes;
       function refreshHeader() {
         get('ec-project-name').textContent = project.name || '未命名项目';
@@ -44,7 +50,7 @@
       canvas = EC.Canvas.create({project,viewport:get('ec-viewport'),world:get('ec-world'),groupLayer:get('ec-groups'),edgeLayer:get('ec-edges'),nodes,onChange,onGroupEdit:dialogs.editGroup,onRelationEdit:dialogs.editRelation});
       refreshHeader();
       // Preserve a saved view. New projects with the default view start with all modules visible.
-      if (project.view.x === 0 && project.view.y === 0 && project.view.scale === 1 && project.modules.length) canvas.fit();
+      if (project.view.x === 0 && project.view.y === 0 && project.view.scale === 1 && project.modules.length) canvas.fit({notify:false});
       function save(asNew) {
         if (!supported) {showError('此浏览器不能直接写入本地文件。请使用新版桌面 Chrome 或 Edge 打开此 HTML。'); return;}
         notice.hidden = true;

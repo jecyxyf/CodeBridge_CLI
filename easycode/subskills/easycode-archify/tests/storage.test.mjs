@@ -58,8 +58,22 @@ test('原文件覆盖，另存成功后保存只更新新文件，完整项目�
 });
 
 test('首次绑定比较创建时的完整基线，之后画布适配不改变基线',async()=>{
-  const f=setup(); f.project.view={...f.project.view,x:100,y:200,scale:0.5}; edit(f,'页面新名称');
+  const f=setup(); f.project.view={...f.project.view,x:100,y:200,scale:0.5};
+  assert.equal(f.controller.isDirty(),false,'仅启动时适配视野，保存控制器仍然干净');
   await f.controller.save(); assert.equal(f.file.content,documentFor(f.project));
+  edit(f,'页面新名称');
+  await f.controller.save(); assert.equal(f.file.content,documentFor(f.project));
+});
+
+test('缺少模块职责和接口用途的草稿可保存，修正后没有警告',async()=>{
+  const project=Model.createProject('任务板'); project.description='管理任务';
+  const module=Model.createModule({name:'任务模块'}), entry=Model.createInterface(); entry.name='createTask';
+  module.interfaces=[entry]; project.modules=[module]; const f=setup({project});
+  await f.controller.save();
+  assert.equal(f.states.at(-1).status,'saved'); assert.equal(f.controller.isDirty(),false);
+  assert.deepEqual(Model.validate(Serialization.readProject(f.file.content)).warnings.map(item=>item.path),['modules[0].purpose','modules[0].interfaces[0].purpose']);
+  module.purpose='管理任务'; entry.purpose='创建任务'; f.controller.markDirty(); await f.controller.save();
+  assert.deepEqual(Model.validate(Serialization.readProject(f.file.content)).warnings,[]);
 });
 
 test('首次绑定拒绝同 ID 但已被外部改动的项目，并保留全部数据',async()=>{
