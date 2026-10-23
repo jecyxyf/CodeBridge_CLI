@@ -68,6 +68,7 @@ templates/module-node.html
 assets/model.js
 assets/serialization.js
 assets/storage.js
+assets/feedback.js
 assets/nodes.js
 assets/canvas.js
 assets/dialogs.js
@@ -82,13 +83,14 @@ references/repository-analysis.md
 tests/model.test.mjs
 tests/serialization.test.mjs
 tests/storage.test.mjs
+tests/feedback.test.mjs
 tests/browser.test.mjs
 tests/helpers/cdp.mjs
 ```
 
 运行脚本使用 IIFE 注册到 `globalThis.EasyCode`；不使用动态代码求值、网络导入或浏览器中的外部模块。Node 测试导入脚本后访问同一命名空间，不复制生产逻辑。
 
-数据格式固定如下。标识由创建函数生成，`status` 使用 `planned / verified / modified`，`mode` 使用 `design / change / analysis`。源码出处对象为 `{path, line?, endLine?, symbol?}`。所有模块与接口的 `sources`、`unknowns` 都是数组。参数为 `{id,name,type,required,description}`，输出同形但忽略 required。
+数据格式固定如下。标识由创建函数生成，`status` 使用 `planned / verified / modified`，`mode` 使用 `design / change / analysis`，关系 type 使用 `call / dependency`，未分组 groupId 为空字符串。源码出处对象为 `{path, line?, endLine?, symbol?}`。所有模块与接口的 `sources`、`unknowns` 都是数组；verified 必须至少有一个合法出处，缺失属于 error。参数为 `{id,name,type,required,description}`，输出同形但忽略 required。
 
 ```js
 const project = {
@@ -126,9 +128,9 @@ const project = {
 
 **Files:** Create `assets/model.js`, `assets/serialization.js`, `scripts/build.mjs`, `scripts/check.mjs`, `examples/task-board.json`, `tests/model.test.mjs`, `tests/serialization.test.mjs`。
 
-**Interfaces:** 实现上述 Model 和 Serialization API；组装命令为 `node scripts/build.mjs <project.json> <output.html>`。默认依次合并 model、serialization、storage、nodes、canvas、dialogs、app 脚本；也导出 `assemble(project, bundle)` 供测试提供小型 bundle。Task 3 才提供真实 UI 模板，之前用测试内的最小真实模板测试序列化。
+**Interfaces:** 实现上述 Model 和 Serialization API；组装命令为 `node scripts/build.mjs <project.json> <output.html>`。默认依次合并 model、serialization、storage、feedback、nodes、canvas、dialogs、app 脚本；也导出 `assemble(project, bundle)` 供测试提供小型 bundle。Task 3 才提供真实 UI 模板，之前用测试内的最小真实模板测试序列化。
 
-- [ ] **Step 1: 写会失败的行为测试。** 至少包含以下完整场景，并补齐非法结构、关系、重命名、核对状态、无参数与待确认的区别。
+- [x] **Step 1: 写会失败的行为测试。** 至少包含以下完整场景，并补齐非法结构、关系、重命名、核对状态、无参数与待确认的区别。
 
 ```js
 import test from 'node:test';
@@ -160,8 +162,8 @@ test('恶意 HTML 是文本且多次保存不增长',()=>{
 });
 ```
 
-- [ ] **Step 2: 运行 RED。** `node --test tests/model.test.mjs tests/serialization.test.mjs`，实现前预期因模块/API 缺失失败，记录输出。
-- [ ] **Step 3: 实现模型和序列化。** 使用稳定 ID、已声明枚举，删除 group 只清空成员 groupId，删除 module 清掉关联的 relations 和展开状态。验证草稿与错误分级。JSON 序列化转义 `< > & U+2028 U+2029`，标题 HTML 转义；readProject 只接受唯一的指定数据块和合法数据版本。实现时以这个安全基本函数为准：
+- [x] **Step 2: 运行 RED。** `node --test tests/model.test.mjs tests/serialization.test.mjs`，实现前预期因模块/API 缺失失败，记录输出。
+- [x] **Step 3: 实现模型和序列化。** 使用稳定 ID、已声明枚举，删除 group 只清空成员 groupId，删除 module 清掉关联的 relations 和展开状态。验证草稿与错误分级。JSON 序列化转义 `< > & U+2028 U+2029`，标题 HTML 转义；readProject 只接受唯一的指定数据块和合法数据版本。实现时以这个安全基本函数为准：
 
 ```js
 function safeJSON(value){
@@ -171,8 +173,8 @@ function safeJSON(value){
 ```
 
 组装器使用 Node 标准库读写模板与输出；目标文件存在时按请求的同一路径覆盖。检查脚本解析 HTML 数据、验证结构并输出 errors/warnings，错误时非零退出。示例用“任务看板”六个模块、界面/业务/数据三组，声明为设计示例，禁止假装真实代码分析。
-- [ ] **Step 4: 运行 GREEN。** 上述两套测试全部通过；损坏数据返回具体路径而不是未捕获异常。
-- [ ] **Step 5: 自查并提交。** 仅提交本任务文件，报告 RED/GREEN、API 及 commit。
+- [x] **Step 4: 运行 GREEN。** 上述两套测试全部通过；损坏数据返回具体路径而不是未捕获异常。
+- [x] **Step 5: 自查并提交。** 仅提交本任务文件，报告 RED/GREEN、API 及 commit。
 
 ## Task 2: 覆盖保存与另存为
 
@@ -180,7 +182,7 @@ function safeJSON(value){
 
 **Interfaces:** 使用 Task 1 的 Serialization/Model，经依赖参数注入文件选择器。`pickExisting()` 返回一个文件句柄，`pickNew(suggestedName)` 返回新句柄。句柄提供 `getFile()` 和 `createWritable()`；文件支持 `text()`，写入流支持 `write/close/abort`。`onState` 接收 `{status,message,fileName,dirty}`，status 为 unsaved/saving/saved/error。
 
-- [ ] **Step 1: 写失败测试。** 使用真实内存文件内容的句柄替身，断言最终字节内容而非仅断言函数被调用；测试中保留旧文件、新文件、取消、读回失败、外部修改和编辑中保存。
+- [x] **Step 1: 写失败测试。** 使用真实内存文件内容的句柄替身，断言最终字节内容而非仅断言函数被调用；测试中保留旧文件、新文件、取消、读回失败、外部修改和编辑中保存。
 
 ```js
 function memoryHandle(name,initial){
@@ -195,8 +197,8 @@ function memoryHandle(name,initial){
 ```
 
 核心测试顺序：bind 原文件 → 修改名称 → save → readProject 验证原文件变化 → saveAs → 修改名称 → save → 验证旧文件保持 saveAs 前内容、新文件包含最新名称。AbortError 保留 dirty 和旧 handle。第一次绑定要求文件 project.id 与当前 id 相同，还要比较目标内嵌数据与页面最初基线，避免文件在网页打开后已被 Agent 改写。
-- [ ] **Step 2: 运行 RED。** `node --test tests/storage.test.mjs`，预期 API 未实现失败。
-- [ ] **Step 3: 实现保存控制器。** 文件选择器必须直接在点击调用栈触发，不能排队/await 丢失用户手势。保存开始立即取不可变数据快照和编辑计数。写入操作串行；保存中二次点击返回现有 Promise 或明确排队后只取最新快照，不并行写磁盘。已绑定目标的原始内容与上次成功内容不同时拒绝覆盖。写入并 close、读回项目数据一致之后才清理对应快照的 dirty。期间有新编辑时仍为 unsaved。取消/异常不清空模型，不错误切换 handle；saveAs 成功后才切换目标。若 close 成功但读回失败，明确说明文件可能已写入并保持未确认状态，不假报已保存。
+- [x] **Step 2: 运行 RED。** `node --test tests/storage.test.mjs`，预期 API 未实现失败。
+- [x] **Step 3: 实现保存控制器。** 文件选择器必须直接在点击调用栈触发，不能排队/await 丢失用户手势。保存开始立即取不可变数据快照和编辑计数。写入操作串行；保存中二次点击返回现有 Promise 或明确排队后只取最新快照，不并行写磁盘。已绑定目标的原始内容与上次成功内容不同时拒绝覆盖。写入并 close、读回项目数据一致之后才清理对应快照的 dirty。期间有新编辑时仍为 unsaved。取消/异常不清空模型，不错误切换 handle；saveAs 成功后才切换目标。若 close 成功但读回失败，明确说明文件可能已写入并保持未确认状态，不假报已保存。
 
 ```js
 // 保存状态清理必须比较本次快照与当前编辑序号。
@@ -211,8 +213,8 @@ savedVersion=snapshotVersion;
 // isDirty() 等价于 editVersion !== savedVersion；较新编辑不能被旧保存清掉。
 ```
 
-- [ ] **Step 4: 运行 GREEN。** `node --test tests/storage.test.mjs`，验证覆盖、另存、取消、异常、并发与外部修改。
-- [ ] **Step 5: 自查并提交。** 报告真实行为覆盖和所有测试结果。
+- [x] **Step 4: 运行 GREEN。** `node --test tests/storage.test.mjs`，验证覆盖、另存、取消、异常、并发与外部修改。
+- [x] **Step 5: 自查并提交。** 报告真实行为覆盖和所有测试结果。
 
 ## Task 3: 两层模板与完整画布交互
 
@@ -220,7 +222,7 @@ savedVersion=snapshotVersion;
 
 **Interfaces:** 使用统一接口中的 Nodes/Canvas/Dialogs/Storage；模型数据直接共享，onChange({semantic?:boolean,render?:boolean}) 由 app 连接更新 UI 与 dirty。组件无需让 UI 文本暴露数据字段名。相关 DOM id 由大模板声明：ec-viewport、ec-world、ec-groups、ec-edges、ec-nodes、ec-status、ec-project-name、ec-file-name、ec-zoom。按钮使用 data-action 标识。小模板必须存在并通过 template.content.cloneNode(true) 生成每个模块。
 
-- [ ] **Step 1: 基于视觉方案建立大模板、节点模板与 CSS。** 大模板包含 viewport/world/SVG/group/node 分层、顶部工具栏、底部缩放与状态、用于编辑的 dialog 容器。模板槽位必须与 Serialization 一致；小模板是实际使用的独立模板文件。所有用户数据通过 textContent/value 赋值，不拼进 innerHTML。对外接口编辑位于节点内部。
+- [x] **Step 1: 基于视觉方案建立大模板、节点模板与 CSS。** 大模板包含 viewport/world/SVG/group/node 分层、顶部工具栏、底部缩放与状态、用于编辑的 dialog 容器。模板槽位必须与 Serialization 一致；小模板是实际使用的独立模板文件。所有用户数据通过 textContent/value 赋值，不拼进 innerHTML。对外接口编辑位于节点内部。
 
 ```html
 <template id="ec-module-template">
@@ -233,8 +235,8 @@ savedVersion=snapshotVersion;
 ```
 
 模板可补充真实产品需要的状态标识和按钮；必须保留上面用于职责分工的结构，不以该最小片段限制可用性。
-- [ ] **Step 2: 实现节点编辑。** 概况含名称/职责/group select；接口列表可添加删除并逐项展开；输入和输出分别编辑确认状态与参数行。未知状态不能显示为无参数。包含代码出处编辑与未确认事项文本。语义编辑调用 Model 的更新接口并传播待核对状态；视图展开和位置只标记文件有变化。编辑时不重建当前正在输入的控件，避免焦点和光标丢失。删除模块明确列出关联关系数量并确认。
-- [ ] **Step 3: 实现画布与对话框。** 节点绝对定位，world transform 使用 translate/scale。指针拖动坐标除以 scale。pan 仅来自空白或明确手势，交互控件不冒泡触发拖动。缩放固定指针处世界坐标：
+- [x] **Step 2: 实现节点编辑。** 概况含名称/职责/group select；接口列表可添加删除并逐项展开；输入和输出分别编辑确认状态与参数行。未知状态不能显示为无参数。包含代码出处编辑与未确认事项文本。语义编辑调用 Model 的更新接口并传播待核对状态；视图展开和位置只标记文件有变化。编辑时不重建当前正在输入的控件，避免焦点和光标丢失。删除模块明确列出关联关系数量并确认。
+- [x] **Step 3: 实现画布与对话框。** 节点绝对定位，world transform 使用 translate/scale。指针拖动坐标除以 scale。pan 仅来自空白或明确手势，交互控件不冒泡触发拖动。缩放固定指针处世界坐标：
 
 ```js
 const worldX=(pointerX-view.x)/view.scale;
@@ -245,17 +247,19 @@ view.y=pointerY-worldY*view.scale;
 ```
 
 分组边框按成员实际尺寸计算，空组有可见占位尺寸；组头拖动移动全部成员；组编辑可命名和解散。SVG 使用实际 node bounds 画有向路径与标签，透明加粗 hit path 使关系可选；不要为每次 pointermove 重建所有输入 DOM。适应视野计算所有节点和组范围留出空间。关系编辑支持调用/依赖、目标、说明，支持创建、编辑、删除。
-- [ ] **Step 4: 连接入口与保存。** 解析内嵌 JSON、实例化组件，实际文件选择器包装为 showOpenFilePicker/showSaveFilePicker；按钮点击直接触发选择器。项目名称和用途可编辑。Ctrl/Cmd+S 保存；Ctrl/Cmd+Shift+S 另存为。beforeunload 仅在 dirty 时提醒。开始就检测本地文件写入 API；不支持时清楚显示原因。所有错误以可见的短文本反馈，不能只输出 console。
-- [ ] **Step 5: 生成示例并验证。** 运行 `node scripts/build.mjs examples/task-board.json examples/task-board.html`、`node scripts/check.mjs examples/task-board.html`、`node --test tests/model.test.mjs tests/serialization.test.mjs tests/storage.test.mjs`。在真实浏览器中打开 file:// 示例检查无语法错误，覆盖交互行为由 Task 4 的浏览器测试完成。
-- [ ] **Step 6: 自查并提交。** 报告模板实际使用、数据绑定、保存接线和已测内容。
+- [x] **Step 4: 连接入口与保存。** 解析内嵌 JSON、实例化组件，实际文件选择器包装为 showOpenFilePicker/showSaveFilePicker；按钮点击直接触发选择器。项目名称和用途可编辑。Ctrl/Cmd+S 保存；Ctrl/Cmd+Shift+S 另存为。beforeunload 仅在 dirty 时提醒。开始就检测本地文件写入 API；不支持时清楚显示原因。所有错误以可见的短文本反馈，不能只输出 console。
+- [ ] **Step 5: 生成示例并验证。** 运行 `node scripts/build.mjs examples/task-board.json examples/task-board.html`、`node scripts/check.mjs examples/task-board.html`、`node --test tests/model.test.mjs tests/serialization.test.mjs tests/storage.test.mjs`。本轮前三项命令已通过；真实浏览器打开和交互检查因安全限制未执行，保留此项未完成。
+- [x] **Step 6: 自查并提交。** 报告模板实际使用、数据绑定、保存接线和已测内容。
 
 ## Task 4: 技能入口、浏览器验收与交付
+
+执行环境限制：Browser Use 在本轮明确拒绝了本地 file:// 打开，并禁止改用 CDP、其他工具或间接方式绕过。此后不自动执行本地页面浏览器操作；浏览器测试代码可以供用户在自己的环境运行，但本轮只做其语法检查，报告中将这部分及截图/原生授权操作标为未实测。代码与其余自动测试继续完成，不能把跳过的浏览器测试记为通过。
 
 **Files:** Modify `SKILL.md`; Create `references/project-data.md`, `references/repository-analysis.md`, `tests/helpers/cdp.mjs`, `tests/browser.test.mjs`; update generated example only when needed for fixes。
 
 **Interfaces:** 浏览器测试直接启动本机 Chromium 进行隔离测试，使用 Node 标准库 WebSocket/CDP；所有启动进程隐藏，不操纵用户既有浏览器。优先通过 remote-debugging-pipe 或随机调试端口，不依赖服务器。也可使用当前环境已有的可靠浏览器工具完成可复查的交互。
 
-- [ ] **Step 1: 完善技能说明与数据参考。** SKILL.md 的 description 准确描述可编辑模块画布和三种场景。正文说明读数据规则、读代码依据、生成命令、检查命令、更新现有 HTML 时保留用户内容；将详细字段放 project-data.md，实际代码核对规则放 repository-analysis.md。网页不是代码分析器，Agent 负责源代码核对。不得把示例标记为真实代码。文档生成仍在范围之外。
+- [x] **Step 1: 完善技能说明与数据参考。** SKILL.md 的 description 准确描述可编辑模块画布和三种场景。正文说明读数据规则、读代码依据、生成命令、检查命令、更新现有 HTML 时保留用户内容；将详细字段放 project-data.md，实际代码核对规则放 repository-analysis.md。网页不是代码分析器，Agent 负责源代码核对。不得把示例标记为真实代码。文档生成仍在范围之外。
 - [ ] **Step 2: 浏览器行为测试。** 测试从 file:// 打开，阻止所有 HTTP(S) 请求并收集 console/page 异常。通过真实 DOM 交互验证添加和编辑模块、接口、参数、来源状态、分组、连线、缩放和拖动。对下载包往返进行真实 HTML 重开验证。序列化后包含用户文本但没有可执行注入。
 
 ```js
@@ -270,14 +274,30 @@ assert.equal(result.groupMovePreservedOffsets,true);
 
 - [ ] **Step 3: 保存验证。** 单元测试覆盖控制器完整行为；真实浏览器确认 file:// 下 API 存在、保存接线可调用。实际可见文件选择、授权、覆盖与另存为尽可能完成实测；模拟句柄只能标为模拟，不能冒充系统文件选择器测试。无法自动操作系统弹窗时明确记录未测项，但完成其他全部可验证行为。
 - [ ] **Step 4: 查看截图。** 截取默认画布和展开接口的页面，检查文字、连线、分组、工具栏与滚动；必要时修正后重新验证相关行为。交付截图保存到被忽略的执行目录，不增加产品依赖。
-- [ ] **Step 5: 真实源码小例子。** 以本技能的 model/serialization/build 代码做一个小范围分析，验证技能规则能记录准确来源；生成到忽略目录，保留主示例为设计模式。检查所引函数与调用位置，未读到的关系不得补造。
-- [ ] **Step 6: 最终检查与提交。** 运行全部 `node --test tests/*.test.mjs`、check 脚本、技能 frontmatter 验证和 `git diff --check`。记录通过的检查和未能实测的边界。提交实现，按用户本轮提交推送的授权更新当前远端分支，不改其他分支、不创建 PR、不合并。
+- [x] **Step 5: 真实源码小例子。** 以本技能的 model/serialization/build 代码做一个小范围分析，验证技能规则能记录准确来源；生成到忽略目录，保留主示例为设计模式。检查所引函数与调用位置，未读到的关系不得补造。
+- [x] **Step 6: 最终检查与提交。** 运行全部 `node --test tests/*.test.mjs`、check 脚本、技能 frontmatter 验证和 `git diff --check`。记录通过的检查和未能实测的边界。提交实现，按用户本轮提交推送的授权更新当前远端分支，不改其他分支、不创建 PR、不合并。
 
 ## 自查与执行记录
 
 计划覆盖设计的所有第一阶段要求。推迟的文档生成不出现在界面中。保存单元测试与真实浏览器文件授权分开记录，不能互相替代。任务完成后更新下面的复选状态及 `.superpowers/sdd/progress.md`，防止重复执行。
 
-- [ ] Task 1：模型、组装与数据测试
-- [ ] Task 2：覆盖保存与另存为
-- [ ] Task 3：两层模板与完整编辑器
-- [ ] Task 4：技能与浏览器验收
+- [x] Task 1：模型、组装与数据测试（004ecb8，独立审查通过）
+- [x] Task 2：覆盖保存与另存为（32f7e66，独立审查通过）
+- [x] Task 3：两层模板与完整编辑器（8b83d8a，静态审查通过；浏览器实测受限）
+- [x] Task 4：技能与自动检查、验证脚本（b54c7bd，静态审查通过）
+- [ ] 用户本地浏览器试用：实际布局、交互、原生文件选择与覆盖保存（工具安全策略限制，未实测）
+
+### 最终执行结果（2026-10-23）
+
+| 项目 | 结果 |
+|---|---|
+| 实现 | 独立大画布、小节点模板；模块、接口、参数、分组和关系编辑；覆盖保存与另存为 |
+| 最终修复 | `98bc7db` 修正状态标签、草稿缺项提示、关系删除确认和首次适配状态，完善技能与源码快照说明 |
+| 独立复核 | 六项问题均关闭；未发现新增问题。代码可交付初版，浏览器完整验收仍待完成 |
+| 自动检查 | 最终代码 42 项通过、0 失败、1 项浏览器跳过；16 个 JavaScript 文件语法检查通过 |
+| HTML | 示例结构检查无错误或警告；数据回读一致、重复组装字节一致、无外部脚本或样式依赖 |
+| 技能与源码分析 | 技能元数据验证通过；本包源码分析及独立三模块样例均记录实际出处，未把推断冒充事实 |
+| 交付 | `easycode/subskills/easycode-archify/examples/task-board.html`；首次保存选择原 HTML，之后覆盖该文件 |
+| 后续范围 | 模块 Markdown 文档模板及一键更新按钮按约定留到下一阶段 |
+
+本轮浏览器安全审批拒绝本地 `file://` 导航；未绕行执行。真实页面布局、交互、截图、文件选择、授权、覆盖、另存为和重新打开均不能记作本轮实测通过。保存控制器检查使用内存文件句柄，不代表原生弹窗验收。
