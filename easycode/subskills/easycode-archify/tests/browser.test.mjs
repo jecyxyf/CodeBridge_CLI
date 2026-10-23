@@ -1,0 +1,167 @@
+// User-run integration test. Default discovery skips; imports have no launch side effects.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,writeFile,readFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {launchBrowser,createPage} from './helpers/cdp.mjs';
+
+const enabled = process.env.EASYCODE_BROWSER_TEST === '1';
+test('opt-in file canvas: DOM edits, gestures, evidence, mock save and real HTML reopen',{
+  skip:enabled ? false : 'Not executed: opt-in browser test. Requires independent authorization, EASYCODE_BROWSER_TEST=1 and EASYCODE_BROWSER_EXECUTABLE. Native file dialogs remain manual.',
+  timeout:180000
+},async t => {
+  const {assemble,loadBundle} = await import('../scripts/build.mjs');
+  const M = globalThis.EasyCode.Model, S = globalThis.EasyCode.Serialization;
+  const project = M.createProject('浏览器验收'); project.description = '隔离验收数据，不是源码分析';
+  const html = assemble(project,await loadBundle());
+  const output = await mkdtemp(join(tmpdir(),'easycode-browser-artifacts-'));
+  t.diagnostic(`Artifacts retained at ${output}; file handles are simulated; native picker/permission/overwrite dialogs are NOT tested.`);
+  const file = join(output,'canvas.html'); await writeFile(file,html,'utf8');
+  const browser = await launchBrowser(); t.after(() => browser.close());
+  const page = await createPage(browser);
+  const initialScript = `(() => {
+    globalThis.__nativePickers = {open:typeof showOpenFilePicker === 'function',save:typeof showSaveFilePicker === 'function'};
+    const state = globalThis.__files = {openCalls:0,newCalls:0,cancelNext:false,original:${JSON.stringify(html)},copy:'',writes:0};
+    function handle(name,key) {return {name,async getFile() {return {async text() {return state[key];}};},
+      async createWritable() {let next; return {async write(value) {next = value;},async close() {state[key] = next; state.writes++;},async abort() {}};}};}
+    const original = handle('canvas.html','original'), copy = handle('copy.html','copy');
+    globalThis.showOpenFilePicker = async () => {state.openCalls++; return [original];};
+    globalThis.showSaveFilePicker = async () => {state.newCalls++; if (state.cancelNext) {state.cancelNext = false; throw new DOMException('Cancelled','AbortError');} return copy;};
+  })();`;
+  await page.send('Page.addScriptToEvaluateOnNewDocument',{source:initialScript});
+  await page.navigate(pathToFileURL(file).href);
+  const nativePickers = await page.evaluate('__nativePickers');
+  assert.deepEqual(nativePickers,{open:true,save:true},'native API presence on file URL; actual dialogs are not invoked');
+  await screenshot('default.png');
+
+  const app = 'EasyCode.app', data = `${app}.project`;
+  await page.click('[data-action="add-module"]');
+  const first = await page.evaluate(`${data}.modules[0].id`), firstNode = `.module-node[data-module-id="${first}"]`;
+  await page.fill(`${firstNode} [aria-label="模块名称"]`,'修改后的任务模块');
+  await page.fill(`${firstNode} [aria-label="模块职责"]`,'收集并保存任务');
+  await page.click(`${firstNode} button`,'＋ 添加接口');
+  const apiId = await page.evaluate(`${data}.modules[0].interfaces[0].id`), apiNode = `${firstNode} .interface-editor[data-interface-id="${apiId}"]`;
+  await page.fill(`${apiNode} [aria-label="接口名称 / 签名"]`,'createTask(input)');
+  await page.fill(`${apiNode} [aria-label="接口用途"]`,'创建任务');
+  assert.match(await page.evaluate(`document.querySelector(${JSON.stringify(apiNode)}).textContent`),/输入尚未确认.*不代表无参数/s);
+  await page.click(`${apiNode} button`,'＋ 添加输入');
+  await page.fill(`${apiNode} [aria-label="参数名"]`,'title');
+  await page.fill(`${apiNode} [aria-label="类型"]`,'string');
+  const hostile = '</script><script>globalThis.__injected = true</script><!--EC:DATA-->';
+  await page.fill(`${apiNode} [aria-label="参数说明"]`,hostile);
+  await page.click(`${apiNode} .check-label`,'已确认输入');
+  await page.click(`${apiNode} .check-label`,'已确认输出');
+  await page.click(`${apiNode} button`,'＋ 添加输出');
+  await page.fill(`${apiNode} .editor-section:nth-of-type(2) [aria-label="参数名"]`,'temporary');
+  // Remove the output only; the first row is the retained input.
+  await page.click(`${apiNode} .editor-section:nth-of-type(2) button`,'删除参数');
+  assert.match(await page.evaluate(`document.querySelector(${JSON.stringify(apiNode)}).textContent`),/已确认：无输出参数/);
+
+  await page.click(`${apiNode} .evidence-editor > summary`);
+  await page.click(`${apiNode} .evidence-editor button`,'＋ 添加出处');
+  await page.fill(`${apiNode} [aria-label="文件路径"]`,'src/task.js');
+  await page.fill(`${apiNode} [aria-label="起始行"]`,'12');
+  await page.select(`${apiNode} [aria-label="核对状态"]`,'verified');
+  assert.equal(await page.evaluate(`${data}.modules[0].interfaces[0].status`),'verified');
+  await page.fill(`${apiNode} [aria-label="接口用途"]`,'修改后要重新核对');
+  assert.equal(await page.evaluate(`${data}.modules[0].interfaces[0].status`),'modified');
+  const moduleEvidence = `${firstNode} .module-details > .editor-section > .evidence-editor`;
+  await page.click(`${moduleEvidence} > summary`);
+  await page.click(`${moduleEvidence} button`,'＋ 添加出处');
+  await page.fill(`${moduleEvidence} [aria-label="文件路径"]`,'src/task.js');
+  await page.select(`${moduleEvidence} [aria-label="核对状态"]`,'verified');
+  await page.fill(`${firstNode} [aria-label="模块职责"]`,'修改后的职责');
+  assert.equal(await page.evaluate(`${data}.modules[0].status`),'modified');
+  await screenshot('expanded-interface.png');
+
+  await page.click('[data-action="add-group"]');
+  await page.fill('#ec-dialog [aria-label="分组名称"]','任务组');
+  await page.click('#ec-dialog button','确定');
+  const groupId = await page.evaluate(`${data}.groups[0].id`);
+  await page.select(`${firstNode} [aria-label="所属分组"]`,groupId);
+  await page.click(`${firstNode} [data-node-action="toggle"]`);
+  await page.click('[data-action="add-module"]');
+  const second = await page.evaluate(`${data}.modules[1].id`), secondNode = `.module-node[data-module-id="${second}"]`;
+  await page.fill(`${secondNode} [aria-label="模块名称"]`,'任务仓库');
+  await page.fill(`${secondNode} [aria-label="模块职责"]`,'保存任务');
+  await page.select(`${secondNode} [aria-label="所属分组"]`,groupId);
+  await page.click(`${secondNode} [data-node-action="toggle"]`);
+  await page.click('[data-action="fit"]');
+  const beforeDrag = await page.evaluate(`${data}.modules[1].x`);
+  await page.drag(`${secondNode} .module-header`,520,160);
+  assert.notEqual(await page.evaluate(`${data}.modules[1].x`),beforeDrag,'drag changes stored coordinates');
+  await page.click('[data-action="fit"]');
+  const offsets = await page.evaluate(`({x:${data}.modules[1].x - ${data}.modules[0].x,y:${data}.modules[1].y - ${data}.modules[0].y,firstX:${data}.modules[0].x})`);
+  await page.drag(`.group-header[data-group-id="${groupId}"]`,70,45);
+  const moved = await page.evaluate(`({x:${data}.modules[1].x - ${data}.modules[0].x,y:${data}.modules[1].y - ${data}.modules[0].y,firstX:${data}.modules[0].x})`);
+  assert.ok(Math.abs(moved.x - offsets.x) < 1e-7 && Math.abs(moved.y - offsets.y) < 1e-7,'group move preserves offsets');
+  assert.notEqual(moved.firstX,offsets.firstX,'group actually moved');
+  const scale = await page.evaluate(`${data}.view.scale`);
+  await page.click('[data-action="zoom-in"]');
+  assert.ok(await page.evaluate(`${data}.view.scale > ${scale}`));
+  await page.click('[data-action="zoom-out"]');
+  assert.ok(Math.abs(await page.evaluate(`${data}.view.scale`) - scale) < 1e-7);
+  await page.click('[data-action="add-relation"]');
+  await page.select('#ec-dialog [aria-label="起点模块"]',first);
+  await page.select('#ec-dialog [aria-label="目标模块"]',second);
+  await page.select('#ec-dialog [aria-label="关系类型"]','dependency');
+  await page.fill('#ec-dialog [aria-label="关系说明"]','保存任务');
+  await page.click('#ec-dialog button','确定');
+  assert.equal(await page.evaluate(`${data}.relations[0].type`),'dependency');
+  assert.equal(await page.evaluate('document.querySelectorAll(".relation-group").length'),1);
+  await page.click('.relation-label');
+  await page.fill('#ec-dialog [aria-label="关系说明"]','更新的依赖');
+  await page.click('#ec-dialog button','确定');
+  assert.equal(await page.evaluate(`${data}.relations[0].label`),'更新的依赖');
+  await page.click('[data-action="add-group"]');
+  await page.fill('#ec-dialog [aria-label="分组名称"]','取消的分组');
+  await page.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+  await page.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+  assert.equal(await page.evaluate(`${data}.groups.length`),1,'Escape cancels dialog');
+
+  // UI save wiring with simulated handles, not OS picker coverage.
+  await page.click('[data-action="save"]');
+  await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
+  assert.equal(await page.evaluate('__files.openCalls'),1);
+  await page.click(`${firstNode} [data-node-action="toggle"]`);
+  await page.fill(`${firstNode} [aria-label="模块名称"]`,'修改后的任务模块');
+  await page.click('[data-action="save"]');
+  await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
+  assert.equal(await page.evaluate('__files.openCalls'),1,'second Save reuses confirmed handle');
+  await page.click('[data-action="save-as"]');
+  await page.waitFor('document.querySelector("#ec-file-name").textContent === "copy.html" && document.querySelector("#ec-status").dataset.status === "saved"');
+  assert.equal(await page.evaluate('__files.newCalls'),1);
+  await page.fill(`${firstNode} [aria-label="模块职责"]`,'取消保存后的修改');
+  await page.evaluate('__files.cancelNext = true');
+  await page.click('[data-action="save-as"]');
+  await page.waitFor('document.querySelector("#ec-status").textContent === "已取消保存"');
+  assert.equal(await page.evaluate(`${app}.storage.isDirty()`),true);
+  assert.equal(await page.evaluate(`${app}.storage.getFileName()`),'copy.html');
+  await page.click('[data-action="save"]');
+  await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
+  const saved = await page.evaluate('__files.copy'), expected = await page.evaluate(data);
+  assert.deepEqual(S.readProject(saved),expected);
+  assert.deepEqual(M.validate(S.readProject(saved)).errors,[]);
+  assert.equal(saved.includes(hostile),false,'hostile text stays escaped in JSON');
+  const reopened = join(output,'reopened.html'); await writeFile(reopened,saved,'utf8');
+  assert.deepEqual(S.readProject(await readFile(reopened,'utf8')),expected);
+  await page.navigate(pathToFileURL(reopened).href);
+  assert.deepEqual(await page.evaluate(data),expected,'saved HTML really reopens with all data');
+  assert.equal(await page.evaluate(`${data}.modules[0].name`),'修改后的任务模块');
+  assert.equal(await page.evaluate(`${data}.modules[0].interfaces[0].inputs[0].name`),'title');
+  assert.equal(await page.evaluate(`${data}.modules[0].interfaces[0].inputs[0].description`),hostile);
+  assert.equal(await page.evaluate('globalThis.__injected === undefined'),true);
+  assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${firstNode} [aria-label="模块名称"]`)}).value`),'修改后的任务模块');
+  assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${apiNode} [aria-label="参数名"]`)}).value`),'title');
+  assert.equal(page.networkRequests.length,0,'no page HTTP(S) request attempts');
+  assert.deepEqual(page.blockedRequests,[],'HTTP(S) interception was installed before navigation');
+  assert.deepEqual(page.pageErrors,[]); assert.deepEqual(page.consoleErrors,[]); assert.deepEqual(page.protocolErrors,[]);
+  await screenshot('reopened.png');
+
+  async function screenshot(name) {
+    const {data:png} = await page.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await writeFile(join(output,name),Buffer.from(png,'base64'));
+  }
+});
