@@ -70,9 +70,9 @@ test('解散组仅清空成员归属，不改变核对状态或关系', () => {
   assert.equal(a.status,'verified'); assert.deepEqual(p.relations,[relation]);
   assert.equal(Model.removeGroup(p,'missing'),false);
 });
-test('关系限制有效端点、不同模块、重复项，并允许循环和不同类型', () => {
+test('关系限制有效端点、不同模块、重复项，并兼容旧类型数据', () => {
   const {p,a,b}=fixture(); const r=Model.addRelation(p,{from:a.id,to:b.id,label:'调用'});
-  assert.equal(r.type,'call'); assert.equal(r.status,'planned'); assert.deepEqual(r.sources,[]); assert.deepEqual(r.unknowns,[]);
+  assert.equal(Object.hasOwn(r,'type'),false); assert.equal(r.status,'planned'); assert.deepEqual(r.sources,[]); assert.deepEqual(r.unknowns,[]);
   assert.throws(()=>Model.addRelation(p,{from:a.id,to:a.id}),/relation|关系/i);
   assert.throws(()=>Model.addRelation(p,{from:a.id,to:'missing'}),/relation|关系/i);
   assert.throws(()=>Model.addRelation(p,{from:a.id,to:b.id,label:'调用'}),/relation|关系/i);

@@ -2,7 +2,7 @@
   'use strict';
   const EC = root.EasyCode ||= {};
   const statusNames = {planned:'方案',verified:'已核对源码',modified:'已修改 · 待核对'};
-  function create({project,layer,template,onSelect = () => {},onRelation = () => {},onEdit = () => {}}) {
+  function create({project,layer,template,onSelect = () => {},onEdit = () => {}}) {
     const elements = new Map();
     let selected = '';
     function render() {
@@ -17,7 +17,10 @@
         node.querySelector('.module-summary').textContent = `${module.interfaces.length} 个对外接口`;
         const state = node.querySelector('[data-module-status]'); state.textContent = statusNames[module.status]; state.dataset.status = module.status;
         node.querySelector('[data-node-action=edit]').addEventListener('click',() => onEdit(module.id));
-        node.querySelector('[data-node-action=relation]').addEventListener('click',() => onRelation(module.id));
+        for (const port of node.querySelectorAll('[data-port]')) {
+          port.setAttribute('aria-label',`${module.name || '未命名模块'}：${port.getAttribute('aria-label')}`);
+          port.setAttribute('aria-pressed','false');
+        }
         node.addEventListener('pointerdown',() => {selected = module.id; for (const [id,item] of elements) item.classList.toggle('selected',id === selected); onSelect(module.id);});
         elements.set(module.id,node); layer.append(fragment);
       }

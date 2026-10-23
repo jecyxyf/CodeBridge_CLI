@@ -29,6 +29,7 @@
         confirmImport:() => root.confirm('当前有未保存的修改。导入会替换当前内容，是否继续？'),
         replaceProject(next) {
           if (dialogs?.isEditingModule()) throw new Error('模块编辑窗口已打开，请先确定或取消，再导入。');
+          if (canvas?.hasDraftChanges()) throw new Error('请先完成或取消箭头备注，再导入。');
           const previous = project;
           project = next;
           try {mount();}
@@ -57,10 +58,10 @@
       function mount() {
         canvas?.destroy(); nodes?.destroy();
         if (get('ec-dialog').open) get('ec-dialog').close();
-        dialogs = EC.Dialogs.create({project,onChange});
-        nodes = EC.Nodes.create({project,layer:get('ec-nodes'),template:get('ec-module-template'),onEdit:dialogs.editModule,onRelation:from => dialogs.editRelation(undefined,from)});
+        dialogs = EC.Dialogs.create({project,onChange,onOpen:() => {canvas?.cancelConnection(); return canvas?.finishAnnotation();}});
+        nodes = EC.Nodes.create({project,layer:get('ec-nodes'),template:get('ec-module-template'),onEdit:dialogs.editModule});
         nodes.render();
-        canvas = EC.Canvas.create({project,viewport:get('ec-viewport'),world:get('ec-world'),groupLayer:get('ec-groups'),edgeLayer:get('ec-edges'),nodes,onChange,onGroupEdit:dialogs.editGroup,onRelationEdit:dialogs.editRelation});
+        canvas = EC.Canvas.create({project,viewport:get('ec-viewport'),world:get('ec-world'),groupLayer:get('ec-groups'),edgeLayer:get('ec-edges'),nodes,onChange,onGroupEdit:dialogs.editGroup});
         refreshHeader();
         EC.app = {project,storage,nodes,canvas,dialogs};
       }
@@ -69,6 +70,7 @@
       if (project.view.x === 0 && project.view.y === 0 && project.view.scale === 1 && project.modules.length) canvas.fit({notify:false});
       function save(asNew) {
         if (dialogs.isEditingModule()) {dialogs.showMessage('请先点击“确定”或“取消”，再保存 HTML。'); return;}
+        if (!canvas.finishAnnotation()) return;
         if (!supported) {showError('此浏览器不能直接写入本地文件。请使用新版桌面 Chrome 或 Edge 打开此 HTML。'); return;}
         notice.hidden = true;
         // Do not await anything before calling Storage: native pickers require this click stack.
@@ -79,6 +81,7 @@
       }
       function importFile() {
         if (dialogs.isEditingModule()) {dialogs.showMessage('请先点击“确定”或“取消”，再导入 HTML。'); return;}
+        if (!canvas.finishAnnotation()) return;
         if (typeof root.showOpenFilePicker !== 'function') {showError('此浏览器不能导入本地文件。请使用新版桌面 Chrome 或 Edge。'); return;}
         notice.hidden = true;
         storage.importFile().catch(error => {if (error?.name !== 'AbortError') showError(error);});
@@ -88,17 +91,20 @@
           const center = canvas.centerPoint(), position = EC.Canvas.snapPoint({x:center.x - 180,y:center.y - 100});
           dialogs.editModule(undefined,position);
         },
-        'add-group':() => dialogs.editGroup(), 'add-relation':() => dialogs.editRelation(),
+        'add-group':() => dialogs.editGroup(), 'add-relation':() => canvas.startConnection(),
         'edit-project':() => dialogs.editProject(), 'zoom-in':() => canvas.zoomBy(1.2), 'zoom-out':() => canvas.zoomBy(1 / 1.2),
         fit:() => canvas.fit(), save:() => save(false), import:importFile, export:() => save(true)
       };
       for (const control of document.querySelectorAll('[data-action]')) control.addEventListener('click',() => {
-        try {actions[control.dataset.action]?.();} catch (error) {showError(error);}
+        try {
+          if (!['add-relation','zoom-in','zoom-out','fit'].includes(control.dataset.action)) canvas.cancelConnection();
+          actions[control.dataset.action]?.();
+        } catch (error) {showError(error);}
       });
       root.addEventListener('keydown',event => {
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {event.preventDefault(); save(event.shiftKey);}
       });
-      root.addEventListener('beforeunload',event => {if (storage.isDirty() || dialogs.hasDraftChanges()) {event.preventDefault(); event.returnValue = '';}});
+      root.addEventListener('beforeunload',event => {if (storage.isDirty() || dialogs.hasDraftChanges() || canvas.hasDraftChanges()) {event.preventDefault(); event.returnValue = '';}});
       if (!supported) showError('此浏览器不能直接写入本地文件。请使用新版桌面 Chrome 或 Edge 打开此 HTML。');
     } catch (error) {
       showError(error); get('ec-status').textContent = '无法打开项目'; get('ec-status').dataset.status = 'error';

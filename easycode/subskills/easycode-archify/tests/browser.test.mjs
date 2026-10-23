@@ -194,39 +194,84 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   assert.ok(await page.evaluate(`${data}.view.scale > ${scale}`));
   await page.click('[data-action="zoom-out"]');
   assert.ok(Math.abs(await page.evaluate(`${data}.view.scale`) - scale) < 1e-7);
+  const beforeConnect = await page.evaluate(data), dirtyBeforeConnect = await page.evaluate(`${app}.storage.isDirty()`);
+  assert.equal(await page.evaluate('document.querySelectorAll(".module-port").length'),8,'four ports on each module');
+  await page.click(`${firstNode} [data-port="bottom"]`);
+  await page.click(`${secondNode} [data-port="top"]`);
+  assert.deepEqual(await page.evaluate(data),beforeConnect,'two single clicks never create a connection');
+  assert.equal(await page.evaluate('document.querySelectorAll(".port-source").length'),0);
   await page.click('[data-action="add-relation"]');
-  await page.select('#ec-dialog [aria-label="起点模块"]',first);
-  await page.select('#ec-dialog [aria-label="目标模块"]',second);
-  await page.select('#ec-dialog [aria-label="关系类型"]','dependency');
-  await page.fill('#ec-dialog [aria-label="关系说明"]','保存任务');
-  await page.click('#ec-dialog button[aria-label="确定"]');
-  assert.equal(await page.evaluate(`${data}.relations[0].type`),'dependency');
-  assert.equal(await page.evaluate('document.querySelectorAll(".relation-group").length'),1);
-  await page.click('.relation-label');
-  await page.fill('#ec-dialog [aria-label="关系说明"]','更新的依赖');
-  await page.click('#ec-dialog button[aria-label="确定"]');
-  assert.equal(await page.evaluate(`${data}.relations[0].label`),'更新的依赖');
+  assert.equal(await page.evaluate('document.querySelector("#ec-dialog").open'),false);
+  const startPoint = await portPoint(`${firstNode} [data-port="bottom"]`), targetPoint = await portPoint(`${secondNode} [data-port="top"]`);
+  await page.send('Input.dispatchMouseEvent',{type:'mouseMoved',...startPoint});
+  await page.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...startPoint});
+  await page.send('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,...targetPoint});
+  assert.equal(await page.evaluate('document.querySelectorAll(".port-source").length'),1);
+  assert.equal(await page.evaluate('document.querySelectorAll(".port-target").length'),1);
+  assert.equal(await page.evaluate('document.querySelector(".relation-preview").classList.contains("has-target")'),true,'preview snaps while pointer capture is active');
+  assert.deepEqual(await page.evaluate(data),beforeConnect,'dragging does not create a saved arrow before release');
+  assert.equal(await page.evaluate(`${app}.storage.isDirty()`),dirtyBeforeConnect);
+  await key('Escape',27);
+  await page.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...targetPoint});
+  assert.deepEqual(await page.evaluate(data),beforeConnect,'Escape during drag cancels even when toolbar retains focus');
+  const blankPoint = await page.evaluate('(() => {const r = document.querySelector("#ec-viewport").getBoundingClientRect(); return {x:r.left + 8,y:r.bottom - 8};})()');
+  await dragConnection(`${firstNode} [data-port="right"]`,blankPoint);
+  assert.deepEqual(await page.evaluate(data),beforeConnect,'drop on blank canvas cancels without panning');
+  await dragConnection(`${firstNode} [data-port="bottom"]`,await portPoint(`${firstNode} [data-port="left"]`));
+  assert.equal(await page.evaluate(`${data}.relations.length`),0,'self connection rejected');
+  await dragConnection(`${firstNode} [data-port="bottom"]`,targetPoint);
+  assert.deepEqual(await page.evaluate(`${data}.relations.map(({from,to,fromPort,toPort}) => ({from,to,fromPort,toPort}))`),[{from:first,to:second,fromPort:'bottom',toPort:'top'}]);
+  assert.equal(await page.evaluate(`Object.hasOwn(${data}.relations[0],'type')`),false);
+  assert.equal(await page.evaluate('document.querySelector("#ec-warnings").hidden'),true,'blank annotation is not a missing field');
+  assert.equal(await page.evaluate('document.querySelector(".relation-preview").style.display'),'none');
+  assert.equal(await page.evaluate('document.querySelector(".relation-line").getAttribute("class")'),'relation-line');
+  await clickArrow();
+  assert.equal(await page.evaluate('document.querySelector("#ec-dialog").open'),false,'single click only selects the arrow');
+  assert.equal(await page.evaluate('document.querySelectorAll(".annotation-editor").length'),0);
+  await clickArrow(2);
+  await page.fill('[aria-label="箭头备注"]','取消的备注');
+  assert.equal(await page.evaluate(`${data}.relations[0].label`),'','typing remains a draft');
+  await key('Escape',27);
+  assert.equal(await page.evaluate('document.querySelectorAll(".annotation-editor").length'),0);
+  assert.equal(await page.evaluate(`${data}.relations[0].label`),'');
+  await clickArrow(2);
+  await page.fill('[aria-label="箭头备注"]','保存任务');
+  await page.evaluate('document.querySelector("[aria-label=箭头备注]").dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",isComposing:true,bubbles:true}))');
+  assert.equal(await page.evaluate('document.querySelectorAll(".annotation-editor").length'),1,'IME confirmation does not end annotation editing');
+  assert.equal(await page.evaluate(`${data}.relations[0].label`),'');
+  await key('Enter',13);
+  assert.equal(await page.evaluate(`${data}.relations[0].label`),'保存任务');
+  await clickArrow(2);
+  await page.fill('[aria-label="箭头备注"]','更新的备注');
+  await key('Backspace',8);
+  assert.equal(await page.evaluate(`${data}.relations.length`),1,'Backspace in the textarea edits text, not the arrow');
+  await page.fill('[aria-label="箭头备注"]','更新的备注');
+  await key('s',83,2);
+  await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
+  assert.equal(S.readProject(await page.evaluate('__files.original')).relations[0].label,'更新的备注','Ctrl+S finishes the annotation before taking the file snapshot');
+  await clickArrow(2);
+  await page.fill('[aria-label="箭头备注"]','点击空白完成');
+  await page.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...blankPoint});
+  await page.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...blankPoint});
+  assert.equal(await page.evaluate(`${data}.relations[0].label`),'点击空白完成');
   await page.evaluate('__confirm.accept = false');
-  await page.click('.relation-label'); await page.click('#ec-dialog button[aria-label="删除关系"]');
+  await clickArrow(); await key('Delete',46);
   assert.equal(await page.evaluate(`${data}.relations.length`),1);
-  assert.equal(await page.evaluate(`${app}.storage.isDirty()`),true,'cancel keeps a dirty project dirty');
-  assert.match(await page.evaluate('__confirm.messages.at(-1)'),/修改后的任务模块 → 任务仓库.*依赖：更新的依赖/);
-  await page.click('#ec-dialog button[aria-label="取消"]');
+  assert.equal(await page.evaluate(`${app}.storage.isDirty()`),true,'declining delete keeps a dirty project dirty');
+  assert.match(await page.evaluate('__confirm.messages.at(-1)'),/修改后的任务模块 → 任务仓库.*点击空白完成/);
   await page.click('[data-action="save"]');
   await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
-  await page.click('.relation-label'); await page.click('#ec-dialog button[aria-label="删除关系"]');
-  assert.equal(await page.evaluate(`${app}.storage.isDirty()`),false,'cancel keeps a clean project clean');
-  assert.equal(await page.evaluate(`${data}.relations.length`),1);
+  await clickArrow(); await key('Delete',46);
+  assert.equal(await page.evaluate(`${app}.storage.isDirty()`),false,'declining delete keeps a clean project clean');
   await page.evaluate(`__confirm.accept = true; globalThis.__dirtyCalls = 0; const mark = ${app}.storage.markDirty; ${app}.storage.markDirty = () => {__dirtyCalls++; mark();};`);
-  await page.click('#ec-dialog button[aria-label="删除关系"]');
+  await key('Delete',46);
   assert.equal(await page.evaluate(`${data}.relations.length`),0);
-  assert.equal(await page.evaluate('__dirtyCalls'),1,'accept removes and notifies once');
-  assert.equal(await page.evaluate(`${app}.storage.isDirty()`),true);
-  await page.click('[data-action="add-relation"]');
-  await page.select('#ec-dialog [aria-label="起点模块"]',first);
-  await page.select('#ec-dialog [aria-label="目标模块"]',second);
-  await page.select('#ec-dialog [aria-label="关系类型"]','dependency');
-  await page.fill('#ec-dialog [aria-label="关系说明"]','更新的依赖'); await page.click('#ec-dialog button[aria-label="确定"]');
+  assert.equal(await page.evaluate('__dirtyCalls'),1,'delete removes and notifies once');
+  await dragConnection(`${firstNode} [data-port="right"]`,await portPoint(`${secondNode} [data-port="left"]`));
+  await clickArrow(2);
+  await page.fill('[aria-label="箭头备注"]','更新的备注'); await key('Enter',13);
+  assert.equal(await page.evaluate(`${data}.relations[0].fromPort`),'right');
+  assert.equal(await page.evaluate(`${data}.relations[0].toPort`),'left');
   await page.click('[data-action="add-group"]');
   await page.fill('#ec-dialog [aria-label="分组名称"]','取消的分组');
   await page.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
@@ -268,6 +313,9 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   assert.equal(await page.evaluate(`${data}.modules[0].interfaces[0].inputs[0].name`),'title');
   assert.equal(await page.evaluate(`${data}.modules[0].interfaces[0].inputs[0].description`),hostile);
   assert.equal(await page.evaluate('globalThis.__injected === undefined'),true);
+  assert.equal(await page.evaluate(`${data}.relations[0].fromPort`),'right');
+  assert.equal(await page.evaluate(`${data}.relations[0].toPort`),'left');
+  assert.equal(await page.evaluate('document.querySelectorAll(".module-port").length'),8);
   assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${firstNode} .module-name`)}).textContent`),'修改后的任务模块');
   await page.click(`${firstNode} [data-node-action="edit"]`); await expandInterface();
   assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${apiNode} [aria-label="参数名"]`)}).value`),'title');
@@ -346,6 +394,29 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   assert.deepEqual(page.blockedRequests,[],'HTTP(S) interception was installed before navigation');
   assert.deepEqual(page.pageErrors,[]); assert.deepEqual(page.consoleErrors,[]); assert.deepEqual(page.protocolErrors,[]);
 
+  async function key(key,code,modifiers = 0) {
+    await page.send('Input.dispatchKeyEvent',{type:'keyDown',key,windowsVirtualKeyCode:code,modifiers});
+    await page.send('Input.dispatchKeyEvent',{type:'keyUp',key,windowsVirtualKeyCode:code});
+  }
+  async function portPoint(selector) {
+    return page.evaluate(`(() => {const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return {x:r.left + r.width / 2,y:r.top + r.height / 2};})()`);
+  }
+  async function dragConnection(selector,to) {
+    const from = await portPoint(selector);
+    await page.send('Input.dispatchMouseEvent',{type:'mouseMoved',...from});
+    await page.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...from});
+    await page.send('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,x:(from.x + to.x) / 2,y:(from.y + to.y) / 2});
+    await page.send('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,...to});
+    await page.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...to});
+  }
+  async function clickArrow(clickCount = 1) {
+    const point = await page.evaluate('(() => {const path = document.querySelector(".relation-line"), p = path.getPointAtLength(path.getTotalLength() / 2).matrixTransform(path.getScreenCTM()); return {x:p.x,y:p.y};})()');
+    await page.send('Input.dispatchMouseEvent',{type:'mouseMoved',...point});
+    for (let count = 1; count <= clickCount; count++) {
+      await page.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:count,...point});
+      await page.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:count,...point});
+    }
+  }
   async function expandInterface() {
     if (await page.evaluate(`document.querySelector(${JSON.stringify(`${apiNode} .interface-body`)}).hidden`)) await page.click(`${apiNode} [data-interface-action="toggle"]`);
   }

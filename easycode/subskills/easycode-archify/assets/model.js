@@ -3,6 +3,7 @@
   const namespace = root.EasyCode ||= {};
   const statuses = ['planned', 'verified', 'modified'];
   const relationTypes = ['call', 'dependency'];
+  const portSides = ['top', 'right', 'bottom', 'left'];
   const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
   let sequence = 0;
   function id(prefix) {
@@ -80,21 +81,48 @@
     return true;
   }
   function relationKey(relation) {
-    const values = [relation.from, relation.to, relation.type, relation.label];
+    const values = [relation.from, relation.to, relation.type === undefined ? '' : relation.type, relation.label === undefined ? '' : relation.label];
     return values.every(value => typeof value === 'string') ? JSON.stringify(values) : null;
   }
   function addRelation(project, options = {}) {
     const relation = {
-      id: id('relation'), from: options.from, to: options.to, type: options.type ?? 'call',
+      id: id('relation'), from: options.from, to: options.to,
       label: options.label ?? '', status: options.status ?? 'planned', sources: options.sources ?? [], unknowns: options.unknowns ?? []
     };
-    if (!project.modules.some(item => item.id === relation.from) || !project.modules.some(item => item.id === relation.to) ||
-        relation.from === relation.to || !relationTypes.includes(relation.type) || relationKey(relation) === null ||
-        project.relations.some(item => relationKey(item) === relationKey(relation))) {
-      throw new Error('关系需要有效的不同模块，且不能完全重复');
-    }
+    // Legacy type metadata is retained only when explicitly supplied; new arrows have no category.
+    for (const field of ['fromPort','toPort','type']) if (options[field] !== undefined) relation[field] = options[field];
+    checkRelation(project,relation);
     project.relations.push(relation);
     return relation;
+  }
+  function checkRelation(project,relation,exceptId) {
+    if (!project.modules.some(item => item.id === relation.from) || !project.modules.some(item => item.id === relation.to) ||
+        relation.from === relation.to || (relation.type !== undefined && !relationTypes.includes(relation.type)) || relationKey(relation) === null ||
+        project.relations.some(item => item.id !== exceptId && relationKey(item) === relationKey(relation))) {
+      throw new Error('关系需要有效的不同模块，且不能完全重复');
+    }
+    for (const field of ['fromPort','toPort']) if (relation[field] !== undefined && !portSides.includes(relation[field])) throw new Error('连接点须为上、右、下、左四边之一');
+  }
+  function updateRelation(project,id,patch) {
+    const relation = project.relations.find(item => item.id === id);
+    if (!relation) throw new Error('箭头已不存在。');
+    const fields = ['from','to','type','label','fromPort','toPort'], next = {...relation};
+    for (const field of fields) if (Object.hasOwn(patch,field)) {
+      if (field.endsWith('Port') && patch[field] === undefined) delete next[field];
+      else next[field] = patch[field];
+    }
+    checkRelation(project,next,id);
+    if (fields.every(field => next[field] === relation[field])) return false;
+    const semantic = ['from','to','type','label'].some(field => next[field] !== relation[field]);
+    Object.assign(relation,next);
+    for (const field of ['fromPort','toPort']) if (!Object.hasOwn(next,field)) delete relation[field];
+    if (semantic) markEdited(relation);
+    return true;
+  }
+  function removeRelation(project,id) {
+    const index = project.relations.findIndex(item => item.id === id);
+    if (index < 0) return false;
+    project.relations.splice(index,1); return true;
   }
 
   // Validation collects independent problems, so malformed drafts never stop the remaining checks.
@@ -192,7 +220,9 @@
       identity(relation.id,at(path,'id')); evidence(relation,path);
       for (const endpoint of ['from','to']) if (!moduleIds.has(relation[endpoint])) error(at(path,endpoint), '模块不存在');
       if (relation.from === relation.to) error(at(path,'to'), '源模块和目标模块不能相同');
-      enumeration(relation.type,relationTypes,at(path,'type')); string(relation.label,at(path,'label'),true);
+      if (relation.type !== undefined) enumeration(relation.type,relationTypes,at(path,'type'));
+      if (relation.label !== undefined) string(relation.label,at(path,'label'));
+      for (const field of ['fromPort','toPort']) if (relation[field] !== undefined) enumeration(relation[field],portSides,at(path,field));
       const key = relationKey(relation);
       if (key !== null) {if (relationKeys.has(key)) error(path,'关系完全重复'); relationKeys.add(key);}
     });
@@ -209,5 +239,5 @@
     }
     return {errors, warnings};
   }
-  namespace.Model = {createProject,createModule,createInterface,createParameter,validate,markEdited,updateModule,updateInterface,removeModule,removeGroup,addRelation};
+  namespace.Model = {createProject,createModule,createInterface,createParameter,validate,markEdited,updateModule,updateInterface,removeModule,removeGroup,addRelation,updateRelation,removeRelation};
 })(globalThis);

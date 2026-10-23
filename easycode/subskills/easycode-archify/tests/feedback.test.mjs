@@ -23,6 +23,7 @@ test('提示区分重名、未命名项，保留不认识的检查位置',() => 
   project.modules = [Model.createModule({name:'任务'}),Model.createModule({name:'任务'})];
   Model.addRelation(project,{from:project.modules[0].id,to:project.modules[1].id});
   const text = Feedback.formatWarnings(project,Model.validate(project).warnings);
-  for (const location of ['项目 / 项目名称','项目 / 项目用途','分组 1“未命名” / 分组名称','模块 1“任务” / 模块职责','模块 2“任务” / 模块职责','关系 1“任务 → 任务” / 关系说明']) assert.ok(text.includes(location),location);
+  for (const location of ['项目 / 项目名称','项目 / 项目用途','分组 1“未命名” / 分组名称','模块 1“任务” / 模块职责','模块 2“任务” / 模块职责']) assert.ok(text.includes(location),location);
+  assert.ok(!text.includes('关系说明'));
   assert.match(Feedback.formatWarnings(project,[{path:'future.field',message:'请补充'}]),/future\.field：请补充/);
 });

@@ -8,11 +8,6 @@
       if (path === 'name' || path === 'description') return `项目 / ${path === 'name' ? '项目名称' : '项目用途'}`;
       let match = /^groups\[(\d+)\]\.name$/.exec(path);
       if (match) return `${named('分组',Number(match[1]),project.groups[match[1]])} / 分组名称`;
-      match = /^relations\[(\d+)\]\.label$/.exec(path);
-      if (match) {
-        const relation = project.relations[match[1]], name = id => project.modules.find(item => item.id === id)?.name || '未命名模块';
-        return `关系 ${Number(match[1]) + 1}“${name(relation?.from)} → ${name(relation?.to)}” / 关系说明`;
-      }
       match = /^modules\[(\d+)\](?:\.interfaces\[(\d+)\])?(?:\.(inputs|outputs)\[(\d+)\])?\.(name|purpose|type|description)$/.exec(path);
       if (!match) return path;
       const [,moduleIndex,interfaceIndex,direction,parameterIndex,field] = match, module = project.modules[moduleIndex];

@@ -8,7 +8,7 @@ export function assemble(project, bundle) {
 }
 
 export async function loadBundle(base = new URL('../',import.meta.url)) {
-  const scripts = ['model','serialization','storage','feedback','icons','nodes','canvas','module-editor','dialogs','app'];
+  const scripts = ['model','serialization','storage','feedback','icons','nodes','annotations','canvas','module-editor','dialogs','app'];
   const [canvas,node,css,...runtime] = await Promise.all([
     readFile(new URL('templates/canvas.html',base),'utf8'),
     readFile(new URL('templates/module-node.html',base),'utf8'),

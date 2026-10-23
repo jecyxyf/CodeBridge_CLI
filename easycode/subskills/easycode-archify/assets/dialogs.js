@@ -1,7 +1,7 @@
 (function (root) {
   'use strict';
   const EC = root.EasyCode ||= {};
-  function create({project,onChange = () => {},confirm = message => root.confirm(message)}) {
+  function create({project,onChange = () => {},onOpen = () => {},confirm = message => root.confirm(message)}) {
     const dialog = document.getElementById('ec-dialog');
     let moduleSession = null;
     function close() {moduleSession = null; dialog.close();}
@@ -18,6 +18,7 @@
       wrapper.append(control); form.append(wrapper); return control;
     }
     function open(title,build,submit,remove,options = {}) {
+      if (onOpen() === false) return;
       if (dialog.open) close(); dialog.replaceChildren(); dialog.className = options.className || '';
       const form = node('form'), heading = node('h2',title); heading.id = 'ec-dialog-title'; form.append(heading);
       form.noValidate = !!options.noValidate;
@@ -62,30 +63,6 @@
         }
       },group ? {label:'删除层级',icon:'trash',run() {EC.Model.removeGroup(project,group.id);}} : null);
     }
-    function editRelation(id,fromId) {
-      const relation = project.relations.find(item => item.id === id);
-      const choices = project.modules.map(module => [module.id,module.name || '未命名模块']);
-      open(relation ? '编辑模块关系' : '连接模块',form => {
-        if (choices.length < 2) form.append(node('p','至少需要两个模块才能创建关系。','dialog-note'));
-        const from = input(form,'起点模块',relation?.from || fromId || choices[0]?.[0],{choices,required:true});
-        const to = input(form,'目标模块',relation?.to || choices.find(([id]) => id !== from.value)?.[0],{choices,required:true});
-        const type = input(form,'关系类型',relation?.type || 'call',{choices:[['call','调用'],['dependency','依赖']]});
-        const label = input(form,'关系说明',relation?.label || '',{multiline:true});
-        return {from,to,type,label};
-      },controls => {
-        const patch = Object.fromEntries(Object.entries(controls).map(([key,control]) => [key,control.value]));
-        if (relation) {
-          if (!project.modules.some(module => module.id === patch.from) || !project.modules.some(module => module.id === patch.to) || patch.from === patch.to) throw new Error('请选择两个不同的模块。');
-          if (project.relations.some(item => item.id !== relation.id && ['from','to','type','label'].every(key => item[key] === patch[key]))) throw new Error('这条关系已经存在。');
-          if (Object.entries(patch).some(([key,value]) => relation[key] !== value)) {Object.assign(relation,patch); EC.Model.markEdited(relation);}
-        } else EC.Model.addRelation(project,patch);
-      },relation ? {label:'删除关系',run() {
-        if (!project.relations.includes(relation)) return false;
-        const name = id => project.modules.find(module => module.id === id)?.name || '未命名模块';
-        if (!confirm(`删除关系“${name(relation.from)} → ${name(relation.to)}”（${relation.type === 'call' ? '调用' : '依赖'}：${relation.label || '无说明'}）？`)) return false;
-        project.relations = project.relations.filter(item => item.id !== relation.id);
-      }} : null);
-    }
     function editProject() {
       open('项目设置',form => ({
         name:input(form,'项目名称',project.name,{required:true}),
@@ -99,7 +76,7 @@
         project.repository.path = path.value; project.repository.revision = revision.value;
       });
     }
-    return {editModule,editGroup,editRelation,editProject,
+    return {editModule,editGroup,editProject,
       isEditingModule:() => dialog.open && !!moduleSession,
       hasDraftChanges:() => dialog.open && !!moduleSession && EC.ModuleEditor.hasChanges(moduleSession),
       showMessage(message) {const error = dialog.querySelector('.dialog-error'); if (error) error.textContent = message;}

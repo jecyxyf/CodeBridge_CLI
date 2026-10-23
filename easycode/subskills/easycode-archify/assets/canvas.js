@@ -4,6 +4,61 @@
   const gridSize = 10;
   const svgNS = 'http://www.w3.org/2000/svg';
   const interactive = 'input,textarea,select,button,a,label,summary,dialog,[contenteditable=true]';
+  const portNames = {top:'上侧',right:'右侧',bottom:'下侧',left:'左侧'};
+  function portAnchor(bounds,side,gap = 7) {
+    const vectors = {top:[0,-1],right:[1,0],bottom:[0,1],left:[-1,0]};
+    const [nx,ny] = vectors[side];
+    return {x:bounds.x + bounds.width / 2 + nx * (bounds.width / 2 + gap),y:bounds.y + bounds.height / 2 + ny * (bounds.height / 2 + gap),nx,ny};
+  }
+  function curveBetween(start,end,lane = 0) {
+    const bend = Math.max(48,Math.min(240,Math.hypot(end.x - start.x,end.y - start.y) * .45)) + lane * 28;
+    const c1 = {x:start.x + start.nx * bend,y:start.y + start.ny * bend};
+    const c2 = {x:end.x + end.nx * bend,y:end.y + end.ny * bend};
+    if (lane) {
+      const distance = Math.hypot(end.x - start.x,end.y - start.y), tx = distance ? (end.x - start.x) / distance : 1, ty = distance ? (end.y - start.y) / distance : 0;
+      const mid = {x:(start.x + 3 * c1.x + 3 * c2.x + end.x) / 8 - ty * lane * 28,y:(start.y + 3 * c1.y + 3 * c2.y + end.y) / 8 + tx * lane * 28};
+      const handle = Math.min(70,Math.max(24,distance / 6));
+      return {start,end,c1,c2,path:`M ${start.x} ${start.y} C ${c1.x} ${c1.y}, ${mid.x - tx * handle} ${mid.y - ty * handle}, ${mid.x} ${mid.y} C ${mid.x + tx * handle} ${mid.y + ty * handle}, ${c2.x} ${c2.y}, ${end.x} ${end.y}`,label:{x:mid.x,y:mid.y - 9}};
+    }
+    return {start,end,c1,c2,path:`M ${start.x} ${start.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${end.x} ${end.y}`,
+      label:{x:(start.x + 3 * c1.x + 3 * c2.x + end.x) / 8,y:(start.y + 3 * c1.y + 3 * c2.y + end.y) / 8 - 9}};
+  }
+  function relationGeometry(a,b,relation,lane = 0) {
+    // Older HTML has no saved ports. Keep its left/right choice without rewriting its data.
+    const forward = b.x + b.width / 2 >= a.x + a.width / 2;
+    return curveBetween(portAnchor(a,relation.fromPort || (forward ? 'right' : 'left')),portAnchor(b,relation.toPort || (forward ? 'left' : 'right')),lane);
+  }
+  function createConnection({project,onChange = () => {},onState = () => {}}) {
+    let source = null, active = false, message = '';
+    const getState = () => ({source:source ? {...source} : null,active,message});
+    function publish(text) {message = text; onState(getState());}
+    function cancel() {source = null; active = false; publish('');}
+    function start() {
+      source = null; active = project.modules.length >= 2;
+      publish(active ? '按住模块圆点，拖到另一个模块的圆点后松开 · Esc 取消' : '至少需要两个模块才能连接。');
+    }
+    function reconcile() {if (source && !project.modules.some(item => item.id === source.moduleId)) cancel();}
+    function begin(moduleId,port) {
+      cancel();
+      const module = project.modules.find(item => item.id === moduleId);
+      if (!module || !Object.hasOwn(portNames,port)) return false;
+      if (project.modules.length < 2) {start(); return false;}
+      source = {moduleId,port}; active = true;
+      publish(`起点：${module.name || '未命名模块'}（${portNames[port]}）· 拖到另一个模块的圆点后松开 · Esc 取消`);
+      return true;
+    }
+    function complete(moduleId,port) {
+      reconcile();
+      if (!source) return false;
+      const from = source; cancel();
+      if (!project.modules.some(item => item.id === moduleId) || !Object.hasOwn(portNames,port) || from.moduleId === moduleId) return false;
+      try {EC.Model.addRelation(project,{from:from.moduleId,fromPort:from.port,to:moduleId,toPort:port});}
+      catch (error) {publish(error.message); return false;}
+      onChange({semantic:true,render:false}); return true;
+    }
+    return {start,cancel,begin,complete,reconcile,getState};
+  }
+
   function snapPoint({x,y}) {
     return {x:Math.round(x / gridSize) * gridSize || 0,y:Math.round(y / gridSize) * gridSize || 0};
   }
@@ -36,15 +91,46 @@
     for (const [key,value] of Object.entries(attributes)) node.setAttribute(key,String(value));
     return node;
   }
-  function create({project,viewport,world,groupLayer,edgeLayer,nodes,onChange = () => {},onGroupEdit = () => {},onRelationEdit = () => {}}) {
-    const view = project.view, listeners = [], groupElements = new Map();
-    let drag = null, frame = 0, destroyed = false;
+  function create({project,viewport,world,groupLayer,edgeLayer,nodes,onChange = () => {},onGroupEdit = () => {},confirm = message => root.confirm(message)}) {
+    const view = project.view, listeners = [], groupElements = new Map(), relationElements = new Map();
+    let drag = null, linkDrag = null, frame = 0, destroyed = false, pointer = null, hover = null, preview = null, selectedRelation = '';
+    const connection = createConnection({project,onChange,onState:syncConnection});
+    const annotations = EC.Annotations.create({project,container:viewport,onChange});
     function listen(target,type,callback,options) {target.addEventListener(type,callback,options); listeners.push(() => target.removeEventListener(type,callback,options));}
     function nodeBounds(module) {
       const node = nodes.getElement(module.id);
       return {x:module.x,y:module.y,width:node?.offsetWidth || 360,height:node?.offsetHeight || 190};
     }
     const boundsForGroup = group => groupBounds(group,project.modules.filter(module => module.groupId === group.id).map(nodeBounds));
+    function syncConnection(state = connection.getState()) {
+      viewport.classList.toggle('connecting',state.active);
+      const hint = document.getElementById('ec-connection-hint');
+      if (hint) {hint.textContent = state.message || (selectedRelation ? '双击编辑备注 · Delete 删除箭头' : ''); hint.hidden = !hint.textContent;}
+      document.querySelector('[data-action=add-relation]')?.setAttribute('aria-pressed',String(state.active));
+      for (const module of project.modules) for (const port of nodes.getElement(module.id)?.querySelectorAll('[data-port]') || []) {
+        const selected = state.source?.moduleId === module.id && state.source.port === port.dataset.port;
+        port.classList.toggle('port-source',selected); port.setAttribute('aria-pressed',String(selected));
+        port.classList.toggle('port-target',!!state.source && state.source.moduleId !== module.id && hover?.moduleId === module.id && hover.port === port.dataset.port);
+      }
+      paintPreview();
+    }
+    function setHover(target) {
+      const port = target.closest?.('[data-port]'), next = port ? {moduleId:port.closest('.module-node').dataset.moduleId,port:port.dataset.port} : null;
+      if (next?.moduleId !== hover?.moduleId || next?.port !== hover?.port) {hover = next; syncConnection();}
+    }
+    function paintPreview() {
+      if (!preview) return;
+      const {source} = connection.getState(), from = source && project.modules.find(item => item.id === source.moduleId);
+      preview.style.display = from ? '' : 'none'; if (!from) return;
+      const start = portAnchor(nodeBounds(from),source.port);
+      const target = hover && hover.moduleId !== from.id && project.modules.find(item => item.id === hover.moduleId);
+      const end = target ? portAnchor(nodeBounds(target),hover.port) : pointer ?
+        {x:(pointer.x - view.x) / view.scale,y:(pointer.y - view.y) / view.scale,nx:-start.nx,ny:-start.ny} :
+        {x:start.x + start.nx * 80,y:start.y + start.ny * 80,nx:-start.nx,ny:-start.ny};
+      if (!target && pointer && Math.hypot(end.x - start.x,end.y - start.y) < 14) {preview.style.display = 'none'; return;}
+      preview.setAttribute('d',curveBetween(start,end).path);
+      preview.classList.toggle('has-target',!!target);
+    }
     function paintGroups() {
       const active = new Set(project.groups.map(group => group.id));
       for (const [id,node] of groupElements) if (!active.has(id)) {node.remove(); groupElements.delete(id);}
@@ -69,28 +155,61 @@
         node.querySelector('.group-empty').hidden = project.modules.some(module => module.groupId === group.id);
       }
     }
+    function selectRelation(id) {
+      selectedRelation = id;
+      for (const [key,{group}] of relationElements) {group.classList.toggle('selected',key === id); group.setAttribute('aria-pressed',String(key === id));}
+      syncConnection();
+    }
+    function editAnnotation(id) {
+      cancelConnection(); selectRelation(id);
+      const point = relationElements.get(id)?.point;
+      if (point) annotations.open(id,{x:point.x * view.scale + view.x,y:point.y * view.scale + view.y});
+    }
     function paintEdges() {
-      edgeLayer.replaceChildren();
-      const defs = svg('defs'), marker = svg('marker',{id:'ec-arrow',viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'});
-      marker.append(svg('path',{d:'M 0 0 L 10 5 L 0 10 z',fill:'#87a8ce'})); defs.append(marker); edgeLayer.append(defs);
+      if (!preview) {
+        const defs = svg('defs'), marker = svg('marker',{id:'ec-arrow',viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'});
+        marker.append(svg('path',{d:'M 0 0 L 10 5 L 0 10 z',fill:'#87a8ce'})); defs.append(marker); edgeLayer.append(defs);
+        preview = svg('path',{class:'relation-preview','marker-end':'url(#ec-arrow)'}); edgeLayer.append(preview);
+      }
+      const ids = new Set(project.relations.map(item => item.id));
+      for (const [id,entry] of relationElements) if (!ids.has(id)) {entry.group.remove(); relationElements.delete(id);}
+      if (!ids.has(selectedRelation)) selectedRelation = '';
+      if (annotations.getId() && !ids.has(annotations.getId())) annotations.cancel();
       const parallel = new Map();
       for (const relation of project.relations) {
         const from = project.modules.find(module => module.id === relation.from), to = project.modules.find(module => module.id === relation.to);
         if (!from || !to) continue;
-        const a = nodeBounds(from), b = nodeBounds(to), forward = b.x + b.width / 2 >= a.x + a.width / 2;
-        const key = [from.id,to.id].sort().join('|'), lane = parallel.get(key) || 0; parallel.set(key,lane + 1);
-        const startX = forward ? a.x + a.width : a.x, endX = forward ? b.x : b.x + b.width;
-        const offset = Math.min(60,lane * 20), startY = a.y + Math.min(a.height - 18,72 + offset), endY = b.y + Math.min(b.height - 18,72 + offset);
-        const bend = Math.max(55,Math.abs(endX - startX) * .48), direction = forward ? 1 : -1;
-        const path = `M ${startX} ${startY} C ${startX + bend * direction} ${startY}, ${endX - bend * direction} ${endY}, ${endX} ${endY}`;
-        const group = svg('g',{'class':'relation-group','tabindex':0,'role':'button','aria-label':`${from.name} → ${to.name}，${relation.type === 'call' ? '调用' : '依赖'}：${relation.label || '无说明'}`,'data-relation-id':relation.id});
-        group.append(svg('path',{d:path,class:`relation-line ${relation.type}`,'marker-end':'url(#ec-arrow)'}),svg('path',{d:path,class:'relation-hit'}));
-        const label = svg('text',{x:(startX + endX) / 2,y:(startY + endY) / 2 - 9 - lane * 3,class:'relation-label','text-anchor':'middle'});
-        label.textContent = relation.label || (relation.type === 'call' ? '调用' : '依赖'); group.append(label);
-        group.addEventListener('click',() => onRelationEdit(relation.id));
-        group.addEventListener('keydown',event => {if (event.key === 'Enter' || event.key === ' ') {event.preventDefault(); onRelationEdit(relation.id);}});
-        edgeLayer.append(group);
+        const key = [`${from.id}:${relation.fromPort || 'auto'}`,`${to.id}:${relation.toPort || 'auto'}`].sort().join('|'), lane = parallel.get(key) || 0; parallel.set(key,lane + 1);
+        const {path,label:point} = relationGeometry(nodeBounds(from),nodeBounds(to),relation,lane);
+        let entry = relationElements.get(relation.id);
+        if (!entry) {
+          const group = svg('g',{class:'relation-group',tabindex:0,role:'button','data-relation-id':relation.id});
+          const line = svg('path',{class:'relation-line','marker-end':'url(#ec-arrow)'}), hit = svg('path',{class:'relation-hit'});
+          const label = svg('text',{class:'relation-label','text-anchor':'middle'}), title = svg('title');
+          title.textContent = '双击编辑备注；选中后按 Delete 删除'; group.append(title,line,hit,label);
+          group.addEventListener('click',() => {cancelConnection(); selectRelation(relation.id); group.focus({preventScroll:true});});
+          group.addEventListener('dblclick',event => {event.preventDefault(); editAnnotation(relation.id);});
+          group.addEventListener('keydown',event => {
+            if (event.key === 'Enter') {event.preventDefault(); editAnnotation(relation.id);}
+            else if (event.key === ' ') {event.preventDefault(); selectRelation(relation.id);}
+          });
+          entry = {group,line,hit,label}; relationElements.set(relation.id,entry); edgeLayer.insertBefore(group,preview);
+        }
+        const {group,line,hit,label} = entry; entry.point = point;
+        group.setAttribute('aria-label',`${from.name} → ${to.name}：${relation.label || '无备注'}；双击编辑备注`);
+        group.classList.toggle('selected',selectedRelation === relation.id); group.setAttribute('aria-pressed',String(selectedRelation === relation.id));
+        line.setAttribute('d',path); hit.setAttribute('d',path);
+        label.setAttribute('y',point.y); label.classList.toggle('is-empty',!relation.label);
+        const text = relation.label || '双击添加备注';
+        if (entry.text !== text) {
+          label.replaceChildren();
+          text.split(/\r?\n/).forEach((value,index) => {const span = svg('tspan',{dy:index ? 16 : 0}); span.textContent = value; label.append(span);});
+          entry.text = text;
+        }
+        for (const span of label.children) span.setAttribute('x',point.x);
+        if (annotations.getId() === relation.id) annotations.position({x:point.x * view.scale + view.x,y:point.y * view.scale + view.y});
       }
+      paintPreview();
     }
     function refresh() {
       if (destroyed) return;
@@ -100,7 +219,7 @@
       for (const module of project.modules) {
         const node = nodes.getElement(module.id); if (node) {node.style.left = `${module.x}px`; node.style.top = `${module.y}px`;}
       }
-      paintGroups(); paintEdges();
+      connection.reconcile(); paintGroups(); paintEdges(); syncConnection();
       const zoom = document.getElementById('ec-zoom'); if (zoom) zoom.textContent = `${Math.round(view.scale * 100)}%`;
     }
     function scheduleRefresh() {if (!frame) frame = requestAnimationFrame(() => {frame = 0; refresh();});}
@@ -129,10 +248,34 @@
       if (event.target.closest(interactive)) return;
       event.preventDefault(); const rect = viewport.getBoundingClientRect(); zoomAt(Math.exp(-event.deltaY * .0015),event.clientX - rect.left,event.clientY - rect.top);
     },{passive:false});
+    function cancelConnection() {
+      const previous = linkDrag; linkDrag = null;
+      connection.cancel(); hover = null;
+      if (previous && viewport.hasPointerCapture(previous.pointerId)) viewport.releasePointerCapture(previous.pointerId);
+    }
+    function startConnection() {
+      if (!annotations.finish()) return;
+      cancelConnection(); selectRelation(''); connection.start();
+    }
+    function portAt(event) {return document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-port]');}
     listen(viewport,'pointerdown',event => {
-      if (event.button !== 0 && event.button !== 1 || event.target.closest(interactive)) return;
+      if (event.button !== 0 && event.button !== 1) return;
+      const port = event.target.closest('[data-port]');
+      if (port && event.button === 0) {
+        event.preventDefault();
+        if (!annotations.finish()) return;
+        cancelConnection(); selectRelation('');
+        const rect = viewport.getBoundingClientRect(); pointer = {x:event.clientX - rect.left,y:event.clientY - rect.top};
+        if (connection.begin(port.closest('.module-node').dataset.moduleId,port.dataset.port)) {
+          linkDrag = {pointerId:event.pointerId,x:event.clientX,y:event.clientY,moved:false}; viewport.setPointerCapture(event.pointerId);
+        }
+        return;
+      }
+      if (event.target.closest(interactive)) return;
+      if (!annotations.finish()) {event.preventDefault(); return;}
       const header = event.target.closest('.module-header'), groupHeader = event.target.closest('.group-header');
       const blank = !event.target.closest('.module-node,.group-frame,.relation-group');
+      if (blank && event.button === 0) {cancelConnection(); selectRelation('');}
       if (!header && !groupHeader && !blank && event.button !== 1) return;
       const start = {pointerId:event.pointerId,x:event.clientX,y:event.clientY,moved:false};
       if (event.button === 1 || !header && !groupHeader) drag = {...start,type:'pan',viewX:view.x,viewY:view.y};
@@ -146,6 +289,9 @@
       event.preventDefault(); viewport.setPointerCapture(event.pointerId); viewport.style.cursor = 'grabbing';
     });
     listen(viewport,'pointermove',event => {
+      const rect = viewport.getBoundingClientRect(); pointer = {x:event.clientX - rect.left,y:event.clientY - rect.top}; setHover(linkDrag ? document.elementFromPoint(event.clientX,event.clientY) || viewport : event.target);
+      if (linkDrag && event.pointerId === linkDrag.pointerId && Math.hypot(event.clientX - linkDrag.x,event.clientY - linkDrag.y) >= 3) linkDrag.moved = true;
+      if (connection.getState().source) paintPreview();
       if (!drag || event.pointerId !== drag.pointerId) return;
       const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
       if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 3) return;
@@ -163,14 +309,41 @@
       if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
       if (moved) {refresh(); changed();}
     }
-    listen(viewport,'pointerup',endDrag); listen(viewport,'pointercancel',endDrag); listen(viewport,'lostpointercapture',endDrag);
+    function endConnection(event) {
+      if (!linkDrag || linkDrag.pointerId !== event.pointerId) return;
+      const previous = linkDrag; linkDrag = null;
+      const port = event.type === 'pointerup' && previous.moved ? portAt(event) : null;
+      if (port) connection.complete(port.closest('.module-node').dataset.moduleId,port.dataset.port); else connection.cancel();
+      hover = null; syncConnection();
+      if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
+    }
+    listen(viewport,'pointerup',event => {endConnection(event); endDrag(event);});
+    listen(viewport,'pointercancel',event => {endConnection(event); endDrag(event);});
+    listen(viewport,'lostpointercapture',event => {endConnection(event); endDrag(event);});
+    listen(viewport,'pointerleave',() => {if (!linkDrag) {hover = null; pointer = null; syncConnection();}});
+    listen(document,'keydown',event => {
+      if (document.querySelector('dialog[open]')) return;
+      if (event.key === 'Escape' && connection.getState().active) {event.preventDefault(); cancelConnection(); return;}
+      if (event.target.closest?.(interactive)) return;
+      if (event.key === 'Escape') {cancelConnection(); selectRelation('');}
+      if ((event.key === 'Delete' || event.key === 'Backspace') && selectedRelation) {
+        event.preventDefault();
+        const relation = project.relations.find(item => item.id === selectedRelation);
+        if (!relation) return;
+        const name = id => project.modules.find(item => item.id === id)?.name || '未命名模块';
+        if (!confirm(`删除箭头“${name(relation.from)} → ${name(relation.to)}”${relation.label ? `（${relation.label}）` : ''}？`)) return;
+        if (EC.Model.removeRelation(project,relation.id)) {selectedRelation = ''; onChange({semantic:true,render:false}); viewport.focus({preventScroll:true});}
+      }
+    });
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(scheduleRefresh) : null;
     if (observer) {observer.observe(viewport); for (const module of project.modules) {const node = nodes.getElement(module.id); if (node) observer.observe(node);}}
     // Observe new nodes after structural edits, without watching every input mutation.
     const mutation = new MutationObserver(() => {if (observer) {observer.disconnect(); observer.observe(viewport); for (const module of project.modules) {const node = nodes.getElement(module.id); if (node) observer.observe(node);}} scheduleRefresh();});
     mutation.observe(document.getElementById('ec-nodes') || world,{childList:true});
     refresh();
-    return {refresh,fit,zoomBy,centerPoint,destroy() {destroyed = true; listeners.forEach(remove => remove()); observer?.disconnect(); mutation.disconnect(); if (frame) cancelAnimationFrame(frame); groupLayer.replaceChildren(); edgeLayer.replaceChildren();}};
+    return {refresh,fit,zoomBy,centerPoint,startConnection,cancelConnection,
+      finishAnnotation:annotations.finish,hasDraftChanges:annotations.hasDraftChanges,
+      destroy() {annotations.cancel(); cancelConnection(); destroyed = true; listeners.forEach(remove => remove()); observer?.disconnect(); mutation.disconnect(); if (frame) cancelAnimationFrame(frame); groupLayer.replaceChildren(); edgeLayer.replaceChildren(); relationElements.clear();}};
   }
-  EC.Canvas = {create,snapPoint,gridStyle,groupBounds,moveSelection};
+  EC.Canvas = {create,snapPoint,gridStyle,groupBounds,moveSelection,portAnchor,relationGeometry,createConnection};
 })(globalThis);

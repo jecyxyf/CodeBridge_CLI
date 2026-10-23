@@ -30,6 +30,8 @@ The JSON is an agent-side build input, not a second file the user must maintain.
 
 Canvas module cards only show name, responsibility summary, interface count and status. The edit button opens a dialog for full details, including interfaces, parameters and evidence. Confirm applies the draft; Cancel/Escape discards it. A new module is not added until confirmed. Delete lives in the module dialog. After confirming, use the top Save action to write the HTML. Keep drag, grid snapping and relationship controls available on the canvas.
 
+Connect modules by holding an edge point, dragging to another module's point, and releasing. Each module has one point at the middle of each of its four sides; the drag starts at the output and ends at the input. Single clicks do not connect. Escape or releasing on blank canvas/the same module cancels the preview. All arrows are plain visual relationship markers, with no call/dependency distinction or configuration dialog. Double-click an arrow or its annotation to edit the optional text inline: Enter or blur applies it, Shift+Enter adds a line, and Escape discards it. Click an arrow to select it, then press Delete to remove it with confirmation. New arrows persist their selected sides in optional `fromPort` / `toPort` fields; preserve old arrows without those fields and any legacy metadata. These are module attachment points, not API-specific ports.
+
 For ordinary canvas authoring, build, check, and read back the project data. Run `node --test tests/*.test.mjs` when changing this package's code, templates, or tooling; it is not a step for every generated canvas.
 
 ## Update an existing HTML
