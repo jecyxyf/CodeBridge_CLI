@@ -205,7 +205,12 @@ label.field>input,label.field>textarea,label.field>select {
   line-height: 1.4;
   margin: 0;
   flex: 1;
-  overflow-wrap: anywhere
+  overflow-wrap: anywhere;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden
 }
 .node-grip {
   color: #8194ae;
@@ -222,20 +227,16 @@ label.field>input,label.field>textarea,label.field>select {
   color: #c2cede;
   margin: 14px 16px 10px;
   overflow-wrap: anywhere;
-  white-space: pre-wrap
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden
 }
 .module-summary {
   padding: 0 16px 14px;
   color: var(--muted);
-  display: grid;
-  gap: 7px
-}
-.interface-preview {
-  font-family: Consolas,"Courier New",monospace;
-  font-size: 12px;
-  border-left: 2px solid #6d8aaa;
-  padding-left: 9px;
-  overflow-wrap: anywhere
+  font-size: 12px
 }
 .module-footer {
   display: flex;
@@ -261,12 +262,6 @@ label.field>input,label.field>textarea,label.field>select {
 }
 .module-status[data-status=modified] {
   color: #e8bb82
-}
-.module-details {
-  padding: 14px;
-  display: grid;
-  gap: 15px;
-  border-top: 1px solid var(--line)
 }
 .editor-section {
   display: grid;
@@ -564,6 +559,61 @@ dialog::backdrop {
 dialog form {
   display: grid;
   gap: 17px
+}
+.dialog-body {
+  display: grid;
+  gap: 17px;
+  min-width: 0
+}
+dialog.module-dialog {
+  width: min(900px,calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  overflow: hidden
+}
+.module-dialog form {
+  max-height: calc(100vh - 34px);
+  grid-template-rows: auto minmax(0,1fr) auto auto;
+  gap: 0
+}
+.module-dialog h2 {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line)
+}
+.module-dialog .dialog-body {
+  padding: 20px 24px;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain
+}
+.module-editor,.interface-list {
+  display: grid;
+  gap: 16px;
+  min-width: 0
+}
+.module-basics,.module-interfaces {
+  padding: 16px;
+  background: #1c2533;
+  border: 1px solid var(--line);
+  border-radius: 6px
+}
+.module-dialog .dialog-actions {
+  padding: 14px 24px;
+  border-top: 1px solid var(--line)
+}
+.module-dialog .dialog-error:not(:empty) {
+  padding: 12px 24px
+}
+.module-dialog .field {
+  min-width: 0
+}
+@media(max-width:560px) {
+  .module-dialog h2,.module-dialog .dialog-body,.module-dialog .dialog-actions {
+    padding: 14px
+  }
+  .module-dialog .parameter-row,.module-dialog .source-row {
+    grid-template-columns: 1fr
+  }
 }
 dialog h2 {
   margin: 0;

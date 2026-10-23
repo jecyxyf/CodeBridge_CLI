@@ -55,7 +55,7 @@
           const header = document.createElement('header'); header.className = 'group-header'; header.dataset.groupId = group.id;
           const title = document.createElement('span'); title.className = 'group-title';
           const edit = document.createElement('button'); edit.type = 'button'; EC.Icons.set(edit,'edit','编辑分组'); edit.addEventListener('click',() => onGroupEdit(group.id));
-          const empty = document.createElement('span'); empty.className = 'group-empty'; empty.textContent = '展开模块，在“所属分组”中加入此组';
+          const empty = document.createElement('span'); empty.className = 'group-empty'; empty.textContent = '编辑模块，在“所属层级”中加入此层级';
           header.append(title,edit); node.append(header,empty); groupLayer.append(node); groupElements.set(group.id,node);
         }
         const bounds = boundsForGroup(group);

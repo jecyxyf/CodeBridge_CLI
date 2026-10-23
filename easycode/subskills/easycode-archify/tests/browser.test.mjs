@@ -8,7 +8,7 @@ import {pathToFileURL} from 'node:url';
 import {launchBrowser,createPage} from './helpers/cdp.mjs';
 
 const enabled = process.env.EASYCODE_BROWSER_TEST === '1';
-test('opt-in file canvas: DOM edits, gestures, evidence, mock save and real HTML reopen',{
+test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML reopen',{
   skip:enabled ? false : 'Not executed: opt-in browser test. Requires independent authorization, EASYCODE_BROWSER_TEST=1 and EASYCODE_BROWSER_EXECUTABLE. Native file dialogs remain manual.',
   timeout:180000
 },async t => {
@@ -45,7 +45,7 @@ test('opt-in file canvas: DOM edits, gestures, evidence, mock save and real HTML
   assert.notDeepEqual(await page.evaluate(`${data}.view`),project.view,'initial fit actually changes the default view');
   const draftNode = `.module-node[data-module-id="${draft.id}"]`;
   assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${draftNode} [data-module-status]`)}).textContent`),'已核对源码');
-  assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${draftNode} [data-interface-status]`)}).textContent`),'方案');
+  assert.equal(await page.evaluate('document.querySelectorAll(".module-node input,.module-node textarea,.module-node select,.module-details").length'),0,'canvas modules have no inline editors');
   assert.equal(await page.evaluate('document.querySelector("#ec-warnings").hidden'),false);
   assert.match(await page.evaluate('document.querySelector("#ec-warnings").textContent'),/启动草稿.*模块职责[\s\S]*draft\(\).*接口用途/);
   await page.click('[data-action="save"]');
@@ -55,25 +55,60 @@ test('opt-in file canvas: DOM edits, gestures, evidence, mock save and real HTML
   await page.waitFor('document.querySelector("#ec-status").dataset.status === "error"');
   assert.match(await page.evaluate('document.querySelector("#ec-notice").textContent'),/模拟保存失败/);
   assert.equal(await page.evaluate('document.querySelector("#ec-warnings").hidden'),false,'warning does not replace save failure');
-  await page.fill(`${draftNode} [aria-label="模块职责"]`,'草稿模块职责');
-  await page.fill(`${draftNode} [aria-label="接口用途"]`,'草稿接口用途');
-  assert.equal(await page.evaluate('document.querySelector("#ec-warnings").hidden'),true,'corrected warnings clear during editing');
+  const beforeEdit = await page.evaluate(data);
+  await page.click(`${draftNode} [data-node-action="edit"]`);
+  await page.fill('#ec-dialog [aria-label="模块名称"]','取消的编辑');
+  assert.equal(await page.evaluate(`${app}.dialogs.hasDraftChanges()`),true);
+  assert.deepEqual(await page.evaluate(data),beforeEdit,'typing never changes the live module');
+  await page.click('#ec-dialog button[aria-label="取消"]');
+  assert.deepEqual(await page.evaluate(data),beforeEdit,'cancel discards all edits');
+  assert.equal(await page.evaluate(`${app}.storage.isDirty()`),false,'cancel keeps a clean project clean');
+  assert.equal(await page.evaluate(`${app}.dialogs.hasDraftChanges()`),false);
+  await page.click(`${draftNode} [data-node-action="edit"]`);
+  await page.fill('#ec-dialog [aria-label="模块名称"]','Escape 丢弃');
+  await escape();
+  assert.deepEqual(await page.evaluate(data),beforeEdit);
+  await page.click(`${draftNode} [data-node-action="edit"]`);
+  await page.click('#ec-dialog button[aria-label="确定"]');
+  assert.equal(await page.evaluate(`${app}.storage.isDirty()`),false,'unchanged confirmation stays clean');
+  await page.click(`${draftNode} [data-node-action="edit"]`);
+  await page.fill('#ec-dialog [aria-label="模块职责"]','草稿模块职责');
+  await page.fill('#ec-dialog [aria-label="接口用途"]','草稿接口用途');
+  assert.equal(await page.evaluate('document.querySelector("#ec-warnings").hidden'),false,'canvas warnings reflect only confirmed data');
+  const writesBeforeShortcut = await page.evaluate('__files.writes');
+  await page.send('Input.dispatchKeyEvent',{type:'keyDown',key:'s',code:'KeyS',modifiers:2,windowsVirtualKeyCode:83});
+  await page.send('Input.dispatchKeyEvent',{type:'keyUp',key:'s',code:'KeyS',windowsVirtualKeyCode:83});
+  assert.match(await page.evaluate('document.querySelector(".dialog-error").textContent'),/先点击/);
+  assert.equal(await page.evaluate('__files.writes'),writesBeforeShortcut,'Ctrl+S cannot silently omit the open draft');
+  await page.click('#ec-dialog button[aria-label="确定"]');
+  assert.equal(await page.evaluate('document.querySelector("#ec-warnings").hidden'),true,'confirmed corrections clear warnings');
   await page.click('[data-action="save"]');
   await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
   assert.equal(await page.evaluate('document.querySelector("#ec-notice").hidden'),true);
   await page.click('[data-action="fit"]');
   assert.equal(await page.evaluate(`${app}.storage.isDirty()`),true,'manual fit remains a user edit');
-  await page.click(`${draftNode} [data-node-action="delete"]`);
+  await page.click(`${draftNode} [data-node-action="edit"]`);
+  await page.evaluate('__confirm.accept = false');
+  await page.click('#ec-dialog button[aria-label="删除模块"]');
+  assert.equal(await page.evaluate(`${data}.modules.length`),1,'declining delete keeps the module');
+  assert.equal(await page.evaluate('document.querySelector("#ec-dialog").open'),true);
+  await page.evaluate('__confirm.accept = true');
+  await page.click('#ec-dialog button[aria-label="删除模块"]');
+  assert.equal(await page.evaluate(`${data}.modules.length`),0);
   await page.evaluate('__files.newCalls = 0');
   await screenshot('default.png');
 
   await page.click('[data-action="add-module"]');
-  const first = await page.evaluate(`${data}.modules[0].id`), firstNode = `.module-node[data-module-id="${first}"]`;
-  assert.equal(await page.evaluate(`${data}.modules[0].x % 10 === 0 && ${data}.modules[0].y % 10 === 0`),true,'new module starts on the grid');
-  await page.fill(`${firstNode} [aria-label="模块名称"]`,'修改后的任务模块');
-  await page.fill(`${firstNode} [aria-label="模块职责"]`,'收集并保存任务');
-  await page.click(`${firstNode} button[aria-label="添加接口"]`);
-  const apiId = await page.evaluate(`${data}.modules[0].interfaces[0].id`), apiNode = `${firstNode} .interface-editor[data-interface-id="${apiId}"]`;
+  await page.fill('#ec-dialog [aria-label="模块名称"]','取消的新模块');
+  await page.click('#ec-dialog button[aria-label="取消"]');
+  assert.equal(await page.evaluate(`${data}.modules.length`),0,'cancel creates nothing');
+  await page.click('[data-action="add-module"]'); await escape();
+  assert.equal(await page.evaluate(`${data}.modules.length`),0,'Escape creates nothing');
+  await page.click('[data-action="add-module"]');
+  await page.fill('#ec-dialog [aria-label="模块名称"]','修改后的任务模块');
+  await page.fill('#ec-dialog [aria-label="模块职责"]','收集并保存任务');
+  await page.click('#ec-dialog button[aria-label="添加接口"]');
+  const apiId = await page.evaluate('document.querySelector("#ec-dialog .interface-editor").dataset.interfaceId'), apiNode = `#ec-dialog .interface-editor[data-interface-id="${apiId}"]`;
   await page.fill(`${apiNode} [aria-label="接口名称 / 签名"]`,'createTask(input)');
   await page.fill(`${apiNode} [aria-label="接口用途"]`,'创建任务');
   assert.match(await page.evaluate(`document.querySelector(${JSON.stringify(apiNode)}).textContent`),/输入尚未确认.*不代表无参数/s);
@@ -95,33 +130,52 @@ test('opt-in file canvas: DOM edits, gestures, evidence, mock save and real HTML
   await page.fill(`${apiNode} [aria-label="文件路径"]`,'src/task.js');
   await page.fill(`${apiNode} [aria-label="起始行"]`,'12');
   await page.select(`${apiNode} [aria-label="核对状态"]`,'verified');
-  assert.equal(await page.evaluate(`${data}.modules[0].interfaces[0].status`),'verified');
+  assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${apiNode} [data-editor-status]`)}).dataset.status`),'verified');
   await page.fill(`${apiNode} [aria-label="接口用途"]`,'修改后要重新核对');
-  assert.equal(await page.evaluate(`${data}.modules[0].interfaces[0].status`),'modified');
-  const moduleEvidence = `${firstNode} .module-details > .editor-section > .evidence-editor`;
+  assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${apiNode} [data-editor-status]`)}).dataset.status`),'modified');
+  const moduleEvidence = '#ec-dialog .module-editor > .evidence-editor';
   await page.click(`${moduleEvidence} > summary`);
   await page.click(`${moduleEvidence} button[aria-label="添加出处"]`);
   await page.fill(`${moduleEvidence} [aria-label="文件路径"]`,'src/task.js');
   await page.select(`${moduleEvidence} [aria-label="核对状态"]`,'verified');
-  assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${firstNode} [data-module-status]`)}).textContent`),'已核对源码');
-  assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${apiNode} [data-interface-status]`)}).textContent`),'已修改 · 待核对');
-  await page.fill(`${firstNode} [aria-label="模块职责"]`,'修改后的职责');
-  assert.equal(await page.evaluate(`${data}.modules[0].status`),'modified');
-  await screenshot('expanded-interface.png');
+  assert.equal(await page.evaluate('document.querySelector(".module-basics [data-editor-status]").textContent'),'已核对源码');
+  assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${apiNode} [data-editor-status]`)}).textContent`),'已修改 · 待核对');
+  await page.fill('#ec-dialog [aria-label="模块职责"]','修改后的职责');
+  assert.equal(await page.evaluate('document.querySelector(".module-basics [data-editor-status]").dataset.status'),'modified');
+  assert.equal(await page.evaluate(`${data}.modules.length`),0,'all new content remains draft until confirmed');
+  await screenshot('module-editor.png');
+  // Invalid evidence keeps the dialog open and does not partially add the module.
+  await page.fill(`${moduleEvidence} [aria-label="文件路径"]`,'');
+  await page.click('#ec-dialog button[aria-label="确定"]');
+  assert.equal(await page.evaluate('document.querySelector("#ec-dialog").open'),true);
+  assert.equal(await page.evaluate(`${data}.modules.length`),0);
+  await page.fill(`${moduleEvidence} [aria-label="文件路径"]`,'src/task.js');
+  await page.click('#ec-dialog button[aria-label="确定"]');
+  const first = await page.evaluate(`${data}.modules[0].id`), firstNode = `.module-node[data-module-id="${first}"]`;
+  assert.equal(await page.evaluate(`${data}.modules[0].x % 10 === 0 && ${data}.modules[0].y % 10 === 0`),true,'new module starts on the grid');
+  assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${firstNode} .module-summary`)}).textContent`),'1 个对外接口');
+  const beforeNestedCancel = await page.evaluate(data);
+  await page.click(`${firstNode} [data-node-action="edit"]`);
+  await expandInterface();
+  await page.fill(`${apiNode} [aria-label="参数名"]`,'应丢弃的参数名');
+  await page.click(`${apiNode} button[aria-label="删除接口"]`);
+  await page.click('#ec-dialog button[aria-label="取消"]');
+  assert.deepEqual(await page.evaluate(data),beforeNestedCancel,'nested edits and deletion can be discarded');
 
   await page.click('[data-action="add-group"]');
   await page.fill('#ec-dialog [aria-label="分组名称"]','任务组');
   await page.click('#ec-dialog button[aria-label="确定"]');
   const groupId = await page.evaluate(`${data}.groups[0].id`);
   assert.equal(await page.evaluate(`${data}.groups[0].x % 10 === 0 && ${data}.groups[0].y % 10 === 0`),true,'new empty group starts on the grid');
-  await page.select(`${firstNode} [aria-label="所属分组"]`,groupId);
-  await page.click(`${firstNode} [data-node-action="toggle"]`);
+  await page.click(`${firstNode} [data-node-action="edit"]`);
+  await page.select('#ec-dialog [aria-label="所属层级"]',groupId);
+  await page.click('#ec-dialog button[aria-label="确定"]');
   await page.click('[data-action="add-module"]');
+  await page.fill('#ec-dialog [aria-label="模块名称"]','任务仓库');
+  await page.fill('#ec-dialog [aria-label="模块职责"]','保存任务');
+  await page.select('#ec-dialog [aria-label="所属层级"]',groupId);
+  await page.click('#ec-dialog button[aria-label="确定"]');
   const second = await page.evaluate(`${data}.modules[1].id`), secondNode = `.module-node[data-module-id="${second}"]`;
-  await page.fill(`${secondNode} [aria-label="模块名称"]`,'任务仓库');
-  await page.fill(`${secondNode} [aria-label="模块职责"]`,'保存任务');
-  await page.select(`${secondNode} [aria-label="所属分组"]`,groupId);
-  await page.click(`${secondNode} [data-node-action="toggle"]`);
   await page.click('[data-action="fit"]');
   const beforeDrag = await page.evaluate(`${data}.modules[1].x`);
   await page.drag(`${secondNode} .module-header`,520,160);
@@ -183,15 +237,18 @@ test('opt-in file canvas: DOM edits, gestures, evidence, mock save and real HTML
   await page.click('[data-action="save"]');
   await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
   assert.equal(await page.evaluate('__files.openCalls'),1);
-  await page.click(`${firstNode} [data-node-action="toggle"]`);
-  await page.fill(`${firstNode} [aria-label="模块名称"]`,'修改后的任务模块');
+  await page.click(`${firstNode} [data-node-action="edit"]`);
+  await page.fill('#ec-dialog [aria-label="模块名称"]','修改后的任务模块');
+  await page.click('#ec-dialog button[aria-label="确定"]');
   await page.click('[data-action="save"]');
   await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
   assert.equal(await page.evaluate('__files.openCalls'),1,'second Save reuses confirmed handle');
   await page.click('[data-action="export"]');
   await page.waitFor('document.querySelector("#ec-file-name").textContent === "copy.html" && document.querySelector("#ec-status").dataset.status === "saved"');
   assert.equal(await page.evaluate('__files.newCalls'),1);
-  await page.fill(`${firstNode} [aria-label="模块职责"]`,'取消保存后的修改');
+  await page.click(`${firstNode} [data-node-action="edit"]`);
+  await page.fill('#ec-dialog [aria-label="模块职责"]','取消保存后的修改');
+  await page.click('#ec-dialog button[aria-label="确定"]');
   await page.evaluate('__files.cancelNext = true');
   await page.click('[data-action="export"]');
   await page.waitFor('document.querySelector("#ec-status").textContent === "已取消保存"');
@@ -211,9 +268,11 @@ test('opt-in file canvas: DOM edits, gestures, evidence, mock save and real HTML
   assert.equal(await page.evaluate(`${data}.modules[0].interfaces[0].inputs[0].name`),'title');
   assert.equal(await page.evaluate(`${data}.modules[0].interfaces[0].inputs[0].description`),hostile);
   assert.equal(await page.evaluate('globalThis.__injected === undefined'),true);
-  assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${firstNode} [aria-label="模块名称"]`)}).value`),'修改后的任务模块');
+  assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${firstNode} .module-name`)}).textContent`),'修改后的任务模块');
+  await page.click(`${firstNode} [data-node-action="edit"]`); await expandInterface();
   assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${apiNode} [aria-label="参数名"]`)}).value`),'title');
   await screenshot('reopened.png');
+  await page.click('#ec-dialog button[aria-label="取消"]');
 
   // Import data only, keep the editor's own runtime, and rebuild all UI bindings.
   const importProject = structuredClone(expected);
@@ -222,7 +281,9 @@ test('opt-in file canvas: DOM edits, gestures, evidence, mock save and real HTML
   importProject.view = {...importProject.view,x:42,y:-35,scale:0.75};
   const importHTML = assemble(importProject,await loadBundle()) + '<script>globalThis.__importExecuted = true</script>';
   await page.evaluate(`__files.original = ${JSON.stringify(importHTML)}; __confirm.accept = false;`);
-  await page.fill(`${firstNode} [aria-label="模块名称"]`,'未保存的页面草稿');
+  await page.click(`${firstNode} [data-node-action="edit"]`);
+  await page.fill('#ec-dialog [aria-label="模块名称"]','未保存的页面草稿');
+  await page.click('#ec-dialog button[aria-label="确定"]');
   await page.click('[data-action="import"]');
   await page.waitFor('document.querySelector("#ec-status").textContent === "已取消导入"');
   assert.equal(await page.evaluate(`${data}.modules[0].name`),'未保存的页面草稿');
@@ -233,14 +294,15 @@ test('opt-in file canvas: DOM edits, gestures, evidence, mock save and real HTML
   assert.deepEqual(await page.evaluate(data),importProject,'import preserves positions, groups, edges and expansion');
   assert.equal(await page.evaluate('globalThis.__importExecuted === undefined'),true);
   assert.equal(await page.evaluate('document.querySelector("#ec-project-name").textContent'),importProject.name);
-  assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${firstNode} [aria-label="模块名称"]`)}).value`),'导入模块');
+  assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${firstNode} .module-name`)}).textContent`),'导入模块');
   assert.equal(await page.evaluate(`${app}.storage.isDirty()`),false);
-  await page.fill(`${firstNode} [aria-label="模块名称"]`,'导入后修改');
+  await page.click(`${firstNode} [data-node-action="edit"]`);
+  await page.fill('#ec-dialog [aria-label="模块名称"]','导入后修改');
+  await page.click('#ec-dialog button[aria-label="确定"]');
   await page.click('[data-action="save"]');
   await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
   assert.equal(S.readProject(await page.evaluate('__files.original')).modules[0].name,'导入后修改');
   const beforeImportDrag = await page.evaluate(`${data}.modules[0].x`);
-  await page.click(`${firstNode} [data-node-action="toggle"]`);
   await page.click('[data-action="fit"]');
   await page.drag(`${firstNode} .module-header`,40,20);
   assert.notEqual(await page.evaluate(`${data}.modules[0].x`),beforeImportDrag,'drag remains connected to imported data');
@@ -267,11 +329,31 @@ test('opt-in file canvas: DOM edits, gestures, evidence, mock save and real HTML
     assert.ok(layout.titleLeft <= 20 && layout.rightGap <= 20,'title left and actions right');
     assert.ok(layout.visible && !layout.overlap,'controls remain visible without overlapping title');
     await screenshot(`toolbar-${width}.png`);
+    const beforeModal = await page.evaluate(data);
+    await page.click('[data-action="add-module"]');
+    for (let i = 0; i < 5; i++) await page.click('#ec-dialog button[aria-label="添加接口"]');
+    const modal = await page.evaluate(`(() => {
+      const d = document.querySelector('#ec-dialog').getBoundingClientRect(), body = document.querySelector('.dialog-body');
+      const buttons = [...document.querySelectorAll('.dialog-actions button')].map(node => node.getBoundingClientRect());
+      return {fits:d.left >= 0 && d.right <= innerWidth && d.top >= 0 && d.bottom <= innerHeight,scrolls:body.scrollHeight > body.clientHeight,buttonsVisible:buttons.every(r => r.top >= 0 && r.bottom <= innerHeight)};
+    })()`);
+    assert.ok(modal.fits && modal.scrolls && modal.buttonsVisible,'long module dialog scrolls while footer stays visible');
+    await screenshot(`module-dialog-${width}.png`);
+    await page.click('#ec-dialog button[aria-label="取消"]');
+    assert.deepEqual(await page.evaluate(data),beforeModal);
   }
   assert.equal(page.networkRequests.length,0,'no page HTTP(S) request attempts');
   assert.deepEqual(page.blockedRequests,[],'HTTP(S) interception was installed before navigation');
   assert.deepEqual(page.pageErrors,[]); assert.deepEqual(page.consoleErrors,[]); assert.deepEqual(page.protocolErrors,[]);
 
+  async function expandInterface() {
+    if (await page.evaluate(`document.querySelector(${JSON.stringify(`${apiNode} .interface-body`)}).hidden`)) await page.click(`${apiNode} [data-interface-action="toggle"]`);
+  }
+  async function escape() {
+    await page.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+    await page.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+    await page.waitFor('!document.querySelector("#ec-dialog").open');
+  }
   async function screenshot(name) {
     const {data:png} = await page.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await writeFile(join(output,name),Buffer.from(png,'base64'));

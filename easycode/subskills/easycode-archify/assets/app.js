@@ -28,6 +28,7 @@
         pickNew:suggestedName => root.showSaveFilePicker({types:fileTypes,suggestedName}),
         confirmImport:() => root.confirm('当前有未保存的修改。导入会替换当前内容，是否继续？'),
         replaceProject(next) {
+          if (dialogs?.isEditingModule()) throw new Error('模块编辑窗口已打开，请先确定或取消，再导入。');
           const previous = project;
           project = next;
           try {mount();}
@@ -57,7 +58,7 @@
         canvas?.destroy(); nodes?.destroy();
         if (get('ec-dialog').open) get('ec-dialog').close();
         dialogs = EC.Dialogs.create({project,onChange});
-        nodes = EC.Nodes.create({project,layer:get('ec-nodes'),template:get('ec-module-template'),onChange,onRelation:from => dialogs.editRelation(undefined,from),confirm:message => root.confirm(message)});
+        nodes = EC.Nodes.create({project,layer:get('ec-nodes'),template:get('ec-module-template'),onEdit:dialogs.editModule,onRelation:from => dialogs.editRelation(undefined,from)});
         nodes.render();
         canvas = EC.Canvas.create({project,viewport:get('ec-viewport'),world:get('ec-world'),groupLayer:get('ec-groups'),edgeLayer:get('ec-edges'),nodes,onChange,onGroupEdit:dialogs.editGroup,onRelationEdit:dialogs.editRelation});
         refreshHeader();
@@ -67,6 +68,7 @@
       // Preserve a saved view. New projects with the default view start with all modules visible.
       if (project.view.x === 0 && project.view.y === 0 && project.view.scale === 1 && project.modules.length) canvas.fit({notify:false});
       function save(asNew) {
+        if (dialogs.isEditingModule()) {dialogs.showMessage('请先点击“确定”或“取消”，再保存 HTML。'); return;}
         if (!supported) {showError('此浏览器不能直接写入本地文件。请使用新版桌面 Chrome 或 Edge 打开此 HTML。'); return;}
         notice.hidden = true;
         // Do not await anything before calling Storage: native pickers require this click stack.
@@ -76,6 +78,7 @@
         } catch (error) {if (error?.name !== 'AbortError') showError(error);}
       }
       function importFile() {
+        if (dialogs.isEditingModule()) {dialogs.showMessage('请先点击“确定”或“取消”，再导入 HTML。'); return;}
         if (typeof root.showOpenFilePicker !== 'function') {showError('此浏览器不能导入本地文件。请使用新版桌面 Chrome 或 Edge。'); return;}
         notice.hidden = true;
         storage.importFile().catch(error => {if (error?.name !== 'AbortError') showError(error);});
@@ -83,9 +86,7 @@
       const actions = {
         'add-module'() {
           const center = canvas.centerPoint(), position = EC.Canvas.snapPoint({x:center.x - 180,y:center.y - 100});
-          const module = EC.Model.createModule({name:'新模块',...position});
-          project.modules.push(module); project.view.expanded.push(module.id); onChange({render:true});
-          nodes.getElement(module.id)?.querySelector('[aria-label="模块名称"]')?.focus();
+          dialogs.editModule(undefined,position);
         },
         'add-group':() => dialogs.editGroup(), 'add-relation':() => dialogs.editRelation(),
         'edit-project':() => dialogs.editProject(), 'zoom-in':() => canvas.zoomBy(1.2), 'zoom-out':() => canvas.zoomBy(1 / 1.2),
@@ -97,7 +98,7 @@
       root.addEventListener('keydown',event => {
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {event.preventDefault(); save(event.shiftKey);}
       });
-      root.addEventListener('beforeunload',event => {if (storage.isDirty()) {event.preventDefault(); event.returnValue = '';}});
+      root.addEventListener('beforeunload',event => {if (storage.isDirty() || dialogs.hasDraftChanges()) {event.preventDefault(); event.returnValue = '';}});
       if (!supported) showError('此浏览器不能直接写入本地文件。请使用新版桌面 Chrome 或 Edge 打开此 HTML。');
     } catch (error) {
       showError(error); get('ec-status').textContent = '无法打开项目'; get('ec-status').dataset.status = 'error';

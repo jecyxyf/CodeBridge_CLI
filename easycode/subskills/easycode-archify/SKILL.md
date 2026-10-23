@@ -28,6 +28,8 @@ node scripts/check.mjs examples/task-board.html
 
 The JSON is an agent-side build input, not a second file the user must maintain. Deliver the HTML. `examples/task-board.*` is a design example, not evidence about real code. Webpage and module templates are maintained separately in `templates/canvas.html` and `templates/module-node.html`.
 
+Canvas module cards only show name, responsibility summary, interface count and status. The edit button opens a dialog for full details, including interfaces, parameters and evidence. Confirm applies the draft; Cancel/Escape discards it. A new module is not added until confirmed. Delete lives in the module dialog. After confirming, use the top Save action to write the HTML. Keep drag, grid snapping and relationship controls available on the canvas.
+
 For ordinary canvas authoring, build, check, and read back the project data. Run `node --test tests/*.test.mjs` when changing this package's code, templates, or tooling; it is not a step for every generated canvas.
 
 ## Update an existing HTML

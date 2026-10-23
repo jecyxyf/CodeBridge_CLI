@@ -16,6 +16,10 @@
 
 All IDs are globally unique strings, starting with a letter and containing only letters, digits, `_` and `-`. Creation helpers generate them; retain existing IDs on updates. Coordinates must be finite. The UI constrains zoom to 25%–180%. A relation needs two different existing modules; identical `(from,to,type,label)` entries are rejected. Expanded IDs must exist and cannot repeat.
 
+Canvas cards are read-only summaries: name, a short responsibility preview, interface count and evidence status. The edit icon opens a scrollable module dialog with all fields. Dialog edits use a separate draft; Confirm validates and applies it, Cancel/Escape discards it. New modules are added only on Confirm. Delete is available in the existing module's dialog, with confirmation that also names the number of affected relationships. Confirm/Cancel/Delete share the same neutral icon-button style. HTML Save happens after dialog confirmation; Ctrl+S in the module dialog asks the user to confirm or cancel first.
+
+Keep the format-1 `view.expanded` and `view.expandedInterfaces` fields for compatibility. Cards no longer expand. Interface sections in the dialog start from the legacy interface expansion list, but subsequent toggles are local to that dialog and do not dirty the project. Deleting modules/interfaces still removes obsolete expansion references.
+
 Group borders are transparent. `color` controls the group title text; titles use 20px semibold type, defaulting to white (`#ffffff`). Background color defaults to `#81b3e9` (RGB 129, 179, 233), independently of the title color, with fixed 50% transparency. Existing groups without `backgroundColor` use that default blue. New groups should include both defaults. Only the background fill is translucent; titles and module content keep their normal opacity. Preserve explicitly chosen colors when updating or saving a project; do not add an adjustable opacity field.
 
 Action buttons use the local SVG icons in `assets/icons.js`, with descriptive `aria-label` and hover `title` text. Project and interface names remain readable content beside their icon buttons. Keep icons embedded in the generated HTML; do not introduce external fonts, assets, or network requests.
@@ -45,6 +49,8 @@ M.updateModule(project,module.id,{purpose:'Updated responsibility'});
 `createModule(options)` accepts only name, purpose, groupId, x, y; status and evidence start as planned/empty. `createInterface()` and `createParameter()` accept no options. There is no createGroup helper: construct the group shape with a fresh valid ID.
 
 `updateModule(project,id,patch)` and `updateInterface(project,moduleId,interfaceId,patch)` update supported fields. Interface semantic changes also mark the module; module position/group changes do not invalidate evidence. `removeModule` removes its relationships and expansion records; `removeGroup` ungroups its modules; `addRelation(project,options)` validates endpoints and duplication. `validate` is still required after edits.
+
+`ModuleEditor.begin(project,moduleId?,position?)` returns an isolated session with `project` (draft), `module`, and the original snapshot. Apply the Model helpers to that draft. `ModuleEditor.commit(project,session)` validates before updating the live module, preserves unrelated current data, rejects a stale session, and returns false for an unchanged existing module. `hasChanges(session)` checks draft changes for the close-page warning. `ModuleEditor.create({session,confirm})` builds the form; `Dialogs.editModule` owns Confirm/Cancel/Delete and dirty-state notifications.
 
 ## HTML and saving
 
