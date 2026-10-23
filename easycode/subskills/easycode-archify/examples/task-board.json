@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "id": "project-task-board",
-  "name": "任务看板",
+  "name": "软件框架图",
   "description": "设计示例：展示任务看板的模块、接口与调用关系，不代表已分析或已实现的真实代码。",
   "mode": "design",
   "repository": {"path": "", "revision": "", "dirty": false},

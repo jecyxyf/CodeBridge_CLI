@@ -51,7 +51,7 @@ test('opt-in file canvas: DOM edits, gestures, evidence, mock save and real HTML
   await page.click('[data-action="save"]');
   await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
   assert.equal(await page.evaluate('document.querySelector("#ec-warnings").hidden'),false,'draft saves successfully while locations stay visible');
-  await page.evaluate('__files.failNext = true'); await page.click('[data-action="save-as"]');
+  await page.evaluate('__files.failNext = true'); await page.click('[data-action="export"]');
   await page.waitFor('document.querySelector("#ec-status").dataset.status === "error"');
   assert.match(await page.evaluate('document.querySelector("#ec-notice").textContent'),/模拟保存失败/);
   assert.equal(await page.evaluate('document.querySelector("#ec-warnings").hidden'),false,'warning does not replace save failure');
@@ -183,12 +183,12 @@ test('opt-in file canvas: DOM edits, gestures, evidence, mock save and real HTML
   await page.click('[data-action="save"]');
   await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
   assert.equal(await page.evaluate('__files.openCalls'),1,'second Save reuses confirmed handle');
-  await page.click('[data-action="save-as"]');
+  await page.click('[data-action="export"]');
   await page.waitFor('document.querySelector("#ec-file-name").textContent === "copy.html" && document.querySelector("#ec-status").dataset.status === "saved"');
   assert.equal(await page.evaluate('__files.newCalls'),1);
   await page.fill(`${firstNode} [aria-label="模块职责"]`,'取消保存后的修改');
   await page.evaluate('__files.cancelNext = true');
-  await page.click('[data-action="save-as"]');
+  await page.click('[data-action="export"]');
   await page.waitFor('document.querySelector("#ec-status").textContent === "已取消保存"');
   assert.equal(await page.evaluate(`${app}.storage.isDirty()`),true);
   assert.equal(await page.evaluate(`${app}.storage.getFileName()`),'copy.html');
@@ -208,10 +208,64 @@ test('opt-in file canvas: DOM edits, gestures, evidence, mock save and real HTML
   assert.equal(await page.evaluate('globalThis.__injected === undefined'),true);
   assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${firstNode} [aria-label="模块名称"]`)}).value`),'修改后的任务模块');
   assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${apiNode} [aria-label="参数名"]`)}).value`),'title');
+  await screenshot('reopened.png');
+
+  // Import data only, keep the editor's own runtime, and rebuild all UI bindings.
+  const importProject = structuredClone(expected);
+  importProject.id = 'project-imported'; importProject.name = '导入的软件框架图';
+  importProject.modules[0].name = '导入模块';
+  importProject.view = {...importProject.view,x:42,y:-35,scale:0.75};
+  const importHTML = assemble(importProject,await loadBundle()) + '<script>globalThis.__importExecuted = true</script>';
+  await page.evaluate(`__files.original = ${JSON.stringify(importHTML)}; __confirm.accept = false;`);
+  await page.fill(`${firstNode} [aria-label="模块名称"]`,'未保存的页面草稿');
+  await page.click('[data-action="import"]');
+  await page.waitFor('document.querySelector("#ec-status").textContent === "已取消导入"');
+  assert.equal(await page.evaluate(`${data}.modules[0].name`),'未保存的页面草稿');
+  assert.equal(await page.evaluate(`${app}.storage.isDirty()`),true);
+  await page.evaluate('__confirm.accept = true');
+  await page.click('[data-action="import"]');
+  await page.waitFor('document.querySelector("#ec-status").textContent === "已导入"');
+  assert.deepEqual(await page.evaluate(data),importProject,'import preserves positions, groups, edges and expansion');
+  assert.equal(await page.evaluate('globalThis.__importExecuted === undefined'),true);
+  assert.equal(await page.evaluate('document.querySelector("#ec-project-name").textContent'),importProject.name);
+  assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${firstNode} [aria-label="模块名称"]`)}).value`),'导入模块');
+  assert.equal(await page.evaluate(`${app}.storage.isDirty()`),false);
+  await page.fill(`${firstNode} [aria-label="模块名称"]`,'导入后修改');
+  await page.click('[data-action="save"]');
+  await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
+  assert.equal(S.readProject(await page.evaluate('__files.original')).modules[0].name,'导入后修改');
+  const beforeImportDrag = await page.evaluate(`${data}.modules[0].x`);
+  await page.click(`${firstNode} [data-node-action="toggle"]`);
+  await page.click('[data-action="fit"]');
+  await page.drag(`${firstNode} .module-header`,40,20);
+  assert.notEqual(await page.evaluate(`${data}.modules[0].x`),beforeImportDrag,'drag remains connected to imported data');
+  const beforeBadImport = await page.evaluate(data);
+  await page.evaluate('__files.original = "broken"');
+  await page.click('[data-action="import"]');
+  await page.waitFor('document.querySelector("#ec-status").dataset.status === "error"');
+  assert.deepEqual(await page.evaluate(data),beforeBadImport,'bad imports keep the live project');
+
+  const example = JSON.parse(await readFile(new URL('../examples/task-board.json',import.meta.url),'utf8'));
+  await page.evaluate(`__files.original = ${JSON.stringify(assemble(example,await loadBundle()))}`);
+  await page.click('[data-action="import"]');
+  await page.waitFor('document.querySelector("#ec-status").textContent === "已导入"');
+  assert.equal(await page.evaluate('document.querySelector("#ec-project-name").textContent'),'软件框架图');
+  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll(".toolbar-actions button"),button => button.getAttribute("aria-label"))'),['编辑项目名称与用途','新建模块','新建层级','新建箭头','保存','导入','导出']);
+  for (const width of [1440,800,390]) {
+    await page.send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false});
+    await page.click('[data-action="fit"]');
+    const layout = await page.evaluate(`(() => {
+      const title = document.querySelector('.project-heading').getBoundingClientRect();
+      const buttons = [...document.querySelectorAll('.toolbar-actions button')].map(node => node.getBoundingClientRect());
+      return {titleLeft:title.left,rightGap:innerWidth - buttons.at(-1).right,visible:buttons.every(r => r.left >= 0 && r.right <= innerWidth),overlap:buttons.some(r => r.left < title.right && r.right > title.left && r.top < title.bottom && r.bottom > title.top)};
+    })()`);
+    assert.ok(layout.titleLeft <= 20 && layout.rightGap <= 20,'title left and actions right');
+    assert.ok(layout.visible && !layout.overlap,'controls remain visible without overlapping title');
+    await screenshot(`toolbar-${width}.png`);
+  }
   assert.equal(page.networkRequests.length,0,'no page HTTP(S) request attempts');
   assert.deepEqual(page.blockedRequests,[],'HTTP(S) interception was installed before navigation');
   assert.deepEqual(page.pageErrors,[]); assert.deepEqual(page.consoleErrors,[]); assert.deepEqual(page.protocolErrors,[]);
-  await screenshot('reopened.png');
 
   async function screenshot(name) {
     const {data:png} = await page.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});

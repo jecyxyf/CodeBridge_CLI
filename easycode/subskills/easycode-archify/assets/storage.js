@@ -2,11 +2,11 @@
   'use strict';
   const namespace = root.EasyCode ||= {};
 
-  function createController({getProject,buildDocument,readProject,validate,pickExisting,pickNew,onState = () => {}}) {
+  function createController({getProject,buildDocument,readProject,validate,pickExisting,pickNew,replaceProject,confirmImport = () => false,onState = () => {}}) {
     // Capture before Canvas.fit() or edits can change the live project.
     const initialProject = structuredClone(getProject());
-    const initialData = JSON.stringify(initialProject);
-    let handle = null, lastContent = null, inFlight = null;
+    let initialData = JSON.stringify(initialProject);
+    let handle = null, lastContent = null, inFlight = null, importing = false;
     let editVersion = 0, savedVersion = 0, unconfirmed = false;
     const isDirty = () => unconfirmed || editVersion !== savedVersion;
     const getFileName = () => handle?.name || '';
@@ -60,6 +60,7 @@
     // Deliberately not async: the picker runs in the click's call stack, and
     // every repeated click receives exactly the same Promise while busy.
     function start(saveAs) {
+      if (importing) return Promise.reject(new Error('正在导入，请稍后再保存或导出'));
       if (inFlight) return inFlight;
       let resolve, reject;
       const pending = new Promise((done,fail) => {resolve = done; reject = fail;});
@@ -85,11 +86,44 @@
       return pending;
     }
 
+    function importFile() {
+      if (inFlight) return Promise.reject(new Error('文件操作尚未完成，请稍后再导入'));
+      if (typeof replaceProject !== 'function') return Promise.reject(new Error('未设置导入处理'));
+      let resolve, reject;
+      const pending = new Promise((done,fail) => {resolve = done; reject = fail;});
+      inFlight = pending; importing = true;
+      function finish(error) {
+        inFlight = null; importing = false;
+        if (error) {
+          state(error.name === 'AbortError' ? (isDirty() || !handle ? 'unsaved' : 'saved') : 'error',error.name === 'AbortError' ? '已取消导入' : error.message);
+          reject(error);
+        } else resolve(true);
+      }
+      try {
+        // Open on the button's click stack; validate data without executing the HTML.
+        const selection = pickExisting();
+        state('loading','正在导入');
+        Promise.resolve(selection).then(async target => {
+          const content = await read(target), project = readProject(content);
+          check(project);
+          const baseline = JSON.stringify(project);
+          // Check at replacement time, including edits made while the file was loading.
+          if (isDirty() && !confirmImport()) throw Object.assign(new Error('已取消导入'),{name:'AbortError'});
+          replaceProject(project);
+          initialData = baseline; handle = target; lastContent = content;
+          editVersion = 0; savedVersion = 0; unconfirmed = false;
+          state('saved','已导入');
+        }).then(() => finish(),finish);
+      } catch (error) {finish(error);}
+      return pending;
+    }
+
     state('unsaved','尚未绑定保存文件');
     return {
       save: () => start(false),
       saveAs: () => start(true),
-      markDirty() {editVersion++; state(inFlight ? 'saving' : 'unsaved',inFlight ? '正在保存，有较新的修改' : '有修改尚未保存');},
+      importFile,
+      markDirty() {editVersion++; state(importing ? 'loading' : inFlight ? 'saving' : 'unsaved',importing ? '正在导入，当前页面有修改' : inFlight ? '正在保存，有较新的修改' : '有修改尚未保存');},
       isDirty,
       getFileName
     };

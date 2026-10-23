@@ -20,14 +20,15 @@ function memoryHandle(name,initial,hooks={}) {
   };
 }
 function setup(options={}) {
-  const project=options.project||Model.createProject('原始项目');
+  let project=options.project||Model.createProject('原始项目');
   const original=documentFor(project), file=options.file||memoryHandle('original.html',original);
   const states=[];
   assert.equal(typeof globalThis.EasyCode.Storage?.createController,'function','Storage.createController must exist');
   const controller=globalThis.EasyCode.Storage.createController({getProject:()=>project,buildDocument:documentFor,
     readProject:Serialization.readProject,validate:Model.validate,pickExisting:()=>file,
+    replaceProject:next=>{project=next;},
     pickNew:()=>{throw new Error('不应调用另存为');},onState:state=>states.push(state),...options});
-  return {project,file,original,states,controller};
+  return {get project(){return project;},file,original,states,controller};
 }
 function edit(fixture,name) {fixture.project.name=name; fixture.controller.markDirty();}
 
@@ -212,4 +213,105 @@ test('已绑定目标读失败不会破坏旧文件，读权限恢复后可重�
   const f=setup({project:p,file}); await f.controller.save(); edit(f,'新内容'); const old=file.content; fail=true;
   await assert.rejects(f.controller.save(),/无法读取/); assert.equal(file.content,old); assert.equal(f.controller.isDirty(),true);
   fail=false; await f.controller.save(); assert.equal(file.content,documentFor(p));
+});
+
+test('导入完整 HTML 恢复内容与布局，只读文件，之后保存写回导入目标',async()=>{
+  const imported=Model.createProject('导入的软件框架图'); imported.description='独立方案';
+  const module=Model.createModule({name:'入口',purpose:'处理请求',groupId:'group-imported',x:420,y:280});
+  const api=Model.createInterface(); api.name='run()'; api.purpose='启动'; module.interfaces=[api];
+  const service=Model.createModule({name:'服务',purpose:'处理业务'});
+  imported.groups=[{id:'group-imported',name:'业务层',color:'#ffffff',backgroundColor:'#112233',x:12,y:34}];
+  imported.modules=[module,service]; Model.addRelation(imported,{from:module.id,to:service.id,label:'请求'});
+  imported.view={x:-80,y:24,scale:0.8,expanded:[module.id],expandedInterfaces:[api.id]};
+  const html=documentFor(imported)+'<script>globalThis.__importExecuted = true</script>';
+  const target=memoryHandle('imported.html',html), exported=memoryHandle('exported.html','');
+  let picks=0;
+  const f=setup({pickExisting:()=>++picks===1?f.file:target,pickNew:()=>exported});
+  await f.controller.save(); const previous=f.file.content;
+  assert.equal(await f.controller.importFile(),true);
+  assert.deepEqual(f.project,imported); assert.equal(target.content,html); assert.equal(f.file.content,previous);
+  assert.equal(globalThis.__importExecuted,undefined,'导入不能执行文件中的脚本');
+  assert.equal(f.controller.getFileName(),'imported.html'); assert.equal(f.controller.isDirty(),false);
+  assert.equal(f.states.at(-1).message,'已导入');
+  edit(f,'导入后编辑'); await f.controller.save();
+  assert.equal(picks,2,'保存直接使用导入时的句柄');
+  assert.deepEqual(Serialization.readProject(target.content),f.project); assert.equal(f.file.content,previous);
+  await f.controller.saveAs(); const importedSaved=target.content;
+  edit(f,'导出后编辑'); await f.controller.save();
+  assert.equal(target.content,importedSaved); assert.deepEqual(Serialization.readProject(exported.content),f.project);
+  assert.equal(f.controller.getFileName(),'exported.html');
+});
+
+test('导入坏文件、读取失败、选择取消时保留当前草稿和保存目标',async()=>{
+  const cancel=Object.assign(new Error('取消'),{name:'AbortError'});
+  const badProject={...Model.createProject('损坏'),modules:null};
+  const selections=[
+    ()=>{throw cancel;},()=>Promise.reject(cancel),
+    ()=>memoryHandle('bad.html','broken'),
+    ()=>memoryHandle('bad-model.html',`<script id="ec-project" type="application/json">${JSON.stringify(badProject)}</script>`),
+    ()=>memoryHandle('unreadable.html','',{read:()=>{throw new Error('读取失败');}})
+  ];
+  for (const select of selections) {
+    let importing=false;
+    const f=setup({pickExisting:()=>importing?select():f.file}); await f.controller.save();
+    edit(f,'保留草稿'); const expected=copy(f.project), old=f.file.content; importing=true;
+    await assert.rejects(f.controller.importFile());
+    assert.deepEqual(f.project,expected); assert.equal(f.file.content,old);
+    assert.equal(f.controller.getFileName(),'original.html'); assert.equal(f.controller.isDirty(),true);
+    await f.controller.save(); assert.deepEqual(Serialization.readProject(f.file.content),expected);
+  }
+});
+
+test('导入替换前确认未保存内容，取消不丢草稿，确认后切换项目',async()=>{
+  let accepted=false, confirmations=0;
+  const imported=Model.createProject('新项目'), target=memoryHandle('new.html',documentFor(imported));
+  const f=setup({pickExisting:()=>target,confirmImport:()=>{confirmations++; return accepted;}});
+  edit(f,'未保存草稿'); const expected=copy(f.project);
+  await assert.rejects(f.controller.importFile(),error=>error.name==='AbortError');
+  assert.deepEqual(f.project,expected); assert.equal(f.controller.isDirty(),true);
+  assert.equal(f.controller.getFileName(),''); assert.equal(f.states.at(-1).message,'已取消导入');
+  accepted=true; await f.controller.importFile();
+  assert.deepEqual(f.project,imported); assert.equal(confirmations,2); assert.equal(f.controller.isDirty(),false);
+});
+
+test('导入选择器立即打开，读取期间的新编辑也须确认',async()=>{
+  const selected=deferred(); let picked=false, confirmations=0;
+  const imported=Model.createProject('待导入'), target=memoryHandle('new.html',documentFor(imported));
+  const f=setup({pickExisting:()=>{picked=true; return selected.promise;},confirmImport:()=>{confirmations++; return false;}});
+  const pending=f.controller.importFile(); assert.equal(picked,true);
+  edit(f,'等待读取时的新编辑'); selected.resolve(target);
+  await assert.rejects(pending,error=>error.name==='AbortError');
+  assert.equal(confirmations,1); assert.equal(f.project.name,'等待读取时的新编辑'); assert.equal(f.controller.isDirty(),true);
+});
+
+test('导入和保存互斥，重复导入不会打开第二个选择器',async()=>{
+  const selected=deferred(); let picks=0;
+  const target=memoryHandle('new.html',documentFor(Model.createProject('新项目')));
+  const f=setup({pickExisting:()=>{picks++; return selected.promise;}});
+  const pending=f.controller.importFile();
+  await assert.rejects(f.controller.importFile(),/尚未完成/);
+  await assert.rejects(f.controller.save(),/正在导入/); await assert.rejects(f.controller.saveAs(),/正在导入/);
+  assert.equal(picks,1); selected.resolve(target); await pending;
+  edit(f,'修改'); await f.controller.save(); assert.equal(f.controller.isDirty(),false);
+  const gate=deferred(), started=deferred(), project=Model.createProject('旧项目');
+  const file=memoryHandle('busy.html',documentFor(project),{write:async()=>{started.resolve(); await gate.promise;}});
+  const saving=setup({project,file}); const write=saving.controller.save(); await started.promise;
+  await assert.rejects(saving.controller.importFile(),/尚未完成/);
+  gate.resolve(); await write; assert.equal(saving.controller.getFileName(),'busy.html');
+});
+
+test('导入后检测外部文件修改，不覆盖磁盘的新内容',async()=>{
+  const target=memoryHandle('new.html',documentFor(Model.createProject('新项目')));
+  const f=setup({pickExisting:()=>target}); await f.controller.importFile();
+  const external=target.content+'<!-- 外部修改 -->'; target.externalWrite(external); edit(f,'页面草稿');
+  await assert.rejects(f.controller.save(),/外部改变/);
+  assert.equal(target.content,external); assert.equal(f.project.name,'页面草稿'); assert.equal(f.controller.isDirty(),true);
+});
+
+test('导入页面替换失败时不切换文件绑定，也不清除未保存状态',async()=>{
+  const target=memoryHandle('new.html',documentFor(Model.createProject('新项目')));
+  const f=setup({pickExisting:()=>target,confirmImport:()=>true,replaceProject:()=>{throw new Error('无法显示');}});
+  edit(f,'保留草稿'); const expected=copy(f.project);
+  await assert.rejects(f.controller.importFile(),/无法显示/);
+  assert.deepEqual(f.project,expected); assert.equal(f.controller.getFileName(),''); assert.equal(f.controller.isDirty(),true);
 });

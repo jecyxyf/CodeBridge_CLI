@@ -109,7 +109,7 @@ label.field>input,label.field>textarea,label.field>select {
   text-align: left;
   padding: 2px 12px 2px 0;
   max-width: 440px;
-  min-width: 180px;
+  min-width: 0;
   border: 0;
   background: transparent
 }
@@ -138,12 +138,12 @@ label.field>input,label.field>textarea,label.field>select {
   color: var(--blue);
   line-height: 1
 }
-nav,.save-actions {
+.toolbar-actions {
   display: flex;
-  gap: 7px
-}
-.save-actions {
-  margin-left: auto
+  gap: 7px;
+  margin-left: auto;
+  flex-shrink: 0;
+  justify-content: flex-end
 }
 #ec-viewport {
   position: absolute;
@@ -628,7 +628,7 @@ button.icon-button {
   .project-heading small {
     max-width: 200px
   }
-  nav {
+  .toolbar-actions {
     gap: 4px
   }
   .toolbar button {
@@ -646,14 +646,11 @@ button.icon-button {
     gap: 8px
   }
   .project-heading {
-    max-width: calc(100% - 160px);
-    flex: 1
+    max-width: 100%;
+    min-width: 0;
+    flex: 1 1 100%
   }
-  .save-actions {
-    order: 0
-  }
-  nav {
-    order: 1;
+  .toolbar-actions {
     width: 100%
   }
   #ec-viewport {
