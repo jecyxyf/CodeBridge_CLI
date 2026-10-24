@@ -3,10 +3,11 @@
   const EC = root.EasyCode ||= {};
   function create({project,onChange = () => {},onOpen = () => {},confirm = message => root.confirm(message)}) {
     const dialog = document.getElementById('ec-dialog');
-    let moduleSession = null;
-    function close() {moduleSession = null; dialog.close();}
-    dialog.oncancel = () => {moduleSession = null;};
-    dialog.onclose = () => {if (!dialog.open) moduleSession = null;};
+    let moduleSession = null, projectDraftChanged = null;
+    function clearDraft() {moduleSession = null; projectDraftChanged = null;}
+    function close() {clearDraft(); dialog.close();}
+    dialog.oncancel = clearDraft;
+    dialog.onclose = () => {if (!dialog.open) clearDraft();};
     function node(tag,text,className) {const result = document.createElement(tag); if (text !== undefined) result.textContent = text; if (className) result.className = className; return result;}
     function input(form,label,value,options) {
       const wrapper = node('label',undefined,'field'); wrapper.append(node('span',label));
@@ -16,6 +17,13 @@
       if (options?.required) control.required = true;
       if (options?.type) control.type = options.type;
       wrapper.append(control); form.append(wrapper); return control;
+    }
+    function names(form,label,item,kind) {
+      const row = node('div',undefined,'bilingual-fields'); form.append(row);
+      const name = input(row,`${label}中文名`,item?.name || '',{required:true});
+      const englishName = input(row,`${label}英文名`,item?.englishName || '');
+      EC.Translation.attach({source:name,target:englishName,kind});
+      return {name,englishName};
     }
     function open(title,build,submit,remove,options = {}) {
       if (onOpen() === false) return;
@@ -47,38 +55,51 @@
     function editGroup(id) {
       const group = project.groups.find(item => item.id === id);
       open(group ? '编辑分组' : '创建分组',form => {
-        const name = input(form,'分组名称',group?.name || '',{required:true});
+        const {name,englishName} = names(form,'层级',group,'group');
         const color = input(form,'标题字体颜色',/^#[\da-f]{6}$/i.test(group?.color || '') ? group.color : '#ffffff',{type:'color'});
         const backgroundColor = input(form,'背景颜色',/^#[\da-f]{6}$/i.test(group?.backgroundColor || '') ? group.backgroundColor : '#81b3e9',{type:'color'});
         form.append(node('p','背景透明度固定为 50%。','dialog-note'));
         form.append(node('p','点击模块的编辑按钮，在“所属层级”中选择此层级。拖动层级标题可一起移动其中的模块。','dialog-note'));
-        return {name,color,backgroundColor};
-      },({name,color,backgroundColor}) => {
+        return {name,englishName,color,backgroundColor};
+      },({name,englishName,color,backgroundColor}) => {
         if (!name.value.trim()) throw new Error('请填写分组名称。');
-        if (group) {group.name = name.value; group.color = color.value; group.backgroundColor = backgroundColor.value;}
+        if (group) {
+          group.name = name.value; group.color = color.value; group.backgroundColor = backgroundColor.value;
+          if (englishName.value !== (group.englishName ?? '')) group.englishName = englishName.value;
+        }
         else {
           const viewport = document.getElementById('ec-viewport');
           const position = EC.Canvas.snapPoint({x:(viewport.clientWidth / 2 - project.view.x) / project.view.scale - 200,y:(viewport.clientHeight / 2 - project.view.y) / project.view.scale - 85});
-          project.groups.push({id:EC.Model.createModule().id.replace(/^module-/,'group-'),name:name.value,color:color.value,backgroundColor:backgroundColor.value,...position});
+          project.groups.push({id:EC.Model.createModule().id.replace(/^module-/,'group-'),name:name.value,englishName:englishName.value,color:color.value,backgroundColor:backgroundColor.value,...position});
         }
       },group ? {label:'删除层级',icon:'trash',run() {EC.Model.removeGroup(project,group.id);}} : null);
     }
     function editProject() {
-      open('项目设置',form => ({
-        name:input(form,'项目名称',project.name,{required:true}),
-        description:input(form,'项目用途',project.description,{multiline:true}),
-        mode:input(form,'当前工作',project.mode,{choices:[['design','设计方案'],['change','修改规划'],['analysis','分析源码']]}),
-        path:input(form,'代码目录',project.repository.path),
-        revision:input(form,'代码版本',project.repository.revision)
-      }),({name,description,mode,path,revision}) => {
-        if (!name.value.trim()) throw new Error('请填写项目名称。');
-        project.name = name.value; project.description = description.value; project.mode = mode.value;
-        project.repository.path = path.value; project.repository.revision = revision.value;
+      const original = JSON.stringify({name:project.name,englishName:project.englishName ?? '',description:project.description,mode:project.mode,path:project.repository.path,revision:project.repository.revision});
+      const values = controls => Object.fromEntries(Object.entries(controls).map(([key,control]) => [key,control.value]));
+      open('项目设置',form => {
+        const controls = {
+          ...names(form,'项目',project,'project'),
+          description:input(form,'项目用途',project.description,{multiline:true}),
+          mode:input(form,'当前工作',project.mode,{choices:[['design','设计方案'],['change','修改规划'],['analysis','分析源码']]}),
+          path:input(form,'代码目录',project.repository.path),
+          revision:input(form,'代码版本',project.repository.revision)
+        };
+        projectDraftChanged = () => JSON.stringify(values(controls)) !== original;
+        return controls;
+      },controls => {
+        const next = values(controls);
+        if (!next.name.trim()) throw new Error('请填写项目名称。');
+        if (JSON.stringify(next) === original) return false;
+        project.name = next.name; project.description = next.description; project.mode = next.mode;
+        if (next.englishName !== (project.englishName ?? '')) project.englishName = next.englishName;
+        project.repository.path = next.path; project.repository.revision = next.revision;
       });
     }
     return {editModule,editGroup,editProject,
       isEditingModule:() => dialog.open && !!moduleSession,
-      hasDraftChanges:() => dialog.open && !!moduleSession && EC.ModuleEditor.hasChanges(moduleSession),
+      isEditingProject:() => dialog.open && !!projectDraftChanged,
+      hasDraftChanges:() => dialog.open && (!!moduleSession && EC.ModuleEditor.hasChanges(moduleSession) || !!projectDraftChanged && projectDraftChanged()),
       showMessage(message) {const error = dialog.querySelector('.dialog-error'); if (error) error.textContent = message;}
     };
   }

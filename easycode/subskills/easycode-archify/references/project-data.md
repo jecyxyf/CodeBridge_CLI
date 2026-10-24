@@ -4,14 +4,14 @@
 
 | Object | Fields |
 | --- | --- |
-| project | `formatVersion:1`, `id`, `name`, `description`, `mode:design/change/analysis`, `repository`, `groups:[]`, `modules:[]`, `relations:[]`, `view` |
+| project | `formatVersion:1`, `id`, `name`, optional `englishName:string`, `description`, `mode:design/change/analysis`, `repository`, `groups:[]`, `modules:[]`, `relations:[]`, `view` |
 | repository | `path:string`, `revision:string`, `dirty:boolean`; version identifies the code inspected, not the HTML version |
-| group | `id`, `name`, `color` (title text, use `#rrggbb`), optional `backgroundColor` (`#rrggbb`), `x:number`, `y:number` |
+| group | `id`, `name`, optional `englishName:string`, `color` (title text, use `#rrggbb`), optional `backgroundColor` (`#rrggbb`), `x:number`, `y:number` |
 | module | `id`, `name`, `purpose`, `groupId` (existing group ID or `''`), `x`, `y`, `status`, `sources:[]`, `unknowns:string[]`, `interfaces:[]`; optional `englishName:string`, `codeLocation:string`, `parameters:[]`, `events:[]`, `tests:[]` |
 | interface (method) | `id`, `name` (legacy signature allowed), `purpose`, `status`, `sources:[]`, `unknowns:string[]`, `inputsConfirmed:boolean`, `outputsConfirmed:boolean`, `inputs:[]`, `outputs:[]`; optional `englishName:string`, `flow:string`, `errors:string` |
 | parameter | `id`, `name`, `type:string`, `description`; optional `englishName:string`, `defaultValue:string`; inputs require `required:boolean`; other parameters may omit `required` (if supplied, boolean) |
 | event | `id`, `name`, `englishName?:string`, `description`, `direction:emit/receive`, `trigger:string`, `parameters:[]` (payload) |
-| test item | `id`, `name`, `steps:string`, `expected:string` |
+| test item | `id`, `name`, optional `englishName:string`, `steps:string`, `expected:string` |
 | relation | `id`, `from:moduleId`, `to:moduleId`, optional `fromPort` / `toPort` (`top/right/bottom/left`), optional `label:string`, `status`, `sources:[]`, `unknowns:string[]`; legacy optional `type:call/dependency` is preserved but not shown |
 | source | `{path:string, line?:positiveInteger, endLine?:positiveInteger, symbol?:string}`; nonempty path; endLine requires line and cannot be smaller |
 | view | finite `x`, `y`, positive `scale`, `expanded:moduleId[]`, `expandedInterfaces:interfaceId[]` |
@@ -22,7 +22,11 @@ Canvas cards are read-only summaries: name, a short responsibility preview, memb
 
 The dialog has five collapsible groups. Module information starts open, showing bilingual name, responsibility, code location and layer. Under the external-interface heading, Parameters, Methods, Message events and Test items start closed with counts. Each member can collapse independently; method inputs, results, implementation flow and event payloads also have their own fold controls. Adding a member opens its group and the new row, then focuses its first field; deleting one retains siblings' fields and expansion. Fold controls use real buttons with `aria-expanded` and `aria-controls`; collapse changes only the DOM, keeping the draft intact.
 
-Names use one row and two columns, Chinese on the left (`name`) and English on the right (`englishName`), for modules, parameters, methods and events. Either language may be supplied first; warn only when neither name is filled. Keep existing single names unchanged rather than guessing a translation. `Model.displayName` prefers Chinese/legacy name, then English, for compact labels. Tests use a single name. Parameters describe public configuration/attributes, with type, description and optional default; method-specific parameters belong under that method. Methods also have purpose, optional implementation flow and errors. Events specify emitted/received direction, trigger and payload. Tests record steps and expected result.
+Names use one row and two columns, Chinese on the left (`name`) and English on the right (`englishName`), for projects, groups, modules, parameters, methods, events and tests. English fields are optional for old format-1 data; opening, refreshing or unchanged confirmation must not backfill them. Model validation permits either name first and warns only when neither is filled. Project/layer forms require a Chinese name. Keep existing single names unchanged rather than guessing a translation. `Model.displayName` prefers Chinese/legacy name, then English, for configuration and feedback labels. Canvas module labels and tooltips show only `name` or a Chinese unnamed placeholder. Parameters describe public configuration/attributes, with type, description and optional default; method-specific parameters belong under that method. Methods also have purpose, optional implementation flow and errors. Events specify emitted/received direction, trigger and payload. Tests record steps and expected result.
+
+The English-input translate icon is explicit opt-in per click: `Translation.createClient` calls MyMemory `https://api.mymemory.translated.net/get` with only `q` and `langpair=zh-CN|en`, no credentials or referrer. Anonymous service is currently limited to 5,000 characters/day and 500 UTF-8 bytes/request. It requires internet and does not promise stable service or accurate code terminology. `formatName` converts a valid English response into project kebab-case, module/group PascalCase, or member camelCase; it does not change meaning, infer tense/boolean prefixes, or generate random synonyms. No Agent, backend or runtime package is required.
+
+The optional network request has a 12-second timeout; successful phrases are held only in a bounded page-session cache. Errors, quota exhaustion and Chinese/invalid results preserve the current input. `Translation.attach` writes only to the current dialog field and dispatches its normal edit event; user typing, removal, cancellation and dialog closure invalidate stale results. Confirm applies the draft, and Save persists it using the existing path. Translation caches and transient request state are never project data.
 
 `interfaces` remains the stored method list. All added fields on existing modules/methods/parameters are optional, so refreshing or opening an old HTML requires no migration. New constructors include empty defaults; do not backfill old data on open. `codeLocation` is a free-text location shown in module information; if absent, the editor displays existing source paths/starting lines without writing a new field. Clearing it explicitly stores an empty string. Legacy source evidence stays separate and preserved inside collapsed details; a free-text code location alone does not establish verified evidence.
 
@@ -36,7 +40,7 @@ Keep the format-1 `view.expanded` and `view.expandedInterfaces` fields for compa
 
 Group borders are transparent. `color` controls the group title text; titles use 20px semibold type, defaulting to white (`#ffffff`). Background color defaults to `#81b3e9` (RGB 129, 179, 233), independently of the title color, with fixed 50% transparency. Existing groups without `backgroundColor` use that default blue. New groups should include both defaults. Only the background fill is translucent; titles and module content keep their normal opacity. Preserve explicitly chosen colors when updating or saving a project; do not add an adjustable opacity field.
 
-Action buttons use the local SVG icons in `assets/icons.js`, with descriptive `aria-label` and hover `title` text. Project and interface names remain readable content beside their icon buttons. Keep icons embedded in the generated HTML; do not introduce external fonts, assets, or network requests.
+Action buttons use the local SVG icons in `assets/icons.js`, with descriptive `aria-label` and hover `title` text. Project and interface names remain readable content beside their icon buttons. Keep icons embedded in the generated HTML; do not introduce external fonts or assets. Network access occurs only after an explicit click on the English-name translation icon.
 
 ## Meaning of evidence and unknowns
 
@@ -71,6 +75,12 @@ M.updateModule(project,module.id,{purpose:'Updated responsibility'});
 `removeRelation(project,id)` removes only that arrow and returns whether it existed. `Annotations.begin` creates an isolated text draft; `Annotations.commit` applies only changed text and rejects stale/deleted arrows. `Annotations.create` owns the inline editor, keyboard controls, positioning and draft checks.
 
 `ModuleEditor.begin(project,moduleId?,position?)` returns an isolated session with `project` (draft), `module`, and the original snapshot. Apply the Model helpers to that draft. `ModuleEditor.commit(project,session)` validates before updating the live module, preserves unrelated current data, rejects a stale session, and returns false for an unchanged existing module. `hasChanges(session)` checks draft changes for the close-page warning. `ModuleEditor.create({session,confirm})` builds the form; `Dialogs.editModule` owns Confirm/Cancel/Delete and dirty-state notifications.
+
+## Header and footer
+
+The title area is a native button that opens project settings. It fills the remaining header width beside the actions; the title and description have the same available width, truncate with ellipses and expose their full text in `title` attributes. Both lines remain visible on narrow screens, with actions on a second row. Project settings still expose the existing mode and repository metadata. Form edits stay in a draft until Confirm; Cancel/Escape discards them, unchanged confirmation stays clean, and pending edits participate in the close-page check. Save/import asks the user to finish or cancel an open project-settings dialog.
+
+The right-side actions are Add module, Add layer, a decorative vertical separator, Save, Import and Export. There is no separate title-edit icon. The footer only contains zoom out, scale, zoom in and Fit. Its old file-name/save-state nodes, static gesture instructions and corresponding rendering/CSS are removed. Storage still tracks edits and file handles for correct saving, import replacement confirmation and close-page protection. File-operation errors and data warnings use the existing feedback area; browser-tab dirty marking is unchanged.
 
 ## HTML and saving
 

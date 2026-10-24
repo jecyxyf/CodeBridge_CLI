@@ -28,7 +28,7 @@
         pickNew:suggestedName => root.showSaveFilePicker({types:fileTypes,suggestedName}),
         confirmImport:() => root.confirm('当前有未保存的修改。导入会替换当前内容，是否继续？'),
         replaceProject(next) {
-          if (dialogs?.isEditingModule()) throw new Error('模块编辑窗口已打开，请先确定或取消，再导入。');
+          if (dialogs?.isEditingModule() || dialogs?.isEditingProject()) throw new Error('编辑窗口已打开，请先确定或取消，再导入。');
           if (canvas?.hasDraftChanges()) throw new Error('请先完成或取消箭头备注，再导入。');
           const previous = project;
           project = next;
@@ -36,8 +36,6 @@
           catch (error) {project = previous; mount(); throw error;}
         },
         onState(state) {
-          get('ec-status').textContent = state.message; get('ec-status').dataset.status = state.status;
-          get('ec-file-name').textContent = state.fileName || '尚未选定文件';
           if (state.status === 'error') showError(state.message);
           refreshWarnings();
           document.title = `${state.dirty ? '● ' : ''}${project.name || '软件框架图'}`;
@@ -45,8 +43,9 @@
       });
       let canvas, nodes, dialogs;
       function refreshHeader() {
-        get('ec-project-name').textContent = project.name || '软件框架图';
-        get('ec-project-description').textContent = project.description || '用编辑按钮填写项目用途';
+        const name = get('ec-project-name'), description = get('ec-project-description');
+        name.textContent = project.name || '软件框架图'; name.title = name.textContent;
+        description.textContent = project.description || '点击标题区填写描述'; description.title = description.textContent;
         get('ec-empty').hidden = project.modules.length > 0 || project.groups.length > 0;
         document.title = `${storage.isDirty() ? '● ' : ''}${project.name || '软件框架图'}`;
       }
@@ -69,7 +68,7 @@
       // Preserve a saved view. New projects with the default view start with all modules visible.
       if (project.view.x === 0 && project.view.y === 0 && project.view.scale === 1 && project.modules.length) canvas.fit({notify:false});
       function save(asNew) {
-        if (dialogs.isEditingModule()) {dialogs.showMessage('请先点击“确定”或“取消”，再保存 HTML。'); return;}
+        if (dialogs.isEditingModule() || dialogs.isEditingProject()) {dialogs.showMessage('请先点击“确定”或“取消”，再保存 HTML。'); return;}
         if (!canvas.finishAnnotation()) return;
         if (!supported) {showError('此浏览器不能直接写入本地文件。请使用新版桌面 Chrome 或 Edge 打开此 HTML。'); return;}
         notice.hidden = true;
@@ -80,7 +79,7 @@
         } catch (error) {if (error?.name !== 'AbortError') showError(error);}
       }
       function importFile() {
-        if (dialogs.isEditingModule()) {dialogs.showMessage('请先点击“确定”或“取消”，再导入 HTML。'); return;}
+        if (dialogs.isEditingModule() || dialogs.isEditingProject()) {dialogs.showMessage('请先点击“确定”或“取消”，再导入 HTML。'); return;}
         if (!canvas.finishAnnotation()) return;
         if (typeof root.showOpenFilePicker !== 'function') {showError('此浏览器不能导入本地文件。请使用新版桌面 Chrome 或 Edge。'); return;}
         notice.hidden = true;
@@ -107,7 +106,7 @@
       root.addEventListener('beforeunload',event => {if (storage.isDirty() || dialogs.hasDraftChanges() || canvas.hasDraftChanges()) {event.preventDefault(); event.returnValue = '';}});
       if (!supported) showError('此浏览器不能直接写入本地文件。请使用新版桌面 Chrome 或 Edge 打开此 HTML。');
     } catch (error) {
-      showError(error); get('ec-status').textContent = '无法打开项目'; get('ec-status').dataset.status = 'error';
+      showError(error);
       for (const control of document.querySelectorAll('[data-action]')) control.disabled = true;
     }
   }

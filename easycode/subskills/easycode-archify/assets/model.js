@@ -12,7 +12,7 @@
   }
   function createProject(name = '') {
     return {
-      formatVersion: 1, id: id('project'), name, description: '', mode: 'design',
+      formatVersion: 1, id: id('project'), name, englishName: '', description: '', mode: 'design',
       repository: {path: '', revision: '', dirty: false}, groups: [], modules: [], relations: [],
       view: {x: 0, y: 0, scale: 1, expanded: [], expandedInterfaces: []}
     };
@@ -33,7 +33,7 @@
     return {id: id('param'), name: '', englishName: '', type: '未知', required: false, description: '', defaultValue: ''};
   }
   function createEvent() {return {id:id('event'),name:'',englishName:'',description:'',direction:'emit',trigger:'',parameters:[]};}
-  function createTest() {return {id:id('test'),name:'',steps:'',expected:''};}
+  function createTest() {return {id:id('test'),name:'',englishName:'',steps:'',expected:''};}
   function displayName(item,fallback = '') {return (typeof item?.name === 'string' && item.name.trim()) || (typeof item?.englishName === 'string' && item.englishName.trim()) || fallback;}
   function markEdited(item) {
     if (item?.status === 'verified') item.status = 'modified';
@@ -71,7 +71,7 @@
     const fields = {
       parameters:['name','englishName','type','description','defaultValue','required'],
       events:['name','englishName','description','direction','trigger','parameters'],
-      tests:['name','steps','expected']
+      tests:['name','englishName','steps','expected']
     };
     if (!Object.hasOwn(fields,collection)) throw new Error('不支持的模块内容分组。');
     const module = project.modules.find(item => item.id === moduleId), item = module?.[collection]?.find(item => item.id === itemId);
@@ -221,12 +221,12 @@
     }
     function testItem(value,path) {
       if (!record(value,path)) return;
-      identity(value.id,at(path,'id')); string(value.name,at(path,'name'),true);
+      identity(value.id,at(path,'id')); bilingualName(value,path);
       string(value.steps,at(path,'steps'),true); string(value.expected,at(path,'expected'),true);
     }
     if (!record(project, '$')) return {errors, warnings};
     if (project.formatVersion !== 1) error('formatVersion', '仅支持格式版本 1');
-    identity(project.id,'id'); string(project.name,'name',true); string(project.description,'description',true);
+    identity(project.id,'id'); bilingualName(project,''); string(project.description,'description',true);
     enumeration(project.mode, ['design','change','analysis'], 'mode');
     if (record(project.repository,'repository')) {
       string(project.repository.path,'repository.path'); string(project.repository.revision,'repository.revision'); boolean(project.repository.dirty,'repository.dirty');
@@ -236,7 +236,7 @@
     const moduleIds = new Set(modules.filter(object).map(item => item.id)), interfaceIds = new Set();
     groups.forEach((group,index) => {
       const path = `groups[${index}]`; if (!record(group,path)) return;
-      identity(group.id,at(path,'id')); string(group.name,at(path,'name'),true); string(group.color,at(path,'color'));
+      identity(group.id,at(path,'id')); bilingualName(group,path); string(group.color,at(path,'color'));
       if (group.backgroundColor !== undefined && (typeof group.backgroundColor !== 'string' || !/^#[\da-f]{6}$/i.test(group.backgroundColor))) error(at(path,'backgroundColor'), '背景颜色须为 #rrggbb 格式');
       number(group.x,at(path,'x')); number(group.y,at(path,'y'));
     });

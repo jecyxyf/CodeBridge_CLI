@@ -4,6 +4,7 @@
   const svgNS = 'http://www.w3.org/2000/svg';
   // Local line icons: no fonts, downloads, or user-supplied SVG markup.
   const paths = {
+    translate:'M3 5h12M9 3v2M6 5c0 5 3 8 7 10M12 5c0 5-3 8-8 11M13 21l4-11 4 11M15 17h4',
     add:'M12 5v14M5 12h14',
     'module-add':'M9 4H4v16h16v-5M16 3v8M12 7h8',
     'group-add':'M8 4H4v4M16 4h4v4M4 16v4h4M20 16v4h-4M12 8v8M8 12h8',

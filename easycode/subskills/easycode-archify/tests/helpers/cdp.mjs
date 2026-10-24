@@ -39,7 +39,7 @@ export async function launchBrowser() {
       try {
         const [port,path] = (await readFile(join(profile,'DevToolsActivePort'),'utf8')).trim().split(/\r?\n/);
         if (/^\d+$/.test(port) && path?.startsWith('/devtools/browser/')) address = `ws://127.0.0.1:${port}${path}`;
-      } catch (error) {if (error.code !== 'ENOENT') throw error;}
+      } catch (error) {if (!['ENOENT','EBUSY'].includes(error.code)) throw error;}
       if (!address) await delay(50);
     }
     if (!address) throw new Error('Timed out waiting for Chromium debugging endpoint');

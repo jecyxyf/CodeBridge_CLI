@@ -75,6 +75,8 @@
     function names(kind,item,patch) {
       const row = element('div','bilingual-fields');
       row.append(field(`${kind}中文名`,item.name,value => patch('name',value)),field(`${kind}英文名`,item.englishName,value => patch('englishName',value)));
+      const [source,target] = row.querySelectorAll('input');
+      EC.Translation.attach({source,target,kind:kind === '模块' ? 'module' : 'parameter'});
       return row;
     }
     function collection({title,key,kind,getItems,setItems,createItem,build,confirmDelete = false,afterChange = () => {}}) {
@@ -204,7 +206,7 @@
     const tests = collection({title:'测试项',key:'tests',kind:'测试项',getItems:() => module.tests || [],setItems:items => update(module,null,{tests:items}),createItem:EC.Model.createTest,confirmDelete:true,
       build(entry,body,rename) {
         const patch = (key,value) => {EC.Model.updateMember(project,module.id,'tests',entry.id,{[key]:value}); refreshStatus();};
-        body.append(field('测试名称',entry.name,value => {patch('name',value); rename();}),field('测试步骤',entry.steps,value => patch('steps',value),'textarea'),field('预期结果',entry.expected,value => patch('expected',value),'textarea'));
+        body.append(names('测试项',entry,(key,value) => {patch(key,value); rename();}),field('测试步骤',entry.steps,value => patch('steps',value),'textarea'),field('预期结果',entry.expected,value => patch('expected',value),'textarea'));
       }});
     editor.append(element('p','dialog-note','点击组标题展开或收起。修改后点“确定”，再用顶部“保存”写入 HTML。'),basics.section,heading('对外接口'),parameters.section,methods.section,events.section,tests.section);
     refreshStatus(); return editor;

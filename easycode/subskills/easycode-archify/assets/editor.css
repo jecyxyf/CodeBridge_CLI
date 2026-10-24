@@ -77,14 +77,14 @@ input[type=color] {
 input[type=number] {
   appearance: textfield
 }
-label.field {
+.field {
   display: flex;
   flex-direction: column;
   gap: 5px;
   color: var(--muted);
   font-size: 12px
 }
-label.field>input,label.field>textarea,label.field>select {
+.field input,.field textarea,.field select {
   font-size: 13px;
   color: var(--text)
 }
@@ -104,16 +104,20 @@ label.field>input,label.field>textarea,label.field>select {
 }
 .project-heading {
   display: flex;
+  flex: 1 1 0;
   align-items: center;
   gap: 12px;
   text-align: left;
   padding: 2px 12px 2px 0;
-  max-width: 440px;
   min-width: 0;
   border: 0;
   background: transparent
 }
+.project-heading:hover {
+  background: #263449
+}
 .project-heading>span:nth-child(2) {
+  flex: 1;
   min-width: 0
 }
 .project-heading strong {
@@ -126,7 +130,6 @@ label.field>input,label.field>textarea,label.field>select {
 .project-heading small {
   display: block;
   color: var(--muted);
-  max-width: 330px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -134,16 +137,25 @@ label.field>input,label.field>textarea,label.field>select {
   font-size: 11px
 }
 .brand-mark {
+  flex-shrink: 0;
   font-size: 32px;
   color: var(--blue);
   line-height: 1
 }
 .toolbar-actions {
   display: flex;
+  align-items: center;
   gap: 7px;
   margin-left: auto;
   flex-shrink: 0;
   justify-content: flex-end
+}
+.toolbar-separator {
+  width: 1px;
+  height: 24px;
+  margin: 0 7px;
+  flex-shrink: 0;
+  background: var(--line)
 }
 #ec-viewport {
   position: absolute;
@@ -556,33 +568,6 @@ label.field>input,label.field>textarea,label.field>select {
   width: 43px;
   text-align: center
 }
-.canvas-hint {
-  color: #8fa2ba;
-  font-size: 11px
-}
-.save-state {
-  display: flex;
-  gap: 14px;
-  margin-left: auto;
-  min-width: 0;
-  font-size: 11px
-}
-#ec-file-name {
-  color: #8fa2ba;
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap
-}
-#ec-status {
-  color: #c9d6e5
-}
-#ec-status[data-status=error] {
-  color: #efaaaa
-}
-#ec-status[data-status=saved] {
-  color: #92c9b8
-}
 #ec-feedback {
   position: absolute;
   right: 20px;
@@ -698,6 +683,13 @@ dialog.module-dialog {
 .member-editor .fold-toggle {font-size: 12px}
 .bilingual-fields {display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px}
 .bilingual-fields input {min-width: 0}
+.translation-field {min-width: 0}
+.translation-control {position: relative; display: flex; min-width: 0}
+.translation-control input {width: 100%; padding-right: 38px}
+.translation-control .icon-button {position: absolute; right: 3px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; padding: 5px; border: 0; background: transparent}
+.translation-control .icon-button:disabled {opacity: .45; cursor: wait}
+.translation-message {font-size: 11px; line-height: 1.5; overflow-wrap: anywhere}
+.translation-message:empty {display: none}
 .module-editor .empty-note {margin: 0}
 .group-add,.member-delete {flex-shrink: 0}
 .group-add:hover {border-color: var(--blue)}
@@ -769,29 +761,19 @@ button.icon-button {
   display: flex
 }
 @media(max-width:1000px) {
-  .canvas-hint {
-    display: none
-  }
   .toolbar {
     gap: 10px;
     padding: 10px
   }
-  .project-heading {
-    min-width: 150px;
-    max-width: 270px
-  }
-  .project-heading small {
-    max-width: 200px
-  }
   .toolbar-actions {
     gap: 4px
   }
-  .toolbar button {
+  .toolbar-actions button {
     padding-left: 8px;
     padding-right: 8px
   }
-  .save-state {
-    gap: 8px
+  .toolbar-separator {
+    margin: 0 4px
   }
 }
 @media(max-width:700px) {
@@ -811,12 +793,6 @@ button.icon-button {
   #ec-viewport {
     top: 108px
   }
-  .save-state {
-    max-width: 50%
-  }
-  #ec-file-name {
-    display: none
-  }
   .statusbar {
     gap: 4px;
     padding: 0 6px
@@ -825,8 +801,5 @@ button.icon-button {
     top: 118px;
     left: 12px;
     right: 12px
-  }
-  .project-heading small {
-    display: none
   }
 }

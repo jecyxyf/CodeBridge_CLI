@@ -37,11 +37,29 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   })();`;
   await page.send('Page.addScriptToEvaluateOnNewDocument',{source:initialScript});
   await page.navigate(pathToFileURL(file).href);
+  await observeFileOperations();
   const nativePickers = await page.evaluate('__nativePickers');
   assert.deepEqual(nativePickers,{open:true,save:true},'native API presence on file URL; actual dialogs are not invoked');
   const app = 'EasyCode.app', data = `${app}.project`;
   assert.equal(await page.evaluate(`${app}.storage.isDirty()`),false,'automatic initial fit stays clean');
   assert.equal(await page.evaluate('document.title.startsWith("● ")'),false);
+  assert.equal(await page.evaluate('document.querySelectorAll("#ec-status,#ec-file-name,.canvas-hint,.save-state").length'),0,'footer status and instructions are removed, not hidden');
+  assert.deepEqual(await page.evaluate('Array.from(document.querySelector(".statusbar").children,node => node.className)'),['zoom-controls']);
+  assert.equal(await page.evaluate('document.querySelectorAll(".toolbar-actions [data-action=edit-project]").length'),0,'no separate title-edit icon');
+  const beforeTitleEdit = await page.evaluate(data);
+  await page.click('#ec-project-name');
+  assert.equal(await page.evaluate('document.querySelector("#ec-dialog").open'),true,'clicking the title opens project settings');
+  await page.fill('#ec-dialog [aria-label="项目中文名"]','取消的标题');
+  await page.fill('#ec-dialog [aria-label="项目用途"]','取消的描述');
+  assert.deepEqual(await page.evaluate(data),beforeTitleEdit,'title edits stay in the dialog until confirmed');
+  assert.equal(await page.evaluate(`${app}.dialogs.hasDraftChanges()`),true,'unsaved title drafts are tracked');
+  await page.click('#ec-dialog button[aria-label="取消"]');
+  assert.deepEqual(await page.evaluate(data),beforeTitleEdit);
+  assert.equal(await page.evaluate(`${app}.storage.isDirty()`),false);
+  await page.click('#ec-project-description');
+  assert.equal(await page.evaluate('document.querySelector("#ec-dialog").open'),true,'description opens the same dialog');
+  await page.click('#ec-dialog button[aria-label="确定"]');
+  assert.equal(await page.evaluate(`${app}.storage.isDirty()`),false,'unchanged project confirmation stays clean');
   assert.notDeepEqual(await page.evaluate(`${data}.view`),project.view,'initial fit actually changes the default view');
   const draftNode = `.module-node[data-module-id="${draft.id}"]`;
   assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${draftNode} [data-module-status]`)}).textContent`),'已核对源码');
@@ -49,10 +67,10 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   assert.equal(await page.evaluate('document.querySelector("#ec-warnings").hidden'),false);
   assert.match(await page.evaluate('document.querySelector("#ec-warnings").textContent'),/启动草稿.*模块职责[\s\S]*draft\(\).*方法用途/);
   await page.click('[data-action="save"]');
-  await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
+  await page.waitFor('__fileOperation.status === "done"');
   assert.equal(await page.evaluate('document.querySelector("#ec-warnings").hidden'),false,'draft saves successfully while locations stay visible');
   await page.evaluate('__files.failNext = true'); await page.click('[data-action="export"]');
-  await page.waitFor('document.querySelector("#ec-status").dataset.status === "error"');
+  await page.waitFor('__fileOperation.status === "error"');
   assert.match(await page.evaluate('document.querySelector("#ec-notice").textContent'),/模拟保存失败/);
   assert.equal(await page.evaluate('document.querySelector("#ec-warnings").hidden'),false,'warning does not replace save failure');
   const beforeEdit = await page.evaluate(data);
@@ -89,8 +107,30 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   await page.click('#ec-dialog button[aria-label="确定"]');
   assert.equal(await page.evaluate('document.querySelector("#ec-warnings").hidden'),true,'confirmed corrections clear warnings');
   await page.click('[data-action="save"]');
-  await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
+  await page.waitFor('__fileOperation.status === "done"');
   assert.equal(await page.evaluate('document.querySelector("#ec-notice").hidden'),true);
+  const updatedTitle = '任务模块设计与接口说明', updatedDescription = '统一记录模块职责、方法、消息事件与验收要求。';
+  await page.click('#ec-project-name');
+  await page.fill('#ec-dialog [aria-label="项目中文名"]',updatedTitle);
+  await page.fill('#ec-dialog [aria-label="项目用途"]',updatedDescription);
+  const titleWrites = await page.evaluate('__files.writes');
+  await page.send('Input.dispatchKeyEvent',{type:'keyDown',key:'s',code:'KeyS',modifiers:2,windowsVirtualKeyCode:83});
+  await page.send('Input.dispatchKeyEvent',{type:'keyUp',key:'s',code:'KeyS',windowsVirtualKeyCode:83});
+  assert.equal(await page.evaluate('__files.writes'),titleWrites,'Ctrl+S cannot omit title edits in an open dialog');
+  assert.match(await page.evaluate('document.querySelector(".dialog-error").textContent'),/先点击/);
+  await page.click('#ec-dialog button[aria-label="确定"]');
+  assert.equal(await page.evaluate('document.querySelector("#ec-project-name").textContent'),updatedTitle);
+  assert.equal(await page.evaluate('document.querySelector("#ec-project-description").textContent'),updatedDescription);
+  assert.equal(await page.evaluate('document.querySelector("#ec-project-name").title'),updatedTitle);
+  assert.equal(await page.evaluate('document.querySelector("#ec-project-description").title'),updatedDescription);
+  await page.click('.project-heading');
+  await page.fill('#ec-dialog [aria-label="项目中文名"]','Esc 放弃');
+  await escape();
+  assert.equal(await page.evaluate(`${data}.name`),updatedTitle);
+  await page.click('[data-action="save"]');
+  await page.waitFor('__fileOperation.status === "done"');
+  const savedTitle = S.readProject(await page.evaluate('__files.original'));
+  assert.equal(savedTitle.name,updatedTitle); assert.equal(savedTitle.description,updatedDescription);
   await page.click('[data-action="fit"]');
   assert.equal(await page.evaluate(`${app}.storage.isDirty()`),true,'manual fit remains a user edit');
   await page.click(`${draftNode} [data-node-action="edit"]`);
@@ -179,7 +219,7 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   await page.fill('#ec-dialog [data-editor-group="events"] [aria-label="事件中文名"]','任务完成');
   await page.fill('#ec-dialog [data-editor-group="events"] [aria-label="事件英文名"]','taskCompleted');
   await page.click('#ec-dialog [data-editor-group="tests"] button[aria-label="添加测试项"]');
-  await page.fill('#ec-dialog [data-editor-group="tests"] [aria-label="测试名称"]','保存成功');
+  await page.fill('#ec-dialog [data-editor-group="tests"] [aria-label="测试项中文名"]','保存成功');
   assert.deepEqual(await page.evaluate(data),beforeNestedCancel,'all new groups remain drafts');
   assert.equal(await page.evaluate('document.querySelector("[data-editor-group=events] > .fold-heading .fold-count").textContent'),'1');
   assert.equal(await page.evaluate('(() => {const a = document.querySelector("[aria-label=事件中文名]").getBoundingClientRect(), b = document.querySelector("[aria-label=事件英文名]").getBoundingClientRect(); return Math.abs(a.top-b.top) < 1 && a.right <= b.left;})()'),true);
@@ -190,7 +230,7 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   assert.deepEqual(await page.evaluate(data),beforeNestedCancel,'nested edits and deletion can be discarded');
 
   await page.click('[data-action="add-group"]');
-  await page.fill('#ec-dialog [aria-label="分组名称"]','任务组');
+  await page.fill('#ec-dialog [aria-label="层级中文名"]','任务组');
   await page.click('#ec-dialog button[aria-label="确定"]');
   const groupId = await page.evaluate(`${data}.groups[0].id`);
   assert.equal(await page.evaluate(`${data}.groups[0].x % 10 === 0 && ${data}.groups[0].y % 10 === 0`),true,'new empty group starts on the grid');
@@ -253,7 +293,7 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   assert.equal(await page.evaluate('document.querySelector(".relation-preview").style.display'),'none');
   assert.equal(await page.evaluate('document.querySelector(".relation-line").getAttribute("class")'),'relation-line');
   await page.click('[data-action="save"]');
-  await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
+  await page.waitFor('__fileOperation.status === "done"');
   const beforeSelect = await page.evaluate(data);
   await clickArrow();
   assert.equal(await page.evaluate('document.querySelector("#ec-dialog").open'),false,'single click only selects the arrow');
@@ -294,7 +334,7 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   assert.equal(await page.evaluate(`${data}.relations.length`),1,'Backspace in the textarea edits text, not the arrow');
   await page.fill('[aria-label="箭头备注"]','更新的备注');
   await key('s',83,2);
-  await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
+  await page.waitFor('__fileOperation.status === "done"');
   assert.equal(S.readProject(await page.evaluate('__files.original')).relations[0].label,'更新的备注','Ctrl+S finishes the annotation before taking the file snapshot');
   await editArrow();
   await page.fill('[aria-label="箭头备注"]','点击空白完成');
@@ -308,7 +348,7 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   assert.equal(await page.evaluate(`${app}.storage.isDirty()`),true,'declining delete keeps a dirty project dirty');
   assert.match(await page.evaluate('__confirm.messages.at(-1)'),/修改后的任务模块 → 任务仓库.*点击空白完成/);
   await page.click('[data-action="save"]');
-  await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
+  await page.waitFor('__fileOperation.status === "done"');
   await clickArrow(); await key('Delete',46);
   assert.equal(await page.evaluate(`${app}.storage.isDirty()`),false,'declining delete keeps a clean project clean');
   await page.evaluate(`__confirm.accept = true; globalThis.__dirtyCalls = 0; const mark = ${app}.storage.markDirty; ${app}.storage.markDirty = () => {__dirtyCalls++; mark();};`);
@@ -350,34 +390,34 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   assert.equal(await page.evaluate(`${data}.relations[0].fromPort`),'right');
   assert.equal(await page.evaluate(`${data}.relations[0].toPort`),'left');
   await page.click('[data-action="add-group"]');
-  await page.fill('#ec-dialog [aria-label="分组名称"]','取消的分组');
+  await page.fill('#ec-dialog [aria-label="层级中文名"]','取消的分组');
   await page.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
   await page.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
   assert.equal(await page.evaluate(`${data}.groups.length`),1,'Escape cancels dialog');
 
   // UI save wiring with simulated handles, not OS picker coverage.
   await page.click('[data-action="save"]');
-  await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
+  await page.waitFor('__fileOperation.status === "done"');
   assert.equal(await page.evaluate('__files.openCalls'),1);
   await page.click(`${firstNode} [data-node-action="edit"]`);
   await page.fill('#ec-dialog [aria-label="模块中文名"]','修改后的任务模块');
   await page.click('#ec-dialog button[aria-label="确定"]');
   await page.click('[data-action="save"]');
-  await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
+  await page.waitFor('__fileOperation.status === "done"');
   assert.equal(await page.evaluate('__files.openCalls'),1,'second Save reuses confirmed handle');
   await page.click('[data-action="export"]');
-  await page.waitFor('document.querySelector("#ec-file-name").textContent === "copy.html" && document.querySelector("#ec-status").dataset.status === "saved"');
+  await page.waitFor('__fileOperation.status === "done" && EasyCode.app.storage.getFileName() === "copy.html"');
   assert.equal(await page.evaluate('__files.newCalls'),1);
   await page.click(`${firstNode} [data-node-action="edit"]`);
   await page.fill('#ec-dialog [aria-label="模块职责"]','取消保存后的修改');
   await page.click('#ec-dialog button[aria-label="确定"]');
   await page.evaluate('__files.cancelNext = true');
   await page.click('[data-action="export"]');
-  await page.waitFor('document.querySelector("#ec-status").textContent === "已取消保存"');
+  await page.waitFor('__fileOperation.status === "cancelled"');
   assert.equal(await page.evaluate(`${app}.storage.isDirty()`),true);
   assert.equal(await page.evaluate(`${app}.storage.getFileName()`),'copy.html');
   await page.click('[data-action="save"]');
-  await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
+  await page.waitFor('__fileOperation.status === "done"');
   const saved = await page.evaluate('__files.copy'), expected = await page.evaluate(data);
   assert.deepEqual(S.readProject(saved),expected);
   assert.deepEqual(M.validate(S.readProject(saved)).errors,[]);
@@ -385,7 +425,11 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   const reopened = join(output,'reopened.html'); await writeFile(reopened,saved,'utf8');
   assert.deepEqual(S.readProject(await readFile(reopened,'utf8')),expected);
   await page.navigate(pathToFileURL(reopened).href);
+  await observeFileOperations();
   assert.deepEqual(await page.evaluate(data),expected,'saved HTML really reopens with all data');
+  assert.equal(await page.evaluate('document.querySelector("#ec-project-name").textContent'),updatedTitle);
+  assert.equal(await page.evaluate('document.querySelector("#ec-project-description").textContent'),updatedDescription);
+  assert.equal(await page.evaluate('document.querySelectorAll("#ec-status,#ec-file-name,.canvas-hint,.save-state").length'),0);
   assert.equal(await page.evaluate(`${data}.modules[0].name`),'修改后的任务模块');
   assert.equal(await page.evaluate(`${data}.modules[0].englishName`),'TaskModule');
   assert.equal(await page.evaluate(`${data}.modules[0].codeLocation`),'src/task.js');
@@ -413,12 +457,12 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   await page.fill('#ec-dialog [aria-label="模块中文名"]','未保存的页面草稿');
   await page.click('#ec-dialog button[aria-label="确定"]');
   await page.click('[data-action="import"]');
-  await page.waitFor('document.querySelector("#ec-status").textContent === "已取消导入"');
+  await page.waitFor('__fileOperation.status === "cancelled"');
   assert.equal(await page.evaluate(`${data}.modules[0].name`),'未保存的页面草稿');
   assert.equal(await page.evaluate(`${app}.storage.isDirty()`),true);
   await page.evaluate('__confirm.accept = true');
   await page.click('[data-action="import"]');
-  await page.waitFor('document.querySelector("#ec-status").textContent === "已导入"');
+  await page.waitFor('__fileOperation.status === "done"');
   assert.deepEqual(await page.evaluate(data),importProject,'import preserves positions, groups, edges and expansion');
   assert.equal(await page.evaluate('globalThis.__importExecuted === undefined'),true);
   assert.equal(await page.evaluate('document.querySelector("#ec-project-name").textContent'),importProject.name);
@@ -428,7 +472,7 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   await page.fill('#ec-dialog [aria-label="模块中文名"]','导入后修改');
   await page.click('#ec-dialog button[aria-label="确定"]');
   await page.click('[data-action="save"]');
-  await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
+  await page.waitFor('__fileOperation.status === "done"');
   assert.equal(S.readProject(await page.evaluate('__files.original')).modules[0].name,'导入后修改');
   const beforeImportDrag = await page.evaluate(`${data}.modules[0].x`);
   await page.click('[data-action="fit"]');
@@ -437,25 +481,42 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   const beforeBadImport = await page.evaluate(data);
   await page.evaluate('__files.original = "broken"');
   await page.click('[data-action="import"]');
-  await page.waitFor('document.querySelector("#ec-status").dataset.status === "error"');
+  await page.waitFor('__fileOperation.status === "error"');
   assert.deepEqual(await page.evaluate(data),beforeBadImport,'bad imports keep the live project');
 
   const example = JSON.parse(await readFile(new URL('../examples/task-board.json',import.meta.url),'utf8'));
   await page.evaluate(`__files.original = ${JSON.stringify(assemble(example,await loadBundle()))}`);
   await page.click('[data-action="import"]');
-  await page.waitFor('document.querySelector("#ec-status").textContent === "已导入"');
+  await page.waitFor('__fileOperation.status === "done"');
   assert.equal(await page.evaluate('document.querySelector("#ec-project-name").textContent'),'软件框架图');
-  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll(".toolbar-actions button"),button => button.getAttribute("aria-label"))'),['编辑项目名称与用途','新建模块','新建层级','保存','导入','导出']);
+  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll(".toolbar-actions button"),button => button.getAttribute("aria-label"))'),['新建模块','新建层级','保存','导入','导出']);
+  await page.click('#ec-project-name');
+  const longTitle = '跨团队软件模块设计与接口管理画布：' + '标题需要充分利用顶部的可用宽度'.repeat(6);
+  const longDescription = '项目描述也随标题区域一起展开，过长时省略并可悬停查看全文。'.repeat(6);
+  await page.fill('#ec-dialog [aria-label="项目中文名"]',longTitle);
+  await page.fill('#ec-dialog [aria-label="项目用途"]',longDescription);
+  await page.click('#ec-dialog button[aria-label="确定"]');
   for (const width of [1440,800,390]) {
     await page.send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false});
     await page.click('[data-action="fit"]');
     const layout = await page.evaluate(`(() => {
       const title = document.querySelector('.project-heading').getBoundingClientRect();
       const buttons = [...document.querySelectorAll('.toolbar-actions button')].map(node => node.getBoundingClientRect());
-      return {titleLeft:title.left,rightGap:innerWidth - buttons.at(-1).right,visible:buttons.every(r => r.left >= 0 && r.right <= innerWidth),overlap:buttons.some(r => r.left < title.right && r.right > title.left && r.top < title.bottom && r.bottom > title.top)};
+      const separator = document.querySelector('.toolbar-separator').getBoundingClientRect();
+      const name = document.querySelector('#ec-project-name'), description = document.querySelector('#ec-project-description');
+      const toolbar = document.querySelector('.toolbar').getBoundingClientRect();
+      return {titleLeft:title.left,rightGap:innerWidth - buttons.at(-1).right,visible:buttons.every(r => r.left >= 0 && r.right <= innerWidth),overlap:buttons.some(r => r.left < title.right && r.right > title.left && r.top < title.bottom && r.bottom > title.top),
+        expanded:innerWidth > 700 ? Math.abs(title.right + parseFloat(getComputedStyle(document.querySelector('.toolbar')).gap) - buttons[0].left) < 2 : title.width >= innerWidth - 24,
+        separated:separator.left > buttons[1].right && separator.right < buttons[2].left && separator.height > 0,
+        truncated:name.scrollWidth > name.clientWidth && description.scrollWidth > description.clientWidth,
+        sameWidth:Math.abs(name.getBoundingClientRect().width - description.getBoundingClientRect().width) < 1,
+        descriptionVisible:description.getBoundingClientRect().height > 0 && description.getBoundingClientRect().bottom <= toolbar.bottom};
     })()`);
     assert.ok(layout.titleLeft <= 20 && layout.rightGap <= 20,'title left and actions right');
     assert.ok(layout.visible && !layout.overlap,'controls remain visible without overlapping title');
+    assert.ok(layout.expanded && layout.separated && layout.truncated && layout.sameWidth && layout.descriptionVisible,'title and description fill available space while the action groups stay separated');
+    assert.equal(await page.evaluate('document.querySelector("#ec-project-name").title'),longTitle);
+    assert.equal(await page.evaluate('document.querySelector("#ec-project-description").title'),longDescription);
     await screenshot(`toolbar-${width}.png`);
     const beforeModal = await page.evaluate(data);
     await page.click('[data-action="add-module"]');
@@ -474,6 +535,22 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   assert.deepEqual(page.blockedRequests,[],'HTTP(S) interception was installed before navigation');
   assert.deepEqual(page.pageErrors,[]); assert.deepEqual(page.consoleErrors,[]); assert.deepEqual(page.protocolErrors,[]);
 
+  async function observeFileOperations() {
+    // Observe real controller promises; the product no longer renders file-operation state in the footer.
+    await page.evaluate(`(() => {
+      globalThis.__fileOperation = {status:'idle'};
+      const storage = EasyCode.app.storage;
+      for (const method of ['save','saveAs','importFile']) {
+        const run = storage[method];
+        storage[method] = (...args) => {
+          const operation = globalThis.__fileOperation = {method,status:'pending'};
+          const pending = run(...args);
+          pending.then(() => {operation.status = 'done';},error => {operation.status = error.name === 'AbortError' ? 'cancelled' : 'error';});
+          return pending;
+        };
+      }
+    })()`);
+  }
   async function key(key,code,modifiers = 0) {
     await page.send('Input.dispatchKeyEvent',{type:'keyDown',key,windowsVirtualKeyCode:code,modifiers});
     await page.send('Input.dispatchKeyEvent',{type:'keyUp',key,windowsVirtualKeyCode:code});
