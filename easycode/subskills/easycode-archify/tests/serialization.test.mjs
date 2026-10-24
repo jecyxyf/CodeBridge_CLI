@@ -10,6 +10,15 @@ import '../assets/serialization.js';
 import {assemble,build,loadBundle} from '../scripts/build.mjs';
 const {Model,Serialization}=globalThis.EasyCode;
 const bundle={canvas:'<!doctype html><html><head><title><!--EC:TITLE--></title><!--EC:STYLE--></head><body><!--EC:NODE--><!--EC:DATA--><!--EC:BUNDLE--><!--EC:RUNTIME--></body></html>',node:'<template id="ec-module-template"></template>',css:'body {color: red}',runtime:'globalThis.started = true;'};
+
+test('保存的 HTML 标签标题带版本且正确转义，项目名与版本独立保存',() => {
+  const p = Model.createProject('软件框架图'); p.repository.revision = 'v0.0.1';
+  const html = assemble(p,bundle);
+  assert.match(html,/<title>软件框架图v0\.0\.1<\/title>/);
+  assert.deepEqual(Serialization.readProject(html),p);
+  p.name = '<项目>'; p.repository.revision = '<版本>';
+  assert.match(assemble(p,bundle),/<title>&lt;项目&gt; &lt;版本&gt;<\/title>/);
+});
 test('恶意 HTML 是文本且多次保存不增长',()=>{
   const p=Model.createProject('</script><script>alert(1)</script>'); p.description='<>&\u2028\u2029';
   const a=Serialization.buildDocument(bundle,p);
@@ -57,7 +66,7 @@ test('检查命令读 HTML 并给出结构问题，坏输入非零退出',async(
 });
 test('设计示例有六个模块和三个组，结构有效',async()=>{
   const p=JSON.parse(await readFile(new URL('../examples/task-board.json',import.meta.url),'utf8'));
-  assert.equal(p.mode,'design'); assert.match(p.description,/设计示例/);
+  assert.equal(Object.hasOwn(p,'mode'),false); assert.match(p.description,/设计示例/);
   assert.equal(p.modules.length,6); assert.equal(p.groups.length,3);
   assert.deepEqual(Model.validate(p).errors,[]); assert.ok(p.modules.every(m=>m.status==='planned'));
 });

@@ -11,8 +11,7 @@
     function node(tag,text,className) {const result = document.createElement(tag); if (text !== undefined) result.textContent = text; if (className) result.className = className; return result;}
     function input(form,label,value,options) {
       const wrapper = node('label',undefined,'field'); wrapper.append(node('span',label));
-      const control = node(options?.choices ? 'select' : options?.multiline ? 'textarea' : 'input');
-      if (options?.choices) for (const [value,label] of options.choices) {const option = node('option',label); option.value = value; control.append(option);}
+      const control = node(options?.multiline ? 'textarea' : 'input');
       control.value = value ?? ''; control.setAttribute('aria-label',label);
       if (options?.required) control.required = true;
       if (options?.type) control.type = options.type;
@@ -24,6 +23,33 @@
       const englishName = input(row,`${label}英文名`,item?.englishName || '');
       EC.Translation.attach({source:name,target:englishName,kind});
       return {name,englishName};
+    }
+    function directory(form,value) {
+      const wrapper = node('div',undefined,'field'), label = node('label','代码目录');
+      const control = node('input'), row = node('div',undefined,'directory-control'), choose = node('button');
+      control.id = 'ec-code-directory'; label.htmlFor = control.id; control.setAttribute('aria-label','代码目录'); control.value = value;
+      EC.Icons.set(choose,'folder','选择代码目录'); choose.type = 'button';
+      const supported = typeof root.showDirectoryPicker === 'function';
+      const note = node('span',supported ? '选择后填入目录名；完整路径可手动填写。' : '当前浏览器不支持选择目录，请手动填写路径。','directory-note');
+      const message = node('span','', 'directory-status'); message.setAttribute('role','status'); message.id = 'ec-directory-status';
+      note.id = 'ec-directory-note'; control.setAttribute('aria-describedby',`${note.id} ${message.id}`);
+      choose.disabled = !supported;
+      let revision = 0;
+      control.addEventListener('input',() => {revision++; message.textContent = '';});
+      choose.addEventListener('click',async () => {
+        const version = revision, previous = control.value;
+        choose.disabled = true; message.textContent = '';
+        const current = () => dialog.open && control.isConnected && version === revision && control.value === previous;
+        try {
+          // Invoke directly in the click handler; only retain the selected name, never enumerate files.
+          const handle = await root.showDirectoryPicker({id:'easycode-code-directory',mode:'read'});
+          if (!current()) return;
+          control.value = handle.name; control.dispatchEvent(new Event('input',{bubbles:true}));
+        } catch (error) {
+          if (current() && error.name !== 'AbortError') message.textContent = '无法选择目录，请重试或手动填写路径。';
+        } finally {choose.disabled = !supported;}
+      });
+      row.append(control,choose); wrapper.append(label,row,note,message); form.append(wrapper); return control;
     }
     function open(title,build,submit,remove,options = {}) {
       if (onOpen() === false) return;
@@ -75,14 +101,13 @@
       },group ? {label:'删除层级',icon:'trash',run() {EC.Model.removeGroup(project,group.id);}} : null);
     }
     function editProject() {
-      const original = JSON.stringify({name:project.name,englishName:project.englishName ?? '',description:project.description,mode:project.mode,path:project.repository.path,revision:project.repository.revision});
+      const original = JSON.stringify({name:project.name,englishName:project.englishName ?? '',description:project.description,path:project.repository.path,revision:project.repository.revision});
       const values = controls => Object.fromEntries(Object.entries(controls).map(([key,control]) => [key,control.value]));
       open('项目设置',form => {
         const controls = {
           ...names(form,'项目',project,'project'),
           description:input(form,'项目用途',project.description,{multiline:true}),
-          mode:input(form,'当前工作',project.mode,{choices:[['design','设计方案'],['change','修改规划'],['analysis','分析源码']]}),
-          path:input(form,'代码目录',project.repository.path),
+          path:directory(form,project.repository.path),
           revision:input(form,'代码版本',project.repository.revision)
         };
         projectDraftChanged = () => JSON.stringify(values(controls)) !== original;
@@ -91,7 +116,7 @@
         const next = values(controls);
         if (!next.name.trim()) throw new Error('请填写项目名称。');
         if (JSON.stringify(next) === original) return false;
-        project.name = next.name; project.description = next.description; project.mode = next.mode;
+        project.name = next.name; project.description = next.description;
         if (next.englishName !== (project.englishName ?? '')) project.englishName = next.englishName;
         project.repository.path = next.path; project.repository.revision = next.revision;
       });

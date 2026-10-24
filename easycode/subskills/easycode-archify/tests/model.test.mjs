@@ -7,10 +7,25 @@ function fixture() {
   const p = Model.createProject('测试'), a = Model.createModule({name:'A'}), b = Model.createModule({name:'B'});
   a.interfaces.push(Model.createInterface()); p.modules.push(a,b); return {p,a,b,i:a.interfaces[0]};
 }
+
+test('标题显示版本，空版本不加后缀，已有 v 不重复且不改变数据',() => {
+  const project = Model.createProject('软件框架图');
+  for (const [revision,title] of [
+    ['','软件框架图'],['  ','软件框架图'],['0.0.1','软件框架图v0.0.1'],['v0.0.1','软件框架图v0.0.1'],
+    [' V1.2.3 ','软件框架图v1.2.3'],['1.0.0-beta.1+build.2','软件框架图v1.0.0-beta.1+build.2'],
+    ['main','软件框架图 main'],['0abc123','软件框架图 0abc123']
+  ]) {
+    project.repository.revision = revision;
+    const before = structuredClone(project);
+    assert.equal(Model.projectTitle(project),title); assert.deepEqual(project,before);
+  }
+  project.name = ''; project.repository.revision = '0.0.1';
+  assert.equal(Model.projectTitle(project),'软件框架图v0.0.1');
+});
 test('创建函数提供独立的完整默认值和稳定标识', () => {
   const {p,a,b,i} = fixture(), parameter = Model.createParameter();
   assert.deepEqual(Model.validate(p).errors, []);
-  assert.equal(p.formatVersion,1); assert.equal(p.mode,'design');
+  assert.equal(p.formatVersion,1); assert.equal(Object.hasOwn(p,'mode'),false);
   assert.deepEqual(p.repository,{path:'',revision:'',dirty:false});
   assert.deepEqual(p.view,{x:0,y:0,scale:1,expanded:[],expandedInterfaces:[]});
   assert.notEqual(a.id,b.id); assert.notEqual(a.sources,b.sources);
@@ -99,12 +114,12 @@ test('验证坏结构不崩溃，错误带有准确位置', () => {
   for(const path of ['modules[0].x','modules[0].sources[0]','modules[0].sources[1].line','modules[0].sources[1].symbol','modules[0].sources[2].endLine','modules[0].interfaces[0].inputs[0].required','modules[0].interfaces[0].outputs[0]','modules[0].interfaces[0].outputsConfirmed','modules[0].unknowns[0]','repository.dirty','view.scale']) assert.ok(paths.includes(path),path);
 });
 test('验证所有标识、引用、枚举和嵌套数组', () => {
-  const {p,a,b,i}=fixture(); b.id=a.id; a.groupId='missing'; a.status='bad'; p.mode='bad';
+  const {p,a,b,i}=fixture(); b.id=a.id; a.groupId='missing'; a.status='bad';
   i.inputs=null; i.outputs={}; i.sources='bad'; p.groups=[{id:i.id,name:'',color:4,x:Infinity,y:0}];
   p.relations=[{id:'r',from:'missing',to:a.id,type:'bad',label:'',status:'bad',sources:[],unknowns:[]}];
   p.view.expanded=['missing']; p.view.expandedInterfaces=['missing'];
   const paths=Model.validate(p).errors.map(e=>e.path);
-  for(const path of ['modules[1].id','modules[0].groupId','modules[0].status','mode','modules[0].interfaces[0].id','modules[0].interfaces[0].inputs','modules[0].interfaces[0].outputs','modules[0].interfaces[0].sources','groups[0].color','groups[0].x','relations[0].from','relations[0].type','relations[0].status','view.expanded[0]','view.expandedInterfaces[0]']) assert.ok(paths.includes(path),path);
+  for(const path of ['modules[1].id','modules[0].groupId','modules[0].status','modules[0].interfaces[0].id','modules[0].interfaces[0].inputs','modules[0].interfaces[0].outputs','modules[0].interfaces[0].sources','groups[0].color','groups[0].x','relations[0].from','relations[0].type','relations[0].status','view.expanded[0]','view.expandedInterfaces[0]']) assert.ok(paths.includes(path),path);
 });
 test('来源路径和行号合法，输出可以省略 required，重复关系和展开项报错', () => {
   const {p,a,b,i}=fixture(); a.sources=[{path:'src/a.js',line:1,endLine:3,symbol:'A'}];

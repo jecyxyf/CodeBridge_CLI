@@ -3,8 +3,7 @@
   "id": "project-task-board",
   "name": "软件框架图",
   "description": "设计示例：展示任务看板的模块、接口与调用关系，不代表已分析或已实现的真实代码。",
-  "mode": "design",
-  "repository": {"path": "", "revision": "", "dirty": false},
+  "repository": {"path": "", "revision": "0.0.1", "dirty": false},
   "groups": [
     {"id": "group-ui", "name": "界面层", "color": "#ffffff", "backgroundColor": "#81b3e9", "x": 60, "y": 100},
     {"id": "group-business", "name": "业务层", "color": "#ffffff", "backgroundColor": "#81b3e9", "x": 550, "y": 100},

@@ -38,16 +38,16 @@
         onState(state) {
           if (state.status === 'error') showError(state.message);
           refreshWarnings();
-          document.title = `${state.dirty ? '● ' : ''}${project.name || '软件框架图'}`;
+          document.title = `${state.dirty ? '● ' : ''}${EC.Model.projectTitle(project)}`;
         }
       });
       let canvas, nodes, dialogs;
       function refreshHeader() {
         const name = get('ec-project-name'), description = get('ec-project-description');
-        name.textContent = project.name || '软件框架图'; name.title = name.textContent;
+        name.textContent = EC.Model.projectTitle(project); name.title = name.textContent;
         description.textContent = project.description || '点击标题区填写描述'; description.title = description.textContent;
         get('ec-empty').hidden = project.modules.length > 0 || project.groups.length > 0;
-        document.title = `${storage.isDirty() ? '● ' : ''}${project.name || '软件框架图'}`;
+        document.title = `${storage.isDirty() ? '● ' : ''}${EC.Model.projectTitle(project)}`;
       }
       function onChange(change = {}) {
         storage.markDirty();

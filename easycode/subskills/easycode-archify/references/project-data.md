@@ -4,8 +4,8 @@
 
 | Object | Fields |
 | --- | --- |
-| project | `formatVersion:1`, `id`, `name`, optional `englishName:string`, `description`, `mode:design/change/analysis`, `repository`, `groups:[]`, `modules:[]`, `relations:[]`, `view` |
-| repository | `path:string`, `revision:string`, `dirty:boolean`; version identifies the code inspected, not the HTML version |
+| project | `formatVersion:1`, `id`, `name`, optional `englishName:string`, `description`, `repository`, `groups:[]`, `modules:[]`, `relations:[]`, `view` |
+| repository | `path:string` (selected directory name or manually entered path), `revision:string` (code version/reference displayed in the title), `dirty:boolean`; version identifies the described code, not the HTML editor version |
 | group | `id`, `name`, optional `englishName:string`, `color` (title text, use `#rrggbb`), optional `backgroundColor` (`#rrggbb`), `x:number`, `y:number` |
 | module | `id`, `name`, `purpose`, `groupId` (existing group ID or `''`), `x`, `y`, `status`, `sources:[]`, `unknowns:string[]`, `interfaces:[]`; optional `englishName:string`, `codeLocation:string`, `parameters:[]`, `events:[]`, `tests:[]` |
 | interface (method) | `id`, `name` (legacy signature allowed), `purpose`, `status`, `sources:[]`, `unknowns:string[]`, `inputsConfirmed:boolean`, `outputsConfirmed:boolean`, `inputs:[]`, `outputs:[]`; optional `englishName:string`, `flow:string`, `errors:string` |
@@ -78,7 +78,11 @@ M.updateModule(project,module.id,{purpose:'Updated responsibility'});
 
 ## Header and footer
 
-The title area is a native button that opens project settings. It fills the remaining header width beside the actions; the title and description have the same available width, truncate with ellipses and expose their full text in `title` attributes. Both lines remain visible on narrow screens, with actions on a second row. Project settings still expose the existing mode and repository metadata. Form edits stay in a draft until Confirm; Cancel/Escape discards them, unchanged confirmation stays clean, and pending edits participate in the close-page check. Save/import asks the user to finish or cancel an open project-settings dialog.
+The title area is a native button that opens project settings. It fills the remaining header width beside the actions; the title and description have the same available width, truncate with ellipses and expose their full text in `title` attributes. Both lines remain visible on narrow screens, with actions on a second row. Project settings expose bilingual name, description, code directory and version. There is no working-mode UI or project `mode` field, default, validator, or compatibility migration. Form edits stay in a draft until Confirm; Cancel/Escape discards them, unchanged confirmation stays clean, and pending edits participate in the close-page check. Save/import asks the user to finish or cancel an open project-settings dialog.
+
+The code-directory field has a folder button. Its synchronous click starts `showDirectoryPicker` with read-only access and a stable picker ID. Only `handle.name` is copied into the draft; no files are enumerated or read, and the handle is not persisted. Browser APIs do not expose the absolute path, so the UI explains that full paths remain manually editable. Cancellation leaves the path intact; failures and unsupported browsers allow manual entry. A pending picker cannot overwrite later typing or a reopened dialog.
+
+`Model.projectTitle` supplies the heading, hover title, browser tab, and serialized HTML title from separate `name` and `repository.revision` fields. Numeric versions gain one `v`, an existing leading `v` is retained, and empty versions add nothing (`软件框架图v0.0.1`). Git hashes and other non-version references are displayed after a space without adding `v`. Formatting trims display whitespace but does not rewrite either stored field. Save, import and reopen all use the same formatter; tab dirty marking is preserved.
 
 The right-side actions are Add module, Add layer, a decorative vertical separator, Save, Import and Export. There is no separate title-edit icon. The footer only contains zoom out, scale, zoom in and Fit. Its old file-name/save-state nodes, static gesture instructions and corresponding rendering/CSS are removed. Storage still tracks edits and file handles for correct saving, import replacement confirmation and close-page protection. File-operation errors and data warnings use the existing feedback area; browser-tab dirty marking is unchanged.
 

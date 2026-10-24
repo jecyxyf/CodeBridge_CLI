@@ -19,7 +19,7 @@
       if (bundle.canvas.split(`<!--EC:${slot}-->`).length !== 2) throw new Error(`模板槽位 ${slot} 应恰好出现一次`);
     }
     const replacements = {
-      TITLE: escapeHTML(project.name),
+      TITLE: escapeHTML(namespace.Model.projectTitle(project)),
       STYLE: `<style>${bundle.css.replace(/<\/style/gi, '<\\/style')}</style>`,
       NODE: bundle.node,
       DATA: `<script id="ec-project" type="application/json">${safeJSON(project)}</script>`,

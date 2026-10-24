@@ -7,11 +7,9 @@ description: "Create and update a standalone editable HTML module canvas for sof
 
 Deliver one HTML with embedded styles, scripts, templates, and project data. Opening, editing and saving it needs no Node, Python, server, or network. Only the optional English-name translation button needs a network connection. Node is only needed by the agent's build/check tools. Use this package's editor, not the separate `../archify/` engine.
 
-## Choose the working mode
+## Ground the content in the user's task
 
-- `design`: describe a proposed system; keep unimplemented content `planned`.
-- `change`: read the existing project and relevant code, then plan changes. Keep proposals separate from checked facts through status and unknowns.
-- `analysis`: inspect the requested repository scope. The agent reads code and records evidence; the webpage does not scan or analyze source files.
+Describe proposed behavior as `planned`. For changes, read the existing project and relevant code first; distinguish proposals from checked facts through status and unknowns. For source analysis, inspect the requested repository scope and record evidence. These are authoring tasks, not selectable project modes. Project data has no `mode` field; there is no working-mode control, validator, or migration. The webpage does not scan or analyze source files.
 
 Read [project-data.md](references/project-data.md) before constructing or changing data. For source analysis or rechecking edited facts, also read [repository-analysis.md](references/repository-analysis.md). Ask only for missing choices that materially affect the result.
 
@@ -29,6 +27,10 @@ node scripts/check.mjs examples/task-board.html
 The JSON is an agent-side build input, not a second file the user must maintain. Deliver the HTML. `examples/task-board.*` is a design example, not evidence about real code. Webpage and module templates are maintained separately in `templates/canvas.html` and `templates/module-node.html`.
 
 The top title and description share a clickable area that fills the space to the left of the actions. Long text truncates with an ellipsis and exposes its full value on hover. Click either line (or activate the area by keyboard) to open project settings; Confirm applies edits, Cancel/Escape discards them, and unchanged confirmation does not dirty the project. There is no separate title-edit icon. A vertical separator divides Add module / Add layer from Save / Import / Export. The footer contains only zoom controls and Fit; it has no file name, save-state text or static gesture instructions. Keep actual file saving, dirty tracking, close-page protection and error reporting working. Finish or cancel an open project-settings draft before saving/importing.
+
+Project settings contain bilingual name, description, code directory and code version. The folder icon invokes `showDirectoryPicker({id:'easycode-code-directory',mode:'read'})` directly from its click, then fills only the directory name: browsers do not expose an absolute local path. Keep the path editable and explain this limitation beside it. Do not enumerate or read directory contents, retain its handle, or save on selection. Cancellation preserves the current value; errors and unsupported browsers keep manual input available. Ignore results from a closed/replaced dialog or after manual typing.
+
+`Model.projectTitle(project)` combines the Chinese project name and `repository.revision` for the canvas heading, hover text, browser tab, and saved HTML `<title>`. `0.0.1` and `v0.0.1` both display as `软件框架图v0.0.1`; empty versions show the name alone. Non-version references such as Git hashes or branch names are separated by a space and do not receive a misleading `v`. Store name and revision separately; the title formatter never changes the project data. Tab dirty markers remain intact.
 
 Canvas module cards only show name, responsibility summary, member counts and status. The edit button opens a dialog with five collapsible sections: module information (initially open), parameters, methods, message events, and test items (initially closed). Module information includes bilingual name, responsibility, code location and layer. Module, parameter, method and event names use one row with two columns: Chinese on the left and English on the right. Each member and a method's implementation flow can also collapse; adding opens and focuses the new member. Collapsing retains edits and never dirties project data. Confirm applies the draft; Cancel/Escape discards it. A new module is not added until confirmed. Confirm/Cancel/Delete remain visible at the bottom. After confirming, use the top Save action to write the HTML. Keep drag, grid snapping and relationship controls available on the canvas.
 

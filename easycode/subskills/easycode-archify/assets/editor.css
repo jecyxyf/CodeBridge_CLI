@@ -690,6 +690,11 @@ dialog.module-dialog {
 .translation-control .icon-button:disabled {opacity: .45; cursor: wait}
 .translation-message {font-size: 11px; line-height: 1.5; overflow-wrap: anywhere}
 .translation-message:empty {display: none}
+.directory-control {display: flex; gap: 6px; min-width: 0}
+.directory-control input {flex: 1; min-width: 0}
+.directory-control button {flex-shrink: 0}
+.directory-note,.directory-status {font-size: 11px; line-height: 1.5; overflow-wrap: anywhere}
+.directory-status:empty {display: none}
 .module-editor .empty-note {margin: 0}
 .group-add,.member-delete {flex-shrink: 0}
 .group-add:hover {border-color: var(--blue)}

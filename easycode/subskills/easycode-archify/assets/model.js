@@ -12,7 +12,7 @@
   }
   function createProject(name = '') {
     return {
-      formatVersion: 1, id: id('project'), name, englishName: '', description: '', mode: 'design',
+      formatVersion: 1, id: id('project'), name, englishName: '', description: '',
       repository: {path: '', revision: '', dirty: false}, groups: [], modules: [], relations: [],
       view: {x: 0, y: 0, scale: 1, expanded: [], expandedInterfaces: []}
     };
@@ -35,6 +35,12 @@
   function createEvent() {return {id:id('event'),name:'',englishName:'',description:'',direction:'emit',trigger:'',parameters:[]};}
   function createTest() {return {id:id('test'),name:'',englishName:'',steps:'',expected:''};}
   function displayName(item,fallback = '') {return (typeof item?.name === 'string' && item.name.trim()) || (typeof item?.englishName === 'string' && item.englishName.trim()) || fallback;}
+  function projectTitle(project) {
+    const name = project.name?.trim() || '软件框架图', revision = project.repository.revision.trim();
+    if (!revision) return name;
+    const version = /^\d+(?:\.\d+)*(?:-[\w.-]+)?(?:\+[\w.-]+)?$/.test(revision) ? `v${revision}` : revision.replace(/^V(?=\d)/,'v');
+    return `${name}${/^v\d/.test(version) ? '' : ' '}${version}`;
+  }
   function markEdited(item) {
     if (item?.status === 'verified') item.status = 'modified';
     return item;
@@ -227,7 +233,6 @@
     if (!record(project, '$')) return {errors, warnings};
     if (project.formatVersion !== 1) error('formatVersion', '仅支持格式版本 1');
     identity(project.id,'id'); bilingualName(project,''); string(project.description,'description',true);
-    enumeration(project.mode, ['design','change','analysis'], 'mode');
     if (record(project.repository,'repository')) {
       string(project.repository.path,'repository.path'); string(project.repository.revision,'repository.revision'); boolean(project.repository.dirty,'repository.dirty');
     }
@@ -279,5 +284,5 @@
     }
     return {errors, warnings};
   }
-  namespace.Model = {createProject,createModule,createInterface,createParameter,createEvent,createTest,displayName,validate,markEdited,updateModule,updateInterface,updateMember,removeModule,removeGroup,addRelation,updateRelation,removeRelation};
+  namespace.Model = {createProject,createModule,createInterface,createParameter,createEvent,createTest,displayName,projectTitle,validate,markEdited,updateModule,updateInterface,updateMember,removeModule,removeGroup,addRelation,updateRelation,removeRelation};
 })(globalThis);

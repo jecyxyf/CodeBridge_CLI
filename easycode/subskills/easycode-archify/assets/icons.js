@@ -4,6 +4,7 @@
   const svgNS = 'http://www.w3.org/2000/svg';
   // Local line icons: no fonts, downloads, or user-supplied SVG markup.
   const paths = {
+    folder:'M3 7V5a1 1 0 0 1 1-1h5l2 3h9a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7Z',
     translate:'M3 5h12M9 3v2M6 5c0 5 3 8 7 10M12 5c0 5-3 8-8 11M13 21l4-11 4 11M15 17h4',
     add:'M12 5v14M5 12h14',
     'module-add':'M9 4H4v16h16v-5M16 3v8M12 7h8',
