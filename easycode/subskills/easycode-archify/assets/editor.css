@@ -469,15 +469,40 @@ label.field>input,label.field>textarea,label.field>select {
   pointer-events: auto;
   cursor: pointer
 }
-.relation-group:focus-visible {
+.relation-group,.relation-group:focus,.relation-group:focus-visible {
   outline: none
 }
-.relation-group:focus-visible .relation-line,.relation-group:hover .relation-line,.relation-group.selected .relation-line {
+.relation-group:focus-visible .relation-line,.relation-group:hover .relation-line {
   stroke: var(--blue);
-  stroke-width: 4
+  stroke-width: 3
+}
+.relation-group.selected .relation-line {
+  stroke: #ff9f43;
+  stroke-width: 3;
+  marker-end: url(#ec-arrow-selected)
 }
 .relation-label.is-empty {opacity: 0; pointer-events: none}
-.relation-group:hover .relation-label.is-empty,.relation-group.selected .relation-label.is-empty,.relation-group:focus-visible .relation-label.is-empty {opacity: 1; pointer-events: auto}
+.relation-actions {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  gap: 6px
+}
+.relation-actions[hidden] {display: none}
+.relation-actions button {
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+  color: var(--text);
+  background: var(--panel);
+  border-color: #62616a;
+  box-shadow: 0 2px 6px #0004
+}
+.relation-actions button:hover,.relation-actions button:focus-visible {
+  color: #ff9f43;
+  border-color: #ff9f43;
+  background: #34303a
+}
 .annotation-editor {
   position: absolute;
   z-index: 4;

@@ -13,7 +13,6 @@
       <button type="button" data-action="edit-project" data-icon="edit" aria-label="编辑项目名称与用途" title="编辑项目名称与用途"></button>
       <button type="button" data-action="add-module" data-icon="module-add" aria-label="新建模块" title="新建模块"></button>
       <button type="button" data-action="add-group" data-icon="group-add" aria-label="新建层级" title="新建层级"></button>
-      <button type="button" data-action="add-relation" data-icon="arrow-add" aria-label="新建箭头" title="新建箭头：按住圆点拖到另一个模块的圆点" aria-pressed="false"></button>
       <button type="button" data-action="save" data-icon="save" aria-label="保存" title="保存（Ctrl / ⌘ + S）"></button>
       <button type="button" data-action="import" data-icon="import" aria-label="导入" title="导入 HTML"></button>
       <button type="button" data-action="export" data-icon="export" aria-label="导出" title="导出 HTML（Ctrl / ⌘ + Shift + S）"></button>
@@ -26,7 +25,7 @@
   </main>
   <footer class="statusbar">
     <div class="zoom-controls"><button type="button" data-action="zoom-out" data-icon="zoom-out" aria-label="缩小" title="缩小"></button><output id="ec-zoom">100%</output><button type="button" data-action="zoom-in" data-icon="zoom-in" aria-label="放大" title="放大"></button><button type="button" data-action="fit" data-icon="fit" aria-label="适应视野" title="适应视野"></button></div>
-    <span class="canvas-hint">拖拽圆点连接 · 双击箭头改备注 · 滚轮缩放</span>
+    <span class="canvas-hint">拖拽圆点连接 · 点击箭头编辑或删除 · 滚轮缩放</span>
     <div class="save-state"><span id="ec-file-name">尚未选定文件</span><span id="ec-status" role="status" aria-live="polite"></span></div>
   </footer>
   <aside id="ec-feedback" aria-label="项目提示"><div id="ec-notice" role="alert" hidden></div><div id="ec-warnings" role="status" aria-live="polite" hidden></div></aside>

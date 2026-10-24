@@ -15,11 +15,12 @@
     if (!hasChanges(draft)) return false;
     return EC.Model.updateRelation(project,draft.id,{label:draft.text});
   }
-  function create({project,container,onChange = () => {}}) {
+  function create({project,container,onChange = () => {},onActiveChange = () => {}}) {
     let active = null;
     function cancel() {
       const previous = active; active = null;
       previous?.wrapper.remove();
+      if (previous) onActiveChange();
     }
     function finish() {
       if (!active) return true;
@@ -56,7 +57,7 @@
         else if (event.key === 'Enter' && !event.shiftKey) {event.preventDefault(); event.stopPropagation(); if (finish()) container.focus({preventScroll:true});}
       });
       input.addEventListener('blur',finish);
-      position(point); input.focus({preventScroll:true}); input.select(); return true;
+      position(point); input.focus({preventScroll:true}); input.select(); onActiveChange(); return true;
     }
     return {open,finish,cancel,position,getId:() => active?.draft.id,
       hasDraftChanges:() => !!active && active.input.value !== active.draft.original};

@@ -205,7 +205,7 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   const second = await page.evaluate(`${data}.modules[1].id`), secondNode = `.module-node[data-module-id="${second}"]`;
   await page.click('[data-action="fit"]');
   const beforeDrag = await page.evaluate(`${data}.modules[1].x`);
-  await page.drag(`${secondNode} .module-header`,520,160);
+  await page.drag(`${secondNode} .node-grip`,520,160);
   assert.notEqual(await page.evaluate(`${data}.modules[1].x`),beforeDrag,'drag changes stored coordinates');
   assert.equal(await page.evaluate(`${data}.modules[1].x % 10 === 0 && ${data}.modules[1].y % 10 === 0`),true,'dragged module snaps at the current zoom');
   await page.click('[data-action="fit"]');
@@ -227,7 +227,7 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   await page.click(`${secondNode} [data-port="top"]`);
   assert.deepEqual(await page.evaluate(data),beforeConnect,'two single clicks never create a connection');
   assert.equal(await page.evaluate('document.querySelectorAll(".port-source").length'),0);
-  await page.click('[data-action="add-relation"]');
+  assert.equal(await page.evaluate('document.querySelectorAll("[data-action=add-relation]").length'),0,'connections start directly from module ports');
   assert.equal(await page.evaluate('document.querySelector("#ec-dialog").open'),false);
   const startPoint = await portPoint(`${firstNode} [data-port="bottom"]`), targetPoint = await portPoint(`${secondNode} [data-port="top"]`);
   await page.send('Input.dispatchMouseEvent',{type:'mouseMoved',...startPoint});
@@ -252,23 +252,43 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   assert.equal(await page.evaluate('document.querySelector("#ec-warnings").hidden'),true,'blank annotation is not a missing field');
   assert.equal(await page.evaluate('document.querySelector(".relation-preview").style.display'),'none');
   assert.equal(await page.evaluate('document.querySelector(".relation-line").getAttribute("class")'),'relation-line');
+  await page.click('[data-action="save"]');
+  await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
+  const beforeSelect = await page.evaluate(data);
   await clickArrow();
   assert.equal(await page.evaluate('document.querySelector("#ec-dialog").open'),false,'single click only selects the arrow');
   assert.equal(await page.evaluate('document.querySelectorAll(".annotation-editor").length'),0);
+  assert.equal(await page.evaluate('getComputedStyle(document.querySelector(".relation-group.selected")).outlineStyle'),'none','selection has no rectangular outline');
+  assert.equal(await page.evaluate('getComputedStyle(document.querySelector(".relation-group.selected .relation-line")).stroke'),'rgb(255, 159, 67)');
+  assert.match(await page.evaluate('getComputedStyle(document.querySelector(".relation-group.selected .relation-line")).markerEnd'),/ec-arrow-selected/);
+  assert.equal(await page.evaluate('getComputedStyle(document.querySelector("#ec-arrow-selected path")).fill'),'rgb(255, 159, 67)','arrowhead shares the orange highlight');
+  assert.equal(await page.evaluate('document.querySelector(".relation-actions").hidden'),false);
+  assert.equal(await page.evaluate('document.querySelectorAll(".relation-actions button").length'),2);
+  assert.deepEqual(await page.evaluate(data),beforeSelect,'selection does not change saved data');
+  assert.equal(await page.evaluate(`${app}.storage.isDirty()`),false);
+  await assertArrowActionsPosition();
+  await screenshot('arrow-selected.png');
   await clickArrow(2);
+  assert.equal(await page.evaluate('document.querySelectorAll(".annotation-editor").length'),0,'double click no longer edits text');
+  await page.click('.relation-actions [aria-label="编辑箭头文字"]');
+  assert.equal(await page.evaluate('document.querySelector(".relation-actions").hidden'),true,'actions stay out of the text editor');
   await page.fill('[aria-label="箭头备注"]','取消的备注');
   assert.equal(await page.evaluate(`${data}.relations[0].label`),'','typing remains a draft');
   await key('Escape',27);
   assert.equal(await page.evaluate('document.querySelectorAll(".annotation-editor").length'),0);
   assert.equal(await page.evaluate(`${data}.relations[0].label`),'');
-  await clickArrow(2);
+  assert.equal(await page.evaluate('document.querySelector(".relation-actions").hidden'),false,'cancelling text restores actions');
+  await key('Escape',27);
+  assert.equal(await page.evaluate('document.querySelector(".relation-actions").hidden'),true,'Escape deselects the arrow');
+  assert.equal(await page.evaluate('document.querySelectorAll(".relation-group.selected").length'),0);
+  await editArrow();
   await page.fill('[aria-label="箭头备注"]','保存任务');
   await page.evaluate('document.querySelector("[aria-label=箭头备注]").dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",isComposing:true,bubbles:true}))');
   assert.equal(await page.evaluate('document.querySelectorAll(".annotation-editor").length'),1,'IME confirmation does not end annotation editing');
   assert.equal(await page.evaluate(`${data}.relations[0].label`),'');
   await key('Enter',13);
   assert.equal(await page.evaluate(`${data}.relations[0].label`),'保存任务');
-  await clickArrow(2);
+  await editArrow();
   await page.fill('[aria-label="箭头备注"]','更新的备注');
   await key('Backspace',8);
   assert.equal(await page.evaluate(`${data}.relations.length`),1,'Backspace in the textarea edits text, not the arrow');
@@ -276,13 +296,14 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   await key('s',83,2);
   await page.waitFor('document.querySelector("#ec-status").dataset.status === "saved"');
   assert.equal(S.readProject(await page.evaluate('__files.original')).relations[0].label,'更新的备注','Ctrl+S finishes the annotation before taking the file snapshot');
-  await clickArrow(2);
+  await editArrow();
   await page.fill('[aria-label="箭头备注"]','点击空白完成');
   await page.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...blankPoint});
   await page.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...blankPoint});
   assert.equal(await page.evaluate(`${data}.relations[0].label`),'点击空白完成');
   await page.evaluate('__confirm.accept = false');
-  await clickArrow(); await key('Delete',46);
+  assert.equal(await page.evaluate('document.querySelector(".relation-actions").hidden'),true,'blank canvas hides actions');
+  await clickArrow(); await page.click('.relation-actions [aria-label="删除箭头"]');
   assert.equal(await page.evaluate(`${data}.relations.length`),1);
   assert.equal(await page.evaluate(`${app}.storage.isDirty()`),true,'declining delete keeps a dirty project dirty');
   assert.match(await page.evaluate('__confirm.messages.at(-1)'),/修改后的任务模块 → 任务仓库.*点击空白完成/);
@@ -291,12 +312,41 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   await clickArrow(); await key('Delete',46);
   assert.equal(await page.evaluate(`${app}.storage.isDirty()`),false,'declining delete keeps a clean project clean');
   await page.evaluate(`__confirm.accept = true; globalThis.__dirtyCalls = 0; const mark = ${app}.storage.markDirty; ${app}.storage.markDirty = () => {__dirtyCalls++; mark();};`);
-  await key('Delete',46);
+  await page.click('.relation-actions [aria-label="删除箭头"]');
   assert.equal(await page.evaluate(`${data}.relations.length`),0);
   assert.equal(await page.evaluate('__dirtyCalls'),1,'delete removes and notifies once');
+  assert.equal(await page.evaluate('document.querySelector(".relation-actions").hidden'),true,'deletion hides actions');
   await dragConnection(`${firstNode} [data-port="right"]`,await portPoint(`${secondNode} [data-port="left"]`));
-  await clickArrow(2);
+  await editArrow();
   await page.fill('[aria-label="箭头备注"]','更新的备注'); await key('Enter',13);
+  await assertArrowActionsPosition();
+  await page.click('[data-action="zoom-in"]');
+  await assertArrowActionsPosition();
+  await page.click('[data-action="zoom-out"]');
+  await page.drag(`${secondNode} .node-grip`,30,20);
+  await assertArrowActionsPosition();
+  await page.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'middle',buttons:4,x:80,y:180});
+  await page.send('Input.dispatchMouseEvent',{type:'mouseMoved',button:'middle',buttons:4,x:105,y:195});
+  await page.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'middle',x:105,y:195});
+  await assertArrowActionsPosition();
+  await screenshot('arrow-with-text.png');
+  const keptArrow = await page.evaluate(`${data}.relations[0].id`);
+  await dragConnection(`${secondNode} [data-port="bottom"]`,await portPoint(`${firstNode} [data-port="top"]`));
+  const otherArrow = await page.evaluate(`${data}.relations[1].id`);
+  const otherPath = `.relation-group[data-relation-id="${otherArrow}"] .relation-line`;
+  await clickArrow(1,otherPath);
+  assert.equal(await page.evaluate('document.querySelectorAll(".relation-group.selected").length'),1,'only one arrow is selected');
+  await page.click('.relation-actions [aria-label="编辑箭头文字"]');
+  await page.fill('[aria-label="箭头备注"]','第二条箭头'); await key('Enter',13);
+  assert.deepEqual(await page.evaluate(`${data}.relations.map(item => item.label)`),['更新的备注','第二条箭头'],'edit targets the newly selected arrow');
+  await page.click('.relation-actions [aria-label="删除箭头"]');
+  assert.deepEqual(await page.evaluate(`${data}.relations.map(item => item.id)`),[keptArrow],'delete targets only the selected arrow');
+  await clickArrow(); await key('Enter',13);
+  assert.equal(await page.evaluate('document.activeElement.getAttribute("aria-label")'),'编辑箭头文字','keyboard selection focuses the edit action');
+  await key('Escape',27);
+  assert.equal(await page.evaluate('document.querySelector(".relation-actions").hidden'),true,'Escape from an action button deselects');
+  await clickArrow(); await page.click('[data-action="zoom-in"]'); await key('Escape',27);
+  assert.equal(await page.evaluate('document.querySelector(".relation-actions").hidden'),true,'Escape after zoom also deselects');
   assert.equal(await page.evaluate(`${data}.relations[0].fromPort`),'right');
   assert.equal(await page.evaluate(`${data}.relations[0].toPort`),'left');
   await page.click('[data-action="add-group"]');
@@ -382,7 +432,7 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   assert.equal(S.readProject(await page.evaluate('__files.original')).modules[0].name,'导入后修改');
   const beforeImportDrag = await page.evaluate(`${data}.modules[0].x`);
   await page.click('[data-action="fit"]');
-  await page.drag(`${firstNode} .module-header`,40,20);
+  await page.drag(`${firstNode} .node-grip`,40,20);
   assert.notEqual(await page.evaluate(`${data}.modules[0].x`),beforeImportDrag,'drag remains connected to imported data');
   const beforeBadImport = await page.evaluate(data);
   await page.evaluate('__files.original = "broken"');
@@ -395,7 +445,7 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
   await page.click('[data-action="import"]');
   await page.waitFor('document.querySelector("#ec-status").textContent === "已导入"');
   assert.equal(await page.evaluate('document.querySelector("#ec-project-name").textContent'),'软件框架图');
-  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll(".toolbar-actions button"),button => button.getAttribute("aria-label"))'),['编辑项目名称与用途','新建模块','新建层级','新建箭头','保存','导入','导出']);
+  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll(".toolbar-actions button"),button => button.getAttribute("aria-label"))'),['编辑项目名称与用途','新建模块','新建层级','保存','导入','导出']);
   for (const width of [1440,800,390]) {
     await page.send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false});
     await page.click('[data-action="fit"]');
@@ -439,13 +489,27 @@ test('opt-in file canvas: module dialogs, gestures, evidence, mock save and HTML
     await page.send('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,...to});
     await page.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...to});
   }
-  async function clickArrow(clickCount = 1) {
-    const point = await page.evaluate('(() => {const path = document.querySelector(".relation-line"), p = path.getPointAtLength(path.getTotalLength() / 2).matrixTransform(path.getScreenCTM()); return {x:p.x,y:p.y};})()');
+  async function clickArrow(clickCount = 1,selector = '.relation-line') {
+    const point = await page.evaluate(`(() => {const path = document.querySelector(${JSON.stringify(selector)}), p = path.getPointAtLength(path.getTotalLength() / 2).matrixTransform(path.getScreenCTM()); return {x:p.x,y:p.y};})()`);
     await page.send('Input.dispatchMouseEvent',{type:'mouseMoved',...point});
     for (let count = 1; count <= clickCount; count++) {
       await page.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:count,...point});
       await page.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:count,...point});
     }
+  }
+  async function editArrow() {
+    await clickArrow();
+    await page.click('.relation-actions [aria-label="编辑箭头文字"]');
+  }
+  async function assertArrowActionsPosition() {
+    const placed = await page.evaluate(`(() => {
+      const actions = document.querySelector('.relation-actions'), r = actions.getBoundingClientRect();
+      const path = document.querySelector('.relation-group.selected .relation-line');
+      const p = path.getPointAtLength(path.getTotalLength() / 2).matrixTransform(path.getScreenCTM());
+      const label = document.querySelector('.relation-group.selected .relation-label').getBoundingClientRect();
+      return {visible:!actions.hidden,centered:Math.abs(r.left + r.width / 2 - p.x) < 2,belowLine:r.top > p.y,belowText:r.top >= label.bottom};
+    })()`);
+    assert.deepEqual(placed,{visible:true,centered:true,belowLine:true,belowText:true},'actions track the line midpoint without covering its text');
   }
   async function expandInterface() {
     await openGroup('#ec-dialog [data-editor-group="methods"]');

@@ -95,7 +95,18 @@
     const view = project.view, listeners = [], groupElements = new Map(), relationElements = new Map();
     let drag = null, linkDrag = null, frame = 0, destroyed = false, pointer = null, hover = null, preview = null, selectedRelation = '';
     const connection = createConnection({project,onChange,onState:syncConnection});
-    const annotations = EC.Annotations.create({project,container:viewport,onChange});
+    const annotations = EC.Annotations.create({project,container:viewport,onChange,onActiveChange:refreshRelationActions});
+    const relationActions = document.createElement('div');
+    relationActions.className = 'relation-actions'; relationActions.hidden = true;
+    relationActions.setAttribute('role','group'); relationActions.setAttribute('aria-label','箭头操作');
+    for (const [icon,label,action] of [
+      ['edit','编辑箭头文字',() => editAnnotation(selectedRelation)],
+      ['trash','删除箭头',() => deleteRelation(selectedRelation)]
+    ]) {
+      const button = document.createElement('button'); button.type = 'button';
+      EC.Icons.set(button,icon,label); button.addEventListener('click',action); relationActions.append(button);
+    }
+    viewport.append(relationActions);
     function listen(target,type,callback,options) {target.addEventListener(type,callback,options); listeners.push(() => target.removeEventListener(type,callback,options));}
     function nodeBounds(module) {
       const node = nodes.getElement(module.id);
@@ -105,8 +116,7 @@
     function syncConnection(state = connection.getState()) {
       viewport.classList.toggle('connecting',state.active);
       const hint = document.getElementById('ec-connection-hint');
-      if (hint) {hint.textContent = state.message || (selectedRelation ? '双击编辑备注 · Delete 删除箭头' : ''); hint.hidden = !hint.textContent;}
-      document.querySelector('[data-action=add-relation]')?.setAttribute('aria-pressed',String(state.active));
+      if (hint) {hint.textContent = state.message; hint.hidden = !hint.textContent;}
       for (const module of project.modules) for (const port of nodes.getElement(module.id)?.querySelectorAll('[data-port]') || []) {
         const selected = state.source?.moduleId === module.id && state.source.port === port.dataset.port;
         port.classList.toggle('port-source',selected); port.setAttribute('aria-pressed',String(selected));
@@ -158,17 +168,42 @@
     function selectRelation(id) {
       selectedRelation = id;
       for (const [key,{group}] of relationElements) {group.classList.toggle('selected',key === id); group.setAttribute('aria-pressed',String(key === id));}
+      refreshRelationActions();
       syncConnection();
     }
+    function refreshRelationActions() {
+      const entry = relationElements.get(selectedRelation);
+      relationActions.hidden = !entry || !!annotations.getId();
+      if (relationActions.hidden) return;
+      // Keep the buttons readable at every zoom level, anchored below the actual curve midpoint.
+      const point = entry.line.getPointAtLength(entry.line.getTotalLength() / 2);
+      const x = point.x * view.scale + view.x, y = point.y * view.scale + view.y;
+      const label = entry.label.getBBox();
+      const textBottom = (label.y + label.height) * view.scale + view.y;
+      relationActions.style.left = `${Math.max(8,Math.min(viewport.clientWidth - relationActions.offsetWidth - 8,x - relationActions.offsetWidth / 2))}px`;
+      relationActions.style.top = `${Math.max(8,Math.min(viewport.clientHeight - relationActions.offsetHeight - 8,Math.max(y + 12,textBottom + 8)))}px`;
+    }
     function editAnnotation(id) {
+      if (!relationElements.has(id)) return;
       cancelConnection(); selectRelation(id);
       const point = relationElements.get(id)?.point;
       if (point) annotations.open(id,{x:point.x * view.scale + view.x,y:point.y * view.scale + view.y});
     }
+    function deleteRelation(id) {
+      const relation = project.relations.find(item => item.id === id);
+      if (!relation) return;
+      const name = id => EC.Model.displayName(project.modules.find(item => item.id === id),'未命名模块');
+      if (!confirm(`删除箭头“${name(relation.from)} → ${name(relation.to)}”${relation.label ? `（${relation.label}）` : ''}？`)) return;
+      if (EC.Model.removeRelation(project,relation.id)) {selectRelation(''); onChange({semantic:true,render:false}); viewport.focus({preventScroll:true});}
+    }
     function paintEdges() {
       if (!preview) {
-        const defs = svg('defs'), marker = svg('marker',{id:'ec-arrow',viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'});
-        marker.append(svg('path',{d:'M 0 0 L 10 5 L 0 10 z',fill:'#87a8ce'})); defs.append(marker); edgeLayer.append(defs);
+        const defs = svg('defs');
+        for (const [id,fill] of [['ec-arrow','#87a8ce'],['ec-arrow-selected','#ff9f43']]) {
+          const marker = svg('marker',{id,viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'});
+          marker.append(svg('path',{d:'M 0 0 L 10 5 L 0 10 z',fill})); defs.append(marker);
+        }
+        edgeLayer.append(defs);
         preview = svg('path',{class:'relation-preview','marker-end':'url(#ec-arrow)'}); edgeLayer.append(preview);
       }
       const ids = new Set(project.relations.map(item => item.id));
@@ -186,21 +221,24 @@
           const group = svg('g',{class:'relation-group',tabindex:0,role:'button','data-relation-id':relation.id});
           const line = svg('path',{class:'relation-line','marker-end':'url(#ec-arrow)'}), hit = svg('path',{class:'relation-hit'});
           const label = svg('text',{class:'relation-label','text-anchor':'middle'}), title = svg('title');
-          title.textContent = '双击编辑备注；选中后按 Delete 删除'; group.append(title,line,hit,label);
-          group.addEventListener('click',() => {cancelConnection(); selectRelation(relation.id); group.focus({preventScroll:true});});
-          group.addEventListener('dblclick',event => {event.preventDefault(); editAnnotation(relation.id);});
+          title.textContent = '点击选中，使用中间的图标编辑文字或删除'; group.append(title,line,hit,label);
+          group.addEventListener('click',event => {
+            if (event.button !== 0 || !annotations.finish()) return;
+            cancelConnection(); selectRelation(relation.id); group.focus({preventScroll:true});
+          });
           group.addEventListener('keydown',event => {
-            if (event.key === 'Enter') {event.preventDefault(); editAnnotation(relation.id);}
-            else if (event.key === ' ') {event.preventDefault(); selectRelation(relation.id);}
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault(); selectRelation(relation.id); relationActions.querySelector('button').focus({preventScroll:true});
+            }
           });
           entry = {group,line,hit,label}; relationElements.set(relation.id,entry); edgeLayer.insertBefore(group,preview);
         }
         const {group,line,hit,label} = entry; entry.point = point;
-        group.setAttribute('aria-label',`${EC.Model.displayName(from,'未命名模块')} → ${EC.Model.displayName(to,'未命名模块')}：${relation.label || '无备注'}；双击编辑备注`);
+        group.setAttribute('aria-label',`${EC.Model.displayName(from,'未命名模块')} → ${EC.Model.displayName(to,'未命名模块')}：${relation.label || '无备注'}；选中后可编辑或删除`);
         group.classList.toggle('selected',selectedRelation === relation.id); group.setAttribute('aria-pressed',String(selectedRelation === relation.id));
         line.setAttribute('d',path); hit.setAttribute('d',path);
         label.setAttribute('y',point.y); label.classList.toggle('is-empty',!relation.label);
-        const text = relation.label || '双击添加备注';
+        const text = relation.label || '';
         if (entry.text !== text) {
           label.replaceChildren();
           text.split(/\r?\n/).forEach((value,index) => {const span = svg('tspan',{dy:index ? 16 : 0}); span.textContent = value; label.append(span);});
@@ -209,6 +247,7 @@
         for (const span of label.children) span.setAttribute('x',point.x);
         if (annotations.getId() === relation.id) annotations.position({x:point.x * view.scale + view.x,y:point.y * view.scale + view.y});
       }
+      refreshRelationActions();
       paintPreview();
     }
     function refresh() {
@@ -253,10 +292,6 @@
       connection.cancel(); hover = null;
       if (previous && viewport.hasPointerCapture(previous.pointerId)) viewport.releasePointerCapture(previous.pointerId);
     }
-    function startConnection() {
-      if (!annotations.finish()) return;
-      cancelConnection(); selectRelation(''); connection.start();
-    }
     function portAt(event) {return document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-port]');}
     listen(viewport,'pointerdown',event => {
       if (event.button !== 0 && event.button !== 1) return;
@@ -272,6 +307,7 @@
         return;
       }
       if (event.target.closest(interactive)) return;
+      if (event.target.closest('.relation-actions')) return;
       if (!annotations.finish()) {event.preventDefault(); return;}
       const header = event.target.closest('.module-header'), groupHeader = event.target.closest('.group-header');
       const blank = !event.target.closest('.module-node,.group-frame,.relation-group');
@@ -324,15 +360,15 @@
     listen(document,'keydown',event => {
       if (document.querySelector('dialog[open]')) return;
       if (event.key === 'Escape' && connection.getState().active) {event.preventDefault(); cancelConnection(); return;}
+      if (event.key === 'Escape' && !event.target.closest?.('input,textarea,select,[contenteditable=true]')) {
+        event.preventDefault(); cancelConnection(); selectRelation('');
+        if (event.target.closest?.('.relation-actions')) viewport.focus({preventScroll:true});
+        return;
+      }
       if (event.target.closest?.(interactive)) return;
-      if (event.key === 'Escape') {cancelConnection(); selectRelation('');}
       if ((event.key === 'Delete' || event.key === 'Backspace') && selectedRelation) {
         event.preventDefault();
-        const relation = project.relations.find(item => item.id === selectedRelation);
-        if (!relation) return;
-        const name = id => EC.Model.displayName(project.modules.find(item => item.id === id),'未命名模块');
-        if (!confirm(`删除箭头“${name(relation.from)} → ${name(relation.to)}”${relation.label ? `（${relation.label}）` : ''}？`)) return;
-        if (EC.Model.removeRelation(project,relation.id)) {selectedRelation = ''; onChange({semantic:true,render:false}); viewport.focus({preventScroll:true});}
+        deleteRelation(selectedRelation);
       }
     });
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(scheduleRefresh) : null;
@@ -341,9 +377,9 @@
     const mutation = new MutationObserver(() => {if (observer) {observer.disconnect(); observer.observe(viewport); for (const module of project.modules) {const node = nodes.getElement(module.id); if (node) observer.observe(node);}} scheduleRefresh();});
     mutation.observe(document.getElementById('ec-nodes') || world,{childList:true});
     refresh();
-    return {refresh,fit,zoomBy,centerPoint,startConnection,cancelConnection,
+    return {refresh,fit,zoomBy,centerPoint,cancelConnection,
       finishAnnotation:annotations.finish,hasDraftChanges:annotations.hasDraftChanges,
-      destroy() {annotations.cancel(); cancelConnection(); destroyed = true; listeners.forEach(remove => remove()); observer?.disconnect(); mutation.disconnect(); if (frame) cancelAnimationFrame(frame); groupLayer.replaceChildren(); edgeLayer.replaceChildren(); relationElements.clear();}};
+      destroy() {annotations.cancel(); cancelConnection(); relationActions.remove(); destroyed = true; listeners.forEach(remove => remove()); observer?.disconnect(); mutation.disconnect(); if (frame) cancelAnimationFrame(frame); groupLayer.replaceChildren(); edgeLayer.replaceChildren(); relationElements.clear();}};
   }
   EC.Canvas = {create,snapPoint,gridStyle,groupBounds,moveSelection,portAnchor,relationGeometry,createConnection};
 })(globalThis);

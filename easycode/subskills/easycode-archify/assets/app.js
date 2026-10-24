@@ -91,13 +91,13 @@
           const center = canvas.centerPoint(), position = EC.Canvas.snapPoint({x:center.x - 180,y:center.y - 100});
           dialogs.editModule(undefined,position);
         },
-        'add-group':() => dialogs.editGroup(), 'add-relation':() => canvas.startConnection(),
+        'add-group':() => dialogs.editGroup(),
         'edit-project':() => dialogs.editProject(), 'zoom-in':() => canvas.zoomBy(1.2), 'zoom-out':() => canvas.zoomBy(1 / 1.2),
         fit:() => canvas.fit(), save:() => save(false), import:importFile, export:() => save(true)
       };
       for (const control of document.querySelectorAll('[data-action]')) control.addEventListener('click',() => {
         try {
-          if (!['add-relation','zoom-in','zoom-out','fit'].includes(control.dataset.action)) canvas.cancelConnection();
+          if (!['zoom-in','zoom-out','fit'].includes(control.dataset.action)) canvas.cancelConnection();
           actions[control.dataset.action]?.();
         } catch (error) {showError(error);}
       });
