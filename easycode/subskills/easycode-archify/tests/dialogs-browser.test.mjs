@@ -85,6 +85,8 @@ test('变量默认值与页面确认：无缺项提示、居中、Esc、焦点�
     assert.equal(await page.evaluate(`document.querySelectorAll('#ec-dialog [data-editor-group="${group}"] .member-editor').length`),0);
     await click('取消'); assert.deepEqual(await page.evaluate(data),saved);
   }
+  // 展开的卡片较高，先移到一旁，给新层级留出可点击的位置。
+  await page.click('[data-action="fit"]'); await page.drag('.module-header',-360,0);
   await page.click('[data-action="add-group"]');
   assert.equal(await page.evaluate('document.querySelector("#ec-dialog form").noValidate'),true);
   await click('确定'); assert.match(await page.evaluate('document.querySelector(".dialog-error").textContent'),/分组名称/);

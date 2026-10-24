@@ -297,7 +297,7 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
   const first = await page.evaluate(`${data}.modules[0].id`), firstNode = `.module-node[data-module-id="${first}"]`;
   assert.deepEqual(await page.evaluate(`${data}.modules[0].requirements`),savedRequirements);
   assert.equal(await page.evaluate(`${data}.modules[0].x % 10 === 0 && ${data}.modules[0].y % 10 === 0`),true,'new module starts on the grid');
-  assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${firstNode} .module-summary`)}).textContent`),'1 个方法');
+  assert.equal(await page.evaluate(`document.querySelectorAll(${JSON.stringify(`${firstNode} [data-module-group="methods"] > .module-member-list > .module-member`)}).length`),1);
   const beforeNestedCancel = await page.evaluate(data);
   await openModule(`${firstNode} [data-node-action="edit"]`);
   await openGroup('#ec-dialog [data-editor-group="requirements"]');

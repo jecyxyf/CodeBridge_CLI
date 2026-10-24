@@ -110,7 +110,7 @@
     function listen(target,type,callback,options) {target.addEventListener(type,callback,options); listeners.push(() => target.removeEventListener(type,callback,options));}
     function nodeBounds(module) {
       const node = nodes.getElement(module.id);
-      return {x:module.x,y:module.y,width:node?.offsetWidth || 360,height:node?.offsetHeight || 190};
+      return {x:module.x,y:module.y,width:node?.offsetWidth || 550,height:node?.offsetHeight || 190};
     }
     const boundsForGroup = group => groupBounds(group,project.modules.filter(module => module.groupId === group.id).map(nodeBounds));
     function syncConnection(state = connection.getState()) {

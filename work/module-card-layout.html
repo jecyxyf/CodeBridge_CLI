@@ -1,0 +1,130 @@
+<style>
+  /* Design: an engineering specification card, using the existing blue-grey canvas palette.
+     Slate surface #202B3A; title #EBF1F7; body #C4D0DF; secondary #A2B3C7;
+     divider #38495D; accent #A9C9E2. One alignment rail replaces repeated boxes.
+     Chinese uses the system UI family; only source paths use a monospace face. */
+  #easycode-layout .ec-stage { min-height: 860px; padding: 34px 24px 38px; display: flex; align-items: flex-start; justify-content: center; }
+  #easycode-layout .ec-card {
+    --ec-surface: light-dark(#FFFFFF, #202B3A);
+    --ec-ink: light-dark(#243346, #EBF1F7);
+    --ec-body: light-dark(#44546A, #C4D0DF);
+    --ec-muted: light-dark(#66768A, #A2B3C7);
+    --ec-rule: light-dark(#E1E7EE, #38495D);
+    --ec-accent: light-dark(#496E91, #A9C9E2);
+    --ec-tint: light-dark(#F3F6F9, #253344);
+    --ec-gap: 22px;
+    width: min(100%, var(--ec-width, 550px));
+    padding: 0 26px 7px;
+    background: var(--ec-surface); color: var(--ec-ink);
+    border: 1px solid var(--ec-rule); border-radius: 12px;
+    box-shadow: 0 9px 26px light-dark(#273D5610, #00000020);
+    font: 400 13px/1.65 "Segoe UI", "Microsoft YaHei", sans-serif;
+    position: relative; box-sizing: border-box;
+  }
+  #easycode-layout .ec-card *, #easycode-layout .ec-card *::before, #easycode-layout .ec-card *::after { box-sizing: border-box; }
+  #easycode-layout .ec-card h2, #easycode-layout .ec-card h3, #easycode-layout .ec-card p,
+  #easycode-layout .ec-card dl, #easycode-layout .ec-card dd { margin: 0; }
+  #easycode-layout .ec-top { display: flex; align-items: center; gap: 12px; min-height: 79px; border-bottom: 1px solid var(--ec-rule); }
+  #easycode-layout .ec-title { flex: 1; min-width: 0; font: 500 21px/1.4 "Segoe UI", "Microsoft YaHei", sans-serif; overflow-wrap: anywhere; }
+  #easycode-layout .ec-actions { display: flex; align-items: center; gap: 12px; }
+  #easycode-layout .ec-edit { display: grid; place-items: center; width: 31px; height: 31px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--ec-muted); }
+  #easycode-layout .ec-edit:hover { color: var(--ec-ink); background: var(--ec-tint); }
+  #easycode-layout .ec-lang { color: var(--ec-muted); font-size: 17px; line-height: 1.4; }
+  #easycode-layout .ec-port { position: absolute; width: 9px; height: 9px; border: 1px solid var(--ec-muted); background: var(--ec-surface); border-radius: 50%; }
+  #easycode-layout .ec-port.ec-n { top: -5px; left: calc(50% - 4px); }
+  #easycode-layout .ec-port.ec-s { bottom: -5px; left: calc(50% - 4px); }
+  #easycode-layout .ec-port.ec-w { left: -5px; top: calc(50% - 4px); }
+  #easycode-layout .ec-port.ec-e { right: -5px; top: calc(50% - 4px); }
+  #easycode-layout .ec-section { display: grid; grid-template-columns: 66px minmax(0,1fr); gap: 18px; padding: var(--ec-gap) 0; }
+  #easycode-layout .ec-section + .ec-section { border-top: 1px solid var(--ec-rule); }
+  #easycode-layout .ec-card h3 { font: 400 12px/1.8 "Segoe UI", "Microsoft YaHei", sans-serif; color: var(--ec-muted); padding-top: 1px; }
+  #easycode-layout .ec-section-content { min-width: 0; }
+  #easycode-layout .ec-purpose { color: var(--ec-body); text-wrap: pretty; }
+  #easycode-layout .ec-meta { display: grid; gap: 5px; margin-top: 10px; color: var(--ec-muted); font-size: 12px; }
+  #easycode-layout .ec-meta-row { display: grid; grid-template-columns: 56px minmax(0,1fr); gap: 8px; }
+  #easycode-layout .ec-path { font: 12px/1.8 Consolas, "Cascadia Code", monospace; color: var(--ec-body); overflow-wrap: anywhere; background: transparent; padding: 0; }
+  #easycode-layout .ec-requirements { margin: 0; padding: 0; list-style: none; color: var(--ec-body); display: grid; gap: 7px; }
+  #easycode-layout .ec-requirements li { padding-left: 13px; position: relative; }
+  #easycode-layout .ec-requirements li::before { content: ""; width: 3px; height: 3px; background: var(--ec-muted); border-radius: 50%; position: absolute; left: 0; top: 9px; }
+  #easycode-layout .ec-rows { display: grid; gap: 9px; }
+  #easycode-layout .ec-row { display: grid; grid-template-columns: 91px minmax(0,1fr); gap: 13px; align-items: baseline; overflow-wrap: anywhere; }
+  #easycode-layout .ec-name { color: var(--ec-ink); font-weight: 500; }
+  #easycode-layout .ec-description { color: var(--ec-body); }
+  #easycode-layout .ec-member summary { list-style: none; display: grid; grid-template-columns: 91px minmax(0,1fr) 14px; gap: 13px; align-items: baseline; border-radius: 3px; }
+  #easycode-layout .ec-member summary::-webkit-details-marker { display: none; }
+  #easycode-layout .ec-member summary:hover .ec-name { color: var(--ec-accent); }
+  #easycode-layout .ec-chevron { align-self: center; color: var(--ec-muted); display: flex; align-items: center; }
+  #easycode-layout .ec-chevron svg { width: 13px; height: 13px; transform: rotate(-90deg); }
+  #easycode-layout .ec-member[open] > summary .ec-chevron svg { transform: rotate(0); }
+  #easycode-layout .ec-member + .ec-member { margin-top: 15px; }
+  #easycode-layout .ec-details { margin-top: 15px; }
+  #easycode-layout .ec-detail-group + .ec-detail-group { margin-top: 14px; }
+  #easycode-layout .ec-detail-label { color: var(--ec-muted); font-size: 11px; margin-bottom: 6px; }
+  #easycode-layout .ec-details .ec-rows { gap: 6px; }
+  #easycode-layout .ec-details .ec-name { color: var(--ec-body); font-weight: 400; }
+  #easycode-layout .ec-details .ec-description { color: var(--ec-muted); }
+  #easycode-layout .ec-stacked { --ec-width: 470px; --ec-gap: 19px; padding-inline: 25px; }
+  #easycode-layout .ec-stacked .ec-section { display: block; }
+  #easycode-layout .ec-stacked h3 { margin-bottom: 10px; font-size: 12px; color: var(--ec-accent); }
+  #easycode-layout .ec-stacked .ec-section + .ec-section { border-top: 0; }
+  #easycode-layout .ec-stacked .ec-section { padding-bottom: 0; }
+  #easycode-layout .ec-stacked .ec-section:last-child { padding-bottom: 23px; }
+  #easycode-layout .ec-stacked .ec-top { min-height: 75px; }
+  #easycode-layout .ec-stacked .ec-row { grid-template-columns: 104px minmax(0,1fr); }
+  #easycode-layout .ec-stacked .ec-member summary { grid-template-columns: 104px minmax(0,1fr) 14px; }
+  #easycode-layout .ec-stacked .ec-details { margin-top: 13px; padding: 12px 0 0 16px; border-left: 1px solid var(--ec-rule); }
+  #easycode-layout .ec-stacked .ec-details .ec-row { grid-template-columns: 88px minmax(0,1fr); }
+  @media (max-width: 490px) {
+    #easycode-layout .ec-stage { padding: 24px 14px 34px; min-height: 1000px; }
+    #easycode-layout .ec-card { padding-inline: 20px; }
+    #easycode-layout .ec-section { grid-template-columns: minmax(0,1fr); gap: 8px; }
+    #easycode-layout .ec-top { gap: 8px; }
+    #easycode-layout .ec-title { font-size: 19px; }
+    #easycode-layout .ec-lang { font-size: 14px; }
+    #easycode-layout .ec-actions { gap: 5px; }
+    #easycode-layout .ec-row, #easycode-layout .ec-stacked .ec-row { grid-template-columns: 82px minmax(0,1fr); gap: 10px; }
+    #easycode-layout .ec-member summary, #easycode-layout .ec-stacked .ec-member summary { grid-template-columns: 82px minmax(0,1fr) 12px; gap: 8px; }
+  }
+  @media (pointer: coarse) { #easycode-layout .ec-edit { width: 44px; height: 44px; } #easycode-layout .ec-member summary { min-height: 44px; align-items: center; } }
+</style>
+<div id="easycode-layout" class="viz-carousel viz-dotted-background" aria-label="模块卡片排版方案" data-previous-label="上一版" data-next-label="下一版">
+  <section data-variant="对齐分组" aria-label="对齐分组方案">
+    <div class="ec-stage">
+      <article class="ec-card" aria-label="对齐分组卡片">
+        <span class="ec-port ec-n" aria-hidden="true"></span><span class="ec-port ec-s" aria-hidden="true"></span><span class="ec-port ec-w" aria-hidden="true"></span><span class="ec-port ec-e" aria-hidden="true"></span>
+        <header class="ec-top">
+          <h2 class="ec-title">任务管理</h2>
+          <div class="ec-actions"><button type="button" class="ec-edit cursor-interaction" aria-label="编辑模块" data-tooltip="编辑模块" aria-disabled="true"><i data-lucide="square-pen" aria-hidden="true"></i></button><span class="ec-lang">TypeScript</span></div>
+        </header>
+        <section class="ec-section">
+          <h3>模块信息</h3>
+          <div class="ec-section-content"><p class="ec-purpose">管理任务的创建、保存和完成状态。</p><div class="ec-meta"><div class="ec-meta-row"><span>代码位置</span><code class="ec-path">./src/task-manager.ts</code></div><div class="ec-meta-row"><span>所属层级</span><span>业务层</span></div></div></div>
+        </section>
+        <section class="ec-section"><h3>功能需求</h3><ul class="ec-section-content ec-requirements"><li>保存前检查任务名称是否为空</li><li>任务保存后，通知所有订阅者</li></ul></section>
+        <section class="ec-section"><h3>参数</h3><dl class="ec-section-content ec-rows"><div class="ec-row"><dt class="ec-name">最大任务数</dt><dd class="ec-description">限制可保存的任务数量</dd></div><div class="ec-row"><dt class="ec-name">自动保存</dt><dd class="ec-description">内容变更后自动写入存储</dd></div></dl></section>
+        <section class="ec-section"><h3>方法</h3><div class="ec-section-content"><details class="ec-member" open><summary class="cursor-interaction"><span class="ec-name">保存任务</span><span class="ec-description">检查并保存当前任务</span><span class="ec-chevron"><i data-lucide="chevron-down" aria-hidden="true"></i></span></summary><div class="ec-details"><div class="ec-detail-group"><div class="ec-detail-label">输入参数</div><dl class="ec-rows"><div class="ec-row"><dt class="ec-name">任务名称</dt><dd class="ec-description">要保存的任务标题</dd></div><div class="ec-row"><dt class="ec-name">任务内容</dt><dd class="ec-description">任务的具体说明</dd></div></dl></div><div class="ec-detail-group"><div class="ec-detail-label">输出参数</div><dl class="ec-rows"><div class="ec-row"><dt class="ec-name">保存结果</dt><dd class="ec-description">返回是否保存成功</dd></div></dl></div></div></details></div></section>
+        <section class="ec-section"><h3>消息事件</h3><div class="ec-section-content"><details class="ec-member" open><summary class="cursor-interaction"><span class="ec-name">任务已保存</span><span class="ec-description">通知任务已完成保存</span><span class="ec-chevron"><i data-lucide="chevron-down" aria-hidden="true"></i></span></summary><div class="ec-details"><div class="ec-detail-group"><div class="ec-detail-label">携带参数</div><dl class="ec-rows"><div class="ec-row"><dt class="ec-name">任务编号</dt><dd class="ec-description">定位本次保存的任务</dd></div><div class="ec-row"><dt class="ec-name">保存时间</dt><dd class="ec-description">记录本次保存的时间</dd></div></dl></div></div></details></div></section>
+      </article>
+    </div>
+  </section>
+  <section data-variant="轻量分区" aria-label="轻量分区方案" hidden>
+    <div class="ec-stage"><article class="ec-card ec-stacked" aria-label="轻量分区卡片"></article></div>
+  </section>
+</div>
+<script>
+(() => {
+  const root = document.getElementById('easycode-layout');
+  const original = root.querySelector('.ec-card');
+  root.querySelector('.ec-stacked').replaceChildren(...Array.from(original.childNodes, node => node.cloneNode(true)));
+  for (const card of root.querySelectorAll('.ec-card')) {
+    const state = { width: card.classList.contains('ec-stacked') ? 470 : 550, spacing: card.classList.contains('ec-stacked') ? 19 : 22 };
+    const render = () => { card.style.setProperty('--ec-width', state.width + 'px'); card.style.setProperty('--ec-gap', state.spacing + 'px'); };
+    render();
+    if (globalThis.Tweak) {
+      const tweak = new Tweak({container: card, onChange: render});
+      tweak.addSlider(state, 'width', {label:'卡片宽度', min:420, max:600, step:10, unit:'px'});
+      tweak.addSlider(state, 'spacing', {label:'分组间距', min:14, max:28, step:1, unit:'px'});
+    }
+  }
+})();
+</script>

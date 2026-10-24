@@ -57,7 +57,7 @@ test('数据结构：增删草稿、保存重开、默认收起和小屏显示',
   assert.equal(saved.length,1); assert.equal(saved[0].name,'任务信息'); assert.equal(saved[0].englishName,'TaskInfo');
   assert.deepEqual(saved[0].fields.map(item => [item.name,item.englishName,item.type,item.description]),expectedValues);
   assert.equal(saved[0].fields[1].id,lastId);
-  assert.equal(await page.evaluate('document.querySelector(".module-summary").textContent'),'0 个方法 · 1 个数据结构');
+  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll(".module-node [data-module-group]"),node => node.dataset.moduleGroup)'),['basics'],'structure data stays in configuration and is not a canvas group');
   await open(); await expandStructure();
   await page.fill(`${row(1)} [aria-label="中文名"]`,'取消的修改');
   await click('删除字段 2'); await click('删除字段 1');
