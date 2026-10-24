@@ -62,7 +62,7 @@
       function mount() {
         canvas?.destroy(); nodes?.destroy();
         if (get('ec-dialog').open) get('ec-dialog').close();
-        dialogs = EC.Dialogs.create({project,onChange,onOpen:() => {canvas?.cancelConnection(); return canvas?.finishAnnotation();}});
+        dialogs = EC.Dialogs.create({project,onChange,onOpen:() => {nodes?.hidePreview(); canvas?.cancelConnection(); return canvas?.finishAnnotation();}});
         nodes = EC.Nodes.create({project,layer:get('ec-nodes'),template:get('ec-module-template'),onEdit:dialogs.editModule});
         nodes.render();
         canvas = EC.Canvas.create({project,viewport:get('ec-viewport'),world:get('ec-world'),groupLayer:get('ec-groups'),edgeLayer:get('ec-edges'),nodes,onChange,onGroupEdit:dialogs.editGroup});

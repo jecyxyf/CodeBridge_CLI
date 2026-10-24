@@ -33,7 +33,7 @@ test('数据结构：增删草稿、保存重开、默认收起和小屏显示',
     await page.click(`${group} .member-editor > .fold-heading .fold-toggle`);
   }
   await open();
-  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll(".module-editor > [data-editor-group]"),node => node.dataset.editorGroup)'),['basics','requirements','parameters','structures','methods','events','tests']);
+  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll(".module-editor > [data-editor-group]"),node => node.dataset.editorGroup)'),['appearance','basics','requirements','parameters','structures','methods','events','tests']);
   assert.equal(await page.evaluate('document.querySelector(".module-dialog-language").hidden'),true);
   const before = await page.evaluate(data);
   await click('添加数据结构');

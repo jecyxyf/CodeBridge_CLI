@@ -5,6 +5,11 @@
   const relationTypes = ['call', 'dependency'];
   const portSides = ['top', 'right', 'bottom', 'left'];
   const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  const isColor = value => typeof value === 'string' && /^#[\da-f]{6}$/i.test(value);
+  const appearanceDefaults = Object.freeze({textColor:'#e8eef5',backgroundColor:'#202b3a',headerColor:'#202b3a'});
+  function moduleAppearance(module) {
+    return Object.fromEntries(Object.entries(appearanceDefaults).map(([key,fallback]) => [key,isColor(module?.appearance?.[key]) ? module.appearance[key] : fallback]));
+  }
   let sequence = 0;
   function id(prefix) {
     const suffix = root.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${(++sequence).toString(36)}`;
@@ -34,7 +39,7 @@
   function createModule(options = {}) {
     return {
       id: id('module'), ...contentDefaults('module',options.items), ...(options.name !== undefined ? {name:options.name} : {}), ...(options.purpose !== undefined ? {purpose:options.purpose} : {}), language: '', codeLocation: '', groupId: options.groupId ?? '',
-      x: options.x ?? 0, y: options.y ?? 0, status: 'planned', sources: [], unknowns: [], requirements: [], interfaces: [], parameters: [], structures: [], events: [], tests: []
+      x: options.x ?? 0, y: options.y ?? 0, appearance:moduleAppearance(), status: 'planned', sources: [], unknowns: [], requirements: [], interfaces: [], parameters: [], structures: [], events: [], tests: []
     };
   }
   function createInterface(items = []) {
@@ -131,7 +136,7 @@
   function updateModule(project, moduleId, patch) {
     const module = project.modules.find(item => item.id === moduleId);
     if (!module) return null;
-    applyPatch(module, patch, ['name','englishName','language','purpose','codeLocation','groupId','x','y','status','sources','unknowns','requirements','interfaces','parameters','structures','events','tests'], ['groupId','x','y']);
+    applyPatch(module, patch, ['name','englishName','language','purpose','codeLocation','groupId','x','y','appearance','status','sources','unknowns','requirements','interfaces','parameters','structures','events','tests'], ['groupId','x','y','appearance']);
     if (Array.isArray(patch?.interfaces)) {
       const interfaceIds = new Set(project.modules.flatMap(item => item.interfaces.map(entry => entry.id)));
       project.view.expandedInterfaces = project.view.expandedInterfaces.filter(value => interfaceIds.has(value));
@@ -332,6 +337,9 @@
       const path = `modules[${index}]`; if (!record(module,path)) return;
       identity(module.id,at(path,'id')); bilingualName(module,path); string(module.purpose,at(path,'purpose'),true);
       optionalText(module,['codeLocation','language'],path);
+      if (module.appearance !== undefined && record(module.appearance,at(path,'appearance'))) {
+        for (const key of Object.keys(appearanceDefaults)) if (!isColor(module.appearance[key])) error(`${path}.appearance.${key}`,'颜色须为 #rrggbb 格式');
+      }
       if (typeof module.codeLocation === 'string') {
         try {normalizeCodeLocation(module.codeLocation);} catch (issue) {error(at(path,'codeLocation'),issue.message);}
       }
@@ -371,5 +379,5 @@
     }
     return {errors, warnings};
   }
-  namespace.Model = {createProject,createModule,createInterface,createParameter,createStructure,createStructureField,createEvent,createTest,fillModuleDefaults,fillProjectDefaults,displayName,normalizeCodeLocation,projectTitle,validate,markEdited,updateModule,updateInterface,updateMember,removeModule,removeGroup,addRelation,updateRelation,removeRelation};
+  namespace.Model = {createProject,createModule,moduleAppearance,createInterface,createParameter,createStructure,createStructureField,createEvent,createTest,fillModuleDefaults,fillProjectDefaults,displayName,normalizeCodeLocation,projectTitle,validate,markEdited,updateModule,updateInterface,updateMember,removeModule,removeGroup,addRelation,updateRelation,removeRelation};
 })(globalThis);

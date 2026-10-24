@@ -110,7 +110,7 @@
     function listen(target,type,callback,options) {target.addEventListener(type,callback,options); listeners.push(() => target.removeEventListener(type,callback,options));}
     function nodeBounds(module) {
       const node = nodes.getElement(module.id);
-      return {x:module.x,y:module.y,width:node?.offsetWidth || 550,height:node?.offsetHeight || 190};
+      return {x:module.x,y:module.y,width:node?.offsetWidth || 400,height:node?.offsetHeight || 190};
     }
     const boundsForGroup = group => groupBounds(group,project.modules.filter(module => module.groupId === group.id).map(nodeBounds));
     function syncConnection(state = connection.getState()) {
@@ -252,6 +252,7 @@
     }
     function refresh() {
       if (destroyed) return;
+      nodes.hidePreview?.();
       world.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.scale})`;
       Object.assign(viewport.style,gridStyle(view));
       viewport.style.setProperty('--grid-dot-radius',`${Math.min(1,view.scale)}px`);
@@ -365,7 +366,7 @@
         if (event.target.closest?.('.relation-actions')) viewport.focus({preventScroll:true});
         return;
       }
-      if (event.target.closest?.(interactive)) return;
+      if (event.target.closest?.(`${interactive},[data-node-preview],.module-preview`)) return;
       if ((event.key === 'Delete' || event.key === 'Backspace') && selectedRelation) {
         event.preventDefault();
         deleteRelation(selectedRelation);

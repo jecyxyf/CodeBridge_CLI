@@ -205,6 +205,18 @@
       for (const value of items()) append(value);
       sync(); return group;
     }
+    const appearance = fold('外观',{key:'appearance'});
+    appearance.body.classList.add('module-appearance-fields');
+    for (const [key,label] of [['textColor','字体颜色'],['backgroundColor','背景颜色'],['headerColor','标题栏颜色']]) {
+      const wrapper = element('label','field'), input = element('input'), value = element('span','color-value');
+      input.type = 'color'; input.value = EC.Model.moduleAppearance(module)[key]; input.setAttribute('aria-label',label);
+      value.id = `${module.id}-${key}-value`; value.textContent = input.value.toUpperCase(); input.setAttribute('aria-describedby',value.id);
+      input.addEventListener('input',() => {
+        update(module,null,{appearance:{...EC.Model.moduleAppearance(module),[key]:input.value}});
+        value.textContent = input.value.toUpperCase();
+      });
+      wrapper.append(element('span','',label),input,value); appearance.body.append(wrapper);
+    }
     const basics = fold('模块信息',{key:'basics',className:'module-basics'});
     const location = field('代码位置',module.codeLocation,value => update(module,null,{codeLocation:value}),'textarea');
     const locationInput = location.querySelector('textarea');
@@ -230,7 +242,7 @@
     const events = collection({title:'消息事件',key:'events',kind:'事件',getItems:() => module.events || [],setItems:items => update(module,null,{events:items}),createItem:EC.Model.createEvent,confirmDelete:true,
       build(entry,body,rename) {
         const patch = (key,value) => {EC.Model.updateMember(project,module.id,'events',entry.id,{[key]:value});};
-        body.append(names('事件',entry,(key,value) => {patch(key,value); rename();}),field('事件说明',entry.description,value => patch('description',value),'textarea'),select('事件方向',entry.direction,[['emit','发出'],['receive','接收']],value => patch('direction',value)),field('触发条件',entry.trigger,value => patch('trigger',value),'textarea'));
+        body.append(names('事件',entry,(key,value) => {patch(key,value); rename();}),field('事件说明',entry.description,value => patch('description',value),'textarea'),select('事件方向',entry.direction,[['emit','发出'],['receive','接收']],value => patch('direction',value)));
         body.append(parameterGroup({title:'携带的数据',key:'payload',getItems:() => entry.parameters,setItems:items => patch('parameters',items)}).section);
       }});
     const tests = collection({title:'测试项',key:'tests',kind:'测试项',getItems:() => module.tests || [],setItems:items => update(module,null,{tests:items}),createItem:EC.Model.createTest,confirmDelete:true,
@@ -238,7 +250,7 @@
         const patch = (key,value) => {EC.Model.updateMember(project,module.id,'tests',entry.id,{[key]:value});};
         body.append(names('测试项',entry,(key,value) => {patch(key,value); rename();}),field('测试步骤',entry.steps,value => patch('steps',value),'textarea'),field('预期结果',entry.expected,value => patch('expected',value),'textarea'));
       }});
-    editor.append(element('p','dialog-note','点击组标题展开或收起。修改后点“确定”，再用顶部“保存”写入 HTML。'),basics.section,requirements.section,parameters.section,structures.section,methods.section,events.section,tests.section);
+    editor.append(element('p','dialog-note','点击组标题展开或收起。修改后点“确定”，再用顶部“保存”写入 HTML。'),appearance.section,basics.section,requirements.section,parameters.section,structures.section,methods.section,events.section,tests.section);
     return editor;
   }
   EC.ModuleEditor = {begin,hasChanges,commit,create};
