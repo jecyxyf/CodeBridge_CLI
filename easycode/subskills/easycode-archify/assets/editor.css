@@ -314,26 +314,6 @@ input[type=number] {
   color: var(--muted);
   font-size: 12px
 }
-.module-footer {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border-top: 1px solid #3c4b6080;
-  padding: 8px 12px;
-  background: #1c2533;
-  border-radius: 0 0 7px 7px
-}
-.module-status {
-  margin-right: auto;
-  font-size: 11px;
-  color: #b6c5d9
-}
-.module-status[data-status=verified] {
-  color: #92c9b8
-}
-.module-status[data-status=modified] {
-  color: #e8bb82
-}
 .editor-section {
   display: grid;
   gap: 10px
@@ -389,20 +369,6 @@ input[type=number] {
   font-size: 12px;
   margin: 0;
   line-height: 1.6
-}
-.evidence-editor {
-  border-top: 1px solid var(--line);
-  padding-top: 11px
-}
-.evidence-editor summary {
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 12px
-}
-.evidence-content {
-  display: grid;
-  gap: 10px;
-  margin-top: 12px
 }
 .group-frame {
   position: absolute;
@@ -589,12 +555,15 @@ input[type=number] {
   font-size: 12px
 }
 #ec-warnings {
+  position: relative;
+  padding-right: 46px;
   background: #332e22;
   border-color: #887449;
   color: #e8d4a6;
   max-height: 28vh;
   overflow: auto
 }
+#ec-warning-close {position: absolute; right: 6px; top: 6px; width: 28px; height: 28px; padding: 5px; background: transparent; border: 0; color: inherit}
 #ec-empty {
   position: absolute;
   top: 42%;
@@ -609,6 +578,10 @@ input[type=number] {
   margin: 16px auto 0
 }
 dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  max-height: calc(100vh - 32px);
   color: var(--text);
   background: var(--panel);
   border: 1px solid #52647d;
@@ -620,6 +593,14 @@ dialog {
 dialog::backdrop {
   background: #090f1bb3
 }
+.confirmation-dialog {width: min(420px,calc(100vw - 32px)); overflow: auto}
+.confirmation-dialog h2 {margin: 0 0 16px; font-size: 19px}
+.confirmation-dialog p {margin: 0; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted)}
+.confirmation-dialog .dialog-actions {margin-top: 24px; justify-content: flex-end}
+.confirmation-dialog .dialog-actions button {min-width: 80px}
+.confirm-danger {background: #973c35; border-color: #bb554c; color: #fff}
+.confirm-danger:hover {background: #ad473e; border-color: #db7267}
+.confirm-primary {background: #294f78; border-color: #638db9; color: #fff}
 dialog form {
   display: grid;
   gap: 17px
@@ -709,6 +690,16 @@ dialog.module-dialog {
 .requirement-list {display: grid; gap: 10px; min-width: 0}
 .requirement-row {display: grid; grid-template-columns: minmax(0,1fr) 36px; align-items: start; gap: 8px}
 .requirement-row textarea {min-width: 0; min-height: 60px; resize: vertical}
+.structure-fields,.structure-field-list {display: grid; gap: 12px; min-width: 0}
+.structure-fields-heading {display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted)}
+.structure-field-row {display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.2fr) minmax(0,.8fr) minmax(0,1.4fr) 36px; gap: 8px; align-items: start; min-width: 0}
+.structure-field-row .field {min-width: 0}
+.structure-field-row > .member-delete {margin-top: 23px}
+@media (max-width: 700px) {
+  .structure-field-row {grid-template-columns: minmax(0,1fr) minmax(0,1fr); padding-bottom: 12px; border-bottom: 1px solid var(--line)}
+  .structure-field-row:last-child {padding-bottom: 0; border-bottom: 0}
+  .structure-field-row > .member-delete {grid-column: 2; justify-self: end; margin-top: 0}
+}
 .bilingual-fields {display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px}
 .bilingual-fields input {min-width: 0}
 .translation-field {min-width: 0}

@@ -12,10 +12,13 @@
       const bundle = JSON.parse(get('ec-bundle').textContent);
       const validation = EC.Model.validate(project);
       if (validation.errors.length) throw new Error(`项目数据有问题：${validation.errors[0].message}`);
+      const warningNotice = EC.Feedback.createWarningNotice({
+        show(message) {get('ec-warning-text').textContent = message; get('ec-warnings').hidden = false;},
+        hide() {get('ec-warnings').hidden = true;}
+      });
+      get('ec-warning-close').addEventListener('click',warningNotice.dismiss);
       function refreshWarnings() {
-        const warnings = get('ec-warnings');
-        warnings.textContent = EC.Feedback.formatWarnings(project,EC.Model.validate(project).warnings);
-        warnings.hidden = !warnings.textContent;
+        warningNotice.update(EC.Feedback.formatWarnings(project,EC.Model.validate(project).warnings),project.id);
       }
       const fileTypes = [{description:'软件框架图 HTML',accept:{'text/html':['.html']}}];
       const supported = typeof root.showOpenFilePicker === 'function' && typeof root.showSaveFilePicker === 'function';
@@ -24,9 +27,11 @@
         getProject:() => project,
         buildDocument:snapshot => EC.Serialization.buildDocument(bundle,snapshot),
         readProject:EC.Serialization.readProject,validate:EC.Model.validate,
+        prepareSave:EC.Model.fillProjectDefaults,
+        onSaved() {if (EC.Model.fillProjectDefaults(project)) {nodes.render(); canvas.refresh(); refreshHeader();}},
         pickExisting:() => root.showOpenFilePicker({types:fileTypes,multiple:false}).then(handles => handles[0]),
         pickNew:suggestedName => root.showSaveFilePicker({types:fileTypes,suggestedName}),
-        confirmImport:() => root.confirm('当前有未保存的修改。导入会替换当前内容，是否继续？'),
+        confirmImport:() => EC.Dialogs.confirm('当前有未保存的修改。导入会替换当前内容，是否继续？',{title:'确认导入',confirmLabel:'继续导入',danger:false}),
         replaceProject(next) {
           if (dialogs?.isEditingModule() || dialogs?.isEditingProject()) throw new Error('编辑窗口已打开，请先确定或取消，再导入。');
           if (canvas?.hasDraftChanges()) throw new Error('请先完成或取消箭头备注，再导入。');
@@ -68,6 +73,7 @@
       // Preserve a saved view. New projects with the default view start with all modules visible.
       if (project.view.x === 0 && project.view.y === 0 && project.view.scale === 1 && project.modules.length) canvas.fit({notify:false});
       function save(asNew) {
+        if (EC.Dialogs.isConfirming()) return;
         if (dialogs.isEditingModule() || dialogs.isEditingProject()) {dialogs.showMessage('请先点击“确定”或“取消”，再保存 HTML。'); return;}
         if (!canvas.finishAnnotation()) return;
         if (!supported) {showError('此浏览器不能直接写入本地文件。请使用新版桌面 Chrome 或 Edge 打开此 HTML。'); return;}
@@ -79,6 +85,7 @@
         } catch (error) {if (error?.name !== 'AbortError') showError(error);}
       }
       function importFile() {
+        if (EC.Dialogs.isConfirming()) return;
         if (dialogs.isEditingModule() || dialogs.isEditingProject()) {dialogs.showMessage('请先点击“确定”或“取消”，再导入 HTML。'); return;}
         if (!canvas.finishAnnotation()) return;
         if (typeof root.showOpenFilePicker !== 'function') {showError('此浏览器不能导入本地文件。请使用新版桌面 Chrome 或 Edge。'); return;}

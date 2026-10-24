@@ -2,7 +2,7 @@
   'use strict';
   const namespace = root.EasyCode ||= {};
 
-  function createController({getProject,buildDocument,readProject,validate,pickExisting,pickNew,replaceProject,confirmImport = () => false,onState = () => {}}) {
+  function createController({getProject,buildDocument,readProject,validate,pickExisting,pickNew,replaceProject,prepareSave = () => {},onSaved = () => {},confirmImport = () => false,onState = () => {}}) {
     // Capture before Canvas.fit() or edits can change the live project.
     const initialProject = structuredClone(getProject());
     let initialData = JSON.stringify(initialProject);
@@ -43,6 +43,7 @@
         lastContent = readBack;
         savedVersion = snapshotVersion;
         unconfirmed = false;
+        if (editVersion === snapshotVersion) onSaved(snapshot);
         state(isDirty() ? 'unsaved' : 'saved',isDirty() ? '有较新的修改尚未保存' : '已保存');
         return true;
       } catch (error) {
@@ -76,6 +77,8 @@
         const snapshotVersion = editVersion;
         const snapshot = structuredClone(getProject());
         check(snapshot);
+        prepareSave(snapshot);
+        check(snapshot);
         const html = buildDocument(snapshot);
         // Do not move this into a .then(), await, or a queued operation.
         const selection = saveAs ? pickNew(getFileName() || 'project.html') : (handle || pickExisting());
@@ -108,7 +111,7 @@
           check(project);
           const baseline = JSON.stringify(project);
           // Check at replacement time, including edits made while the file was loading.
-          if (isDirty() && !confirmImport()) throw Object.assign(new Error('已取消导入'),{name:'AbortError'});
+          if (isDirty() && !await confirmImport()) throw Object.assign(new Error('已取消导入'),{name:'AbortError'});
           replaceProject(project);
           initialData = baseline; handle = target; lastContent = content;
           editVersion = 0; savedVersion = 0; unconfirmed = false;

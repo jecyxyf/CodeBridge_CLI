@@ -1,7 +1,35 @@
 (function (root) {
   'use strict';
   const EC = root.EasyCode ||= {};
-  function create({project,onChange = () => {},onOpen = () => {},confirm = message => root.confirm(message)}) {
+  let confirmation = null;
+  function confirm(message,{title = '确认删除',confirmLabel = '删除',danger = true} = {}) {
+    if (confirmation) return Promise.resolve(false);
+    return new Promise(resolve => {
+      const dialog = document.createElement('dialog'), heading = document.createElement('h2'), body = document.createElement('p');
+      const actions = document.createElement('div'), cancel = document.createElement('button'), accept = document.createElement('button');
+      const previousFocus = document.activeElement;
+      dialog.id = 'ec-confirm'; dialog.className = 'confirmation-dialog'; dialog.setAttribute('role','alertdialog');
+      heading.id = 'ec-confirm-title'; heading.textContent = title;
+      body.id = 'ec-confirm-message'; body.textContent = message;
+      dialog.setAttribute('aria-labelledby',heading.id); dialog.setAttribute('aria-describedby',body.id);
+      actions.className = 'dialog-actions'; cancel.type = accept.type = 'button';
+      cancel.textContent = '取消'; accept.textContent = confirmLabel; accept.className = danger ? 'confirm-danger' : 'confirm-primary';
+      cancel.dataset.confirmAction = 'cancel'; accept.dataset.confirmAction = 'accept';
+      let settled = false;
+      function finish(value) {
+        if (settled) return;
+        settled = true; confirmation = null; dialog.close(); dialog.remove();
+        if (previousFocus?.isConnected) previousFocus.focus({preventScroll:true});
+        resolve(value);
+      }
+      cancel.addEventListener('click',() => finish(false)); accept.addEventListener('click',() => finish(true));
+      dialog.addEventListener('cancel',event => {event.preventDefault(); finish(false);});
+      dialog.addEventListener('close',() => finish(false));
+      actions.append(cancel,accept); dialog.append(heading,body,actions); document.body.append(dialog);
+      confirmation = dialog; dialog.showModal(); cancel.focus({preventScroll:true});
+    });
+  }
+  function create({project,onChange = () => {},onOpen = () => {},confirm = EC.Dialogs.confirm}) {
     const dialog = document.getElementById('ec-dialog');
     let moduleSession = null, projectDraftChanged = null;
     function clearDraft() {moduleSession = null; projectDraftChanged = null;}
@@ -55,11 +83,20 @@
       if (onOpen() === false) return;
       if (dialog.open) close(); dialog.replaceChildren(); dialog.className = options.className || '';
       const form = node('form'), heading = node('h2',title); heading.id = 'ec-dialog-title'; form.append(heading);
-      form.noValidate = !!options.noValidate;
+      // Every form reports validation inside the page, without browser validation bubbles.
+      form.noValidate = true;
       const body = node('div',undefined,'dialog-body'); form.append(body);
       const controls = build(body,heading), error = node('p','', 'dialog-error'); error.setAttribute('role','alert'); form.append(error);
       const actions = node('div',undefined,'dialog-actions');
-      if (remove) {const button = node('button',undefined,'dialog-delete'); EC.Icons.set(button,remove.icon || 'trash',remove.label); button.type = 'button'; button.addEventListener('click',() => {try {if (remove.run() !== false) {close(); onChange({semantic:true,render:true});}} catch (issue) {error.textContent = issue.message;}}); actions.append(button);}
+      if (remove) {
+        const button = node('button',undefined,'dialog-delete'); EC.Icons.set(button,remove.icon || 'trash',remove.label); button.type = 'button';
+        button.addEventListener('click',async () => {
+          button.disabled = true;
+          try {if (await remove.run() !== false && form.isConnected && dialog.open) {close(); onChange({semantic:true,render:true});}}
+          catch (issue) {error.textContent = issue.message;}
+          finally {button.disabled = false; if (form.isConnected && dialog.open) button.focus({preventScroll:true});}
+        }); actions.append(button);
+      }
       const cancel = node('button'); EC.Icons.set(cancel,'close','取消'); cancel.type = 'button'; cancel.addEventListener('click',close);
       const save = node('button'); EC.Icons.set(save,'check','确定'); save.type = 'submit'; actions.append(cancel,save); form.append(actions); dialog.append(form);
       form.addEventListener('submit',event => {event.preventDefault(); try {const changed = submit(controls); close(); if (changed !== false) onChange({semantic:true,render:true});} catch (issue) {error.textContent = issue.message || '修改失败，请检查填写内容。';}});
@@ -73,16 +110,17 @@
         function refreshTitle() {
           name.textContent = [session.module.name,session.module.englishName].map(value => value?.trim()).filter(Boolean).join(' / ') || '未命名模块';
           name.title = name.textContent;
-          language.textContent = session.module.language?.trim() || '未设置语言'; language.title = language.textContent;
+          language.textContent = session.module.language?.trim() || ''; language.title = language.textContent;
+          language.hidden = !language.textContent;
         }
         body.append(EC.ModuleEditor.create({session,confirm,onSummaryChange:refreshTitle})); refreshTitle();
-      },() => EC.ModuleEditor.commit(project,session),session.existing ? {label:'删除模块',run() {
+      },() => EC.ModuleEditor.commit(project,session),session.existing ? {label:'删除模块',async run() {
         const module = project.modules.find(item => item.id === id);
         if (!module) return false;
         const count = project.relations.filter(item => item.from === id || item.to === id).length;
-        if (!confirm(`删除模块“${EC.Model.displayName(module,'未命名模块')}”？同时删除 ${count} 条关联关系及模块内全部对外接口内容。`)) return false;
+        if (!await confirm(`删除模块“${EC.Model.displayName(module,'未命名模块')}”？同时删除 ${count} 条关联关系及模块内全部内容。`)) return false;
         return EC.Model.removeModule(project,id);
-      }} : null,{className:'module-dialog',noValidate:true});
+      }} : null,{className:'module-dialog'});
       moduleSession = session;
     }
     function editGroup(id) {
@@ -105,7 +143,10 @@
           const position = EC.Canvas.snapPoint({x:(viewport.clientWidth / 2 - project.view.x) / project.view.scale - 200,y:(viewport.clientHeight / 2 - project.view.y) / project.view.scale - 85});
           project.groups.push({id:EC.Model.createModule().id.replace(/^module-/,'group-'),name:name.value,englishName:englishName.value,color:color.value,backgroundColor:backgroundColor.value,...position});
         }
-      },group ? {label:'删除层级',icon:'trash',run() {EC.Model.removeGroup(project,group.id);}} : null);
+      },group ? {label:'删除层级',icon:'trash',async run() {
+        if (!await confirm(`删除层级“${EC.Model.displayName(group,'未命名层级')}”？其中的模块会保留。`)) return false;
+        return EC.Model.removeGroup(project,group.id);
+      }} : null);
     }
     function editProject() {
       const original = JSON.stringify({name:project.name,englishName:project.englishName ?? '',description:project.description,path:project.repository.path,revision:project.repository.revision});
@@ -135,5 +176,5 @@
       showMessage(message) {const error = dialog.querySelector('.dialog-error'); if (error) error.textContent = message;}
     };
   }
-  EC.Dialogs = {create};
+  EC.Dialogs = {create,confirm,isConfirming:() => !!confirmation};
 })(globalThis);

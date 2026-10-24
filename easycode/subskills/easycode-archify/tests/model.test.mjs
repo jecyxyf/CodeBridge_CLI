@@ -33,8 +33,30 @@ test('创建函数提供独立的完整默认值和稳定标识', () => {
   assert.deepEqual(a.unknowns,[]); assert.deepEqual(i.sources,[]); assert.deepEqual(i.unknowns,[]);
   assert.equal(i.inputsConfirmed,false); assert.equal(i.outputsConfirmed,false);
   assert.deepEqual(i.inputs,[]); assert.deepEqual(i.outputs,[]);
-  assert.equal(parameter.name,''); assert.equal(parameter.type,'未知');
-  assert.equal(parameter.required,false); assert.equal(parameter.description,''); assert.ok(parameter.id);
+  assert.equal(parameter.name,'参数1'); assert.equal(parameter.englishName,'parameter1'); assert.equal(parameter.type,'string');
+  assert.equal(parameter.required,false); assert.equal(parameter.description,'保存参数1的值'); assert.ok(parameter.id);
+});
+
+test('新增变量有完整默认属性，编号避开已有中英文名称，保存读回不变',() => {
+  const project = Model.createProject('变量测试'); project.description = '检查默认值';
+  const module = Model.createModule({name:'模块',purpose:'检查变量'}), api = Model.createInterface();
+  Object.assign(api,{name:'方法',purpose:'检查输入输出'});
+  const structure = {...Model.createStructure(),name:'结构'}, event = {...Model.createEvent(),name:'事件',description:'携带变量'};
+  for (const items of [module.parameters,api.inputs,api.outputs,event.parameters,structure.fields]) {
+    const create = items === structure.fields ? Model.createStructureField : Model.createParameter;
+    items.push(create(items)); items.push(create(items));
+    const oldName = items[0].name; items[0].name = '用户自定义名称';
+    const next = create(items); items.push(next);
+    assert.notEqual(next.name,oldName,'English names also reserve the number');
+    assert.equal(new Set(items.map(item => item.id)).size,3);
+    assert.equal(new Set(items.map(item => item.englishName)).size,3);
+    for (const item of items) for (const key of ['name','englishName','type','description']) assert.ok(item[key].trim());
+    items.splice(1,1); items.push(create(items));
+    assert.equal(new Set(items.map(item => item.englishName)).size,3,'delete and add cannot duplicate names');
+  }
+  module.interfaces.push(api); module.structures.push(structure); module.events.push(event); project.modules.push(module);
+  assert.deepEqual(Model.validate(project),{errors:[],warnings:[]});
+  assert.deepEqual(JSON.parse(JSON.stringify(project)),project);
 });
 test('删除模块清除关系与展开状态但保留其他模块', () => {
   const {p,a,b,i}=fixture();
@@ -44,6 +66,33 @@ test('删除模块清除关系与展开状态但保留其他模块', () => {
   assert.deepEqual(p.modules,[b]); assert.deepEqual(p.relations,[]);
   assert.deepEqual(p.view.expanded,[b.id]); assert.deepEqual(p.view.expandedInterfaces,[]);
   assert.equal(Model.removeModule(p,'missing'),false);
+});
+
+test('所有新增内容都有默认必填项；补全已有空项不改自定义内容且可重复执行',() => {
+  const project = Model.createProject();
+  for (let i = 0; i < 3; i++) {
+    const module = Model.createModule({items:project.modules}); project.modules.push(module);
+    for (let j = 0; j < 3; j++) {
+      module.interfaces.push(Model.createInterface(module.interfaces)); module.structures.push(Model.createStructure(module.structures));
+      module.events.push(Model.createEvent(module.events)); module.tests.push(Model.createTest(module.tests));
+    }
+    for (const items of [module.interfaces,module.structures,module.events,module.tests]) assert.equal(new Set(items.map(item => item.englishName)).size,3);
+    assert.equal(module.language,'','an unset language remains blank');
+  }
+  assert.equal(new Set(project.modules.map(item => item.englishName)).size,3);
+  assert.deepEqual(Model.validate(project),{errors:[],warnings:[]});
+  const module = project.modules[0], method = module.interfaces[0];
+  method.name = '  '; method.englishName = ''; method.purpose = '';
+  method.inputs.push({...Model.createParameter(),name:'自定义参数',englishName:'customInput',description:''});
+  module.structures[0].fields.push({...Model.createStructureField(),type:'',description:'',name:'自定义字段',englishName:'customField'});
+  module.tests[0].steps = ''; module.tests[0].expected = ''; module.events[0].description = '';
+  const ids = [project.id,module.id,method.id], custom = '用户填写的多行说明\n</script><script>alert(1)</script>';
+  module.purpose = custom;
+  assert.equal(Model.fillProjectDefaults(project),true);
+  assert.deepEqual(Model.validate(project),{errors:[],warnings:[]});
+  assert.equal(module.purpose,custom); assert.equal(method.inputs[0].name,'自定义参数'); assert.equal(module.structures[0].fields[0].englishName,'customField');
+  assert.deepEqual([project.id,module.id,method.id],ids);
+  assert.equal(Model.fillProjectDefaults(project),false,'repeating completion is a no-op');
 });
 test('改接口内容使接口和模块待核对，位置变化不改变核对状态', () => {
   const {p,a,i}=fixture(); a.status=i.status='verified';
@@ -97,7 +146,7 @@ test('关系限制有效端点、不同模块、重复项，并兼容旧类型�
   assert.deepEqual(Model.validate(p).errors,[]);
 });
 test('确认无参数和参数待确认可以分别保存，空描述只给提醒', () => {
-  const {p,i}=fixture(); const before=Model.validate(p);
+  const {p,i}=fixture(); i.purpose = ''; const before=Model.validate(p);
   assert.ok(before.warnings.some(w=>w.path==='modules[0].interfaces[0].purpose'));
   i.inputsConfirmed=true; i.outputsConfirmed=true;
   assert.deepEqual(Model.validate(p).errors,[]);

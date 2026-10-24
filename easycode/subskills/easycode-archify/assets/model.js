@@ -10,30 +10,85 @@
     const suffix = root.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${(++sequence).toString(36)}`;
     return `${prefix}-${suffix}`;
   }
-  function createProject(name = '') {
+  function contentDefaults(kind,items = []) {
+    if (kind === 'project') return {name:'软件框架图',englishName:'new-project',description:'项目功能说明'};
+    const [prefix,englishPrefix,fields] = {
+      module:['模块','Module',{purpose:'模块功能说明'}], method:['方法','method',{purpose:'方法用途说明'}],
+      parameter:['参数','parameter',{type:'string'}], field:['字段','field',{type:'string'}],
+      structure:['数据结构','Structure',{}], event:['事件','event',{description:'事件说明'}],
+      test:['测试项','test',{steps:'执行测试步骤',expected:'运行结果符合预期'}], group:['层级','Layer',{}]
+    }[kind];
+    let index = 1;
+    while (items.some(item => item?.name === `${prefix}${index}` || item?.englishName === `${englishPrefix}${index}`)) index++;
+    const defaults = {name:`${prefix}${index}`,englishName:`${englishPrefix}${index}`,...fields};
+    if (kind === 'parameter' || kind === 'field') defaults.description = `保存${prefix}${index}的值`;
+    return defaults;
+  }
+  function createProject(name = '软件框架图') {
     return {
-      formatVersion: 1, id: id('project'), name, englishName: '', description: '',
+      formatVersion: 1, id: id('project'), ...contentDefaults('project'), name,
       repository: {path: '', revision: '', dirty: false}, groups: [], modules: [], relations: [],
       view: {x: 0, y: 0, scale: 1, expanded: [], expandedInterfaces: []}
     };
   }
   function createModule(options = {}) {
     return {
-      id: id('module'), name: options.name ?? '', englishName: '', language: '', purpose: options.purpose ?? '', codeLocation: '', groupId: options.groupId ?? '',
-      x: options.x ?? 0, y: options.y ?? 0, status: 'planned', sources: [], unknowns: [], requirements: [], interfaces: [], parameters: [], events: [], tests: []
+      id: id('module'), ...contentDefaults('module',options.items), ...(options.name !== undefined ? {name:options.name} : {}), ...(options.purpose !== undefined ? {purpose:options.purpose} : {}), language: '', codeLocation: '', groupId: options.groupId ?? '',
+      x: options.x ?? 0, y: options.y ?? 0, status: 'planned', sources: [], unknowns: [], requirements: [], interfaces: [], parameters: [], structures: [], events: [], tests: []
     };
   }
-  function createInterface() {
+  function createInterface(items = []) {
     return {
-      id: id('interface'), name: '', englishName: '', purpose: '', flow: '', errors: '', status: 'planned', sources: [], unknowns: [],
+      id: id('interface'), ...contentDefaults('method',items), flow: '', errors: '', status: 'planned', sources: [], unknowns: [],
       inputsConfirmed: false, outputsConfirmed: false, inputs: [], outputs: []
     };
   }
-  function createParameter() {
-    return {id: id('param'), name: '', englishName: '', type: '未知', required: false, description: '', defaultValue: ''};
+  function createParameter(items = []) {
+    return {id: id('param'), ...contentDefaults('parameter',items), required: false, defaultValue: ''};
   }
-  function createEvent() {return {id:id('event'),name:'',englishName:'',description:'',direction:'emit',trigger:'',parameters:[]};}
-  function createTest() {return {id:id('test'),name:'',englishName:'',steps:'',expected:''};}
+  function createStructure(items = []) {return {id:id('structure'),...contentDefaults('structure',items),fields:[]};}
+  function createStructureField(items = []) {return {id:id('field'),...contentDefaults('field',items)};}
+  function createEvent(items = []) {return {id:id('event'),...contentDefaults('event',items),direction:'emit',trigger:'',parameters:[]};}
+  function createTest(items = []) {return {id:id('test'),...contentDefaults('test',items)};}
+  function fillContentDefaults(item,kind,siblings = []) {
+    if (!object(item)) return false;
+    let changed = false;
+    const defaults = contentDefaults(kind,siblings.filter(other => other?.id !== item.id));
+    for (const [key,value] of Object.entries(defaults)) {
+      if (item[key] === undefined || typeof item[key] === 'string' && !item[key].trim()) {item[key] = value; changed = true;}
+    }
+    return changed;
+  }
+  function fillListDefaults(items,kind,nested = () => false) {
+    let changed = false;
+    if (Array.isArray(items)) for (const item of items) {
+      if (!object(item)) continue;
+      const ownChanged = fillContentDefaults(item,kind,items), nestedChanged = nested(item);
+      if (ownChanged || nestedChanged) {markEdited(item); changed = true;}
+    }
+    return changed;
+  }
+  function fillModuleDefaults(module,siblings = []) {
+    if (!object(module)) return false;
+    const changes = [
+      fillContentDefaults(module,'module',siblings), fillListDefaults(module.parameters,'parameter'),
+      fillListDefaults(module.interfaces,'method',entry => {
+        const inputs = fillListDefaults(entry.inputs,'parameter'), outputs = fillListDefaults(entry.outputs,'parameter');
+        return inputs || outputs;
+      }),
+      fillListDefaults(module.structures,'structure',entry => fillListDefaults(entry.fields,'field')),
+      fillListDefaults(module.events,'event',entry => fillListDefaults(entry.parameters,'parameter')), fillListDefaults(module.tests,'test')
+    ];
+    if (changes.some(Boolean)) {markEdited(module); return true;}
+    return false;
+  }
+  function fillProjectDefaults(project) {
+    if (!object(project)) return false;
+    let changed = fillContentDefaults(project,'project');
+    if (fillListDefaults(project.groups,'group')) changed = true;
+    if (Array.isArray(project.modules)) for (const module of project.modules) if (fillModuleDefaults(module,project.modules)) changed = true;
+    return changed;
+  }
   function displayName(item,fallback = '') {return (typeof item?.name === 'string' && item.name.trim()) || (typeof item?.englishName === 'string' && item.englishName.trim()) || fallback;}
   function normalizeCodeLocation(value) {
     if (typeof value !== 'string') throw new Error('代码位置应为相对项目目录的路径。');
@@ -76,7 +131,7 @@
   function updateModule(project, moduleId, patch) {
     const module = project.modules.find(item => item.id === moduleId);
     if (!module) return null;
-    applyPatch(module, patch, ['name','englishName','language','purpose','codeLocation','groupId','x','y','status','sources','unknowns','requirements','interfaces','parameters','events','tests'], ['groupId','x','y']);
+    applyPatch(module, patch, ['name','englishName','language','purpose','codeLocation','groupId','x','y','status','sources','unknowns','requirements','interfaces','parameters','structures','events','tests'], ['groupId','x','y']);
     if (Array.isArray(patch?.interfaces)) {
       const interfaceIds = new Set(project.modules.flatMap(item => item.interfaces.map(entry => entry.id)));
       project.view.expandedInterfaces = project.view.expandedInterfaces.filter(value => interfaceIds.has(value));
@@ -93,6 +148,7 @@
   function updateMember(project,moduleId,collection,itemId,patch) {
     const fields = {
       parameters:['name','englishName','type','description','defaultValue','required'],
+      structures:['name','englishName','fields'],
       events:['name','englishName','description','direction','trigger','parameters'],
       tests:['name','englishName','steps','expected']
     };
@@ -242,6 +298,16 @@
       enumeration(value.direction,['emit','receive'],at(path,'direction')); string(value.trigger,at(path,'trigger'));
       array(value.parameters,at(path,'parameters')).forEach((entry,index) => parameter(entry,`${path}.parameters[${index}]`,false));
     }
+    function structureItem(value,path) {
+      if (!record(value,path)) return;
+      identity(value.id,at(path,'id')); bilingualName(value,path);
+      array(value.fields,at(path,'fields')).forEach((entry,index) => {
+        const fieldPath = `${path}.fields[${index}]`;
+        if (!record(entry,fieldPath)) return;
+        identity(entry.id,at(fieldPath,'id')); bilingualName(entry,fieldPath);
+        string(entry.type,at(fieldPath,'type'),true); string(entry.description,at(fieldPath,'description'),true);
+      });
+    }
     function testItem(value,path) {
       if (!record(value,path)) return;
       identity(value.id,at(path,'id')); bilingualName(value,path);
@@ -276,7 +342,7 @@
       array(module.interfaces,at(path,'interfaces')).forEach((item,index) => {
         interfaceItem(item,`${path}.interfaces[${index}]`); if (object(item)) interfaceIds.add(item.id);
       });
-      for (const [field,check] of [['parameters',(item,path) => parameter(item,path,false)],['events',eventItem],['tests',testItem]]) {
+      for (const [field,check] of [['parameters',(item,path) => parameter(item,path,false)],['structures',structureItem],['events',eventItem],['tests',testItem]]) {
         if (module[field] !== undefined) array(module[field],at(path,field)).forEach((item,index) => check(item,`${path}.${field}[${index}]`));
       }
     });
@@ -305,5 +371,5 @@
     }
     return {errors, warnings};
   }
-  namespace.Model = {createProject,createModule,createInterface,createParameter,createEvent,createTest,displayName,normalizeCodeLocation,projectTitle,validate,markEdited,updateModule,updateInterface,updateMember,removeModule,removeGroup,addRelation,updateRelation,removeRelation};
+  namespace.Model = {createProject,createModule,createInterface,createParameter,createStructure,createStructureField,createEvent,createTest,fillModuleDefaults,fillProjectDefaults,displayName,normalizeCodeLocation,projectTitle,validate,markEdited,updateModule,updateInterface,updateMember,removeModule,removeGroup,addRelation,updateRelation,removeRelation};
 })(globalThis);

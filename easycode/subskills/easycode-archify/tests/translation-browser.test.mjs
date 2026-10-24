@@ -29,7 +29,10 @@ test('翻译按钮：草稿、格式、失败、过期响应、取消和保存�
       return result({'任务管理器':'Task Manager','数据层':'Data layer','保存成功':'Save success'}[new URL(url).searchParams.get('q')] || 'Save task');
     };`});
   await page.navigate(pathToFileURL(file).href);
-  const data = 'EasyCode.app.project', openModule = () => page.click('.module-node [data-node-action="edit"]');
+  const data = 'EasyCode.app.project', openModule = async () => {
+    await page.click('.module-node [data-node-action="edit"]');
+    await page.click('#ec-dialog [data-editor-group="basics"] > .fold-heading .fold-toggle');
+  };
   const fill = (label,value) => page.fill(`#ec-dialog [aria-label="${label}"]`,value);
   const click = label => page.click(`#ec-dialog button[aria-label="${label}"]`);
   const value = label => page.evaluate(`document.querySelector('#ec-dialog [aria-label="${label}"]').value`);
@@ -59,9 +62,15 @@ test('翻译按钮：草稿、格式、失败、过期响应、取消和保存�
   await openModule(); await click('添加测试项'); await fill('测试项中文名','保存成功');
   await click('翻译测试项英文名'); await waitValue('测试项英文名','saveSuccess');
   await click('添加方法'); await fill('方法中文名','保存任务'); await click('翻译方法英文名'); await waitValue('方法英文名','saveTask');
+  await click('添加数据结构'); await fill('数据结构中文名','保存任务');
+  await click('翻译数据结构英文名'); await waitValue('数据结构英文名','SaveTask');
+  await click('新增字段'); await fill('中文名','保存任务');
+  await click('翻译英文名'); await waitValue('英文名','saveTask');
   await click('确定');
   assert.equal(await page.evaluate(`${data}.modules[0].tests[0].englishName`),'saveSuccess');
   assert.equal(await page.evaluate(`${data}.modules[0].interfaces[0].englishName`),'saveTask');
+  assert.equal(await page.evaluate(`${data}.modules[0].structures[0].englishName`),'SaveTask');
+  assert.equal(await page.evaluate(`${data}.modules[0].structures[0].fields[0].englishName`),'saveTask');
 
   for (const [name,message] of [['network','网络'],['chinese','英文'],['quota','额度']]) {
     await mode(name); await openModule(); await fill('模块英文名','keepManual'); await click('翻译模块英文名');

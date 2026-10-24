@@ -123,6 +123,38 @@ test('确认保留标识和位置，更新全部嵌套字段并正确标记待�
   assert.equal(module.interfaces[0].inputs[0].name,'title');
 });
 
+test('数据结构增删改只影响草稿，确认及 HTML 读回保留全部字段',async () => {
+  const {project,module} = fixture(), before = structuredClone(project), session = E.begin(project,module.id);
+  const structure = {...M.createStructure(),name:'任务信息',englishName:'TaskInfo'};
+  const temporary = M.createStructure();
+  M.updateModule(session.project,module.id,{structures:[structure,temporary]});
+  const fields = [
+    {...M.createStructureField(),name:'任务名称',englishName:'taskName',type:'std::string',description:'显示的任务名称 </script><script>alert(1)</script>'},
+    {...M.createStructureField(),name:'完成状态',englishName:'completed',type:'bool',description:'是否已完成'}
+  ];
+  M.updateMember(session.project,module.id,'structures',structure.id,{fields});
+  M.updateModule(session.project,module.id,{structures:session.module.structures.filter(item => item.id !== temporary.id)});
+  assert.deepEqual(project,before);
+  assert.equal(E.commit(project,session),true);
+  assert.deepEqual(module.structures,[{...structure,fields}]);
+  assert.equal(module.status,'modified');
+  assert.deepEqual(S.readProject(assemble(project,await loadBundle())),project);
+  const cancelled = E.begin(project,module.id);
+  M.updateModule(cancelled.project,module.id,{structures:[]});
+  assert.deepEqual(E.begin(project,module.id).module.structures[0].fields,fields);
+});
+
+test('无效数据结构和重复标识不能部分保存',() => {
+  const field = M.createStructureField();
+  for (const structures of [null,{},[null],[{...M.createStructure(),fields:''}],[{...M.createStructure(),id:'group-tasks'}],
+    ...[[null],[{...field,type:[]}],[{...field,description:42}],[{...field,englishName:[]}],[{...field,id:'group-tasks'}],[field,{...field}]].map(fields => [{...M.createStructure(),fields}])]) {
+    const {project,module} = fixture(), before = structuredClone(project), session = E.begin(project,module.id);
+    M.updateModule(session.project,module.id,{structures});
+    assert.ok(M.validate(session.project).errors.some(issue => issue.path.startsWith('modules[0].structures')));
+    assert.throws(() => E.commit(project,session)); assert.deepEqual(project,before);
+  }
+});
+
 test('仅调整所属层级保留已核对状态',() => {
   const {project,module} = fixture(), session = E.begin(project,module.id);
   M.updateModule(session.project,module.id,{groupId:'group-tasks'});
@@ -137,7 +169,7 @@ test('新建取消不留下模块；确定添加一次，保留传入的网格�
   assert.equal(E.hasChanges(session),false);
   assert.equal(E.commit(project,session),true);
   assert.equal(project.modules.length,3);
-  assert.equal(project.modules[2].name,'新模块'); assert.equal(project.modules[2].x,-20); assert.equal(project.modules[2].y,50);
+  assert.equal(project.modules[2].name,'模块2'); assert.equal(project.modules[2].x,-20); assert.equal(project.modules[2].y,50);
   assert.equal(project.modules.some(item => item.id === cancelled.id),false);
   assert.throws(() => E.commit(project,session),/重复/);
 });
@@ -199,20 +231,22 @@ test('五组内容在草稿中独立编辑，确认后可完整保存读回',asy
   assert.deepEqual(S.readProject(assemble(project,await loadBundle())),project);
 });
 
-test('旧模块缺少新增字段时，打开或无修改确认不会补写或丢失旧数据',async() => {
+test('已有空项仅在确定时补齐，保留源码、位置和其他内容',async() => {
   const {project,module,api,parameter} = fixture();
   for (const field of ['englishName','codeLocation','parameters','events','tests']) delete module[field];
   for (const field of ['englishName','flow','errors']) delete api[field];
   for (const field of ['englishName','defaultValue']) delete parameter[field];
   const before = structuredClone(project), session = E.begin(project,module.id);
-  assert.equal(E.hasChanges(session),false); assert.equal(E.commit(project,session),false);
-  assert.deepEqual(project,before); assert.deepEqual(M.validate(project),{errors:[],warnings:[]});
-  assert.deepEqual(S.readProject(assemble(project,await loadBundle())),before);
-  M.updateInterface(session.project,module.id,api.id,{englishName:'createTask'});
-  E.commit(project,session);
-  before.modules[0].interfaces[0].englishName = 'createTask';
+  assert.equal(E.hasChanges(session),false); assert.deepEqual(project,before);
+  assert.equal(E.commit(project,session),true);
+  before.modules[0].englishName = 'Module2';
+  before.modules[0].interfaces[0].englishName = 'method1';
+  before.modules[0].interfaces[0].inputs[0].englishName = 'parameter1';
   before.modules[0].status = before.modules[0].interfaces[0].status = 'modified';
-  assert.deepEqual(project,before,'adding one bilingual name leaves legacy data and absent groups untouched');
+  assert.deepEqual(project,before,'only empty names and edited status change');
+  assert.deepEqual(M.validate(project),{errors:[],warnings:[]});
+  assert.deepEqual(S.readProject(assemble(project,await loadBundle())),before);
+  assert.equal(E.commit(project,E.begin(project,module.id)),false,'repeat confirmation is a no-op');
 });
 
 test('新分组中的坏结构、重复 ID 或非文字字段不能部分提交',() => {
@@ -237,7 +271,7 @@ test('新分组中的坏结构、重复 ID 或非文字字段不能部分提交'
 test('仅填英文名可用，新增成员修改只标记所属模块且拒绝未知分组',() => {
   const {project,module,other} = fixture();
   module.name = ''; module.englishName = 'TaskModule';
-  const parameter = {...M.createParameter(),englishName:'enabled',description:'是否启用',type:'boolean'};
+  const parameter = {...M.createParameter(),name:'',englishName:'enabled',description:'是否启用',type:'boolean'};
   module.parameters = [parameter];
   assert.deepEqual(M.validate(project),{errors:[],warnings:[]});
   assert.equal(M.displayName(module),'TaskModule'); assert.equal(M.displayName(parameter),'enabled');

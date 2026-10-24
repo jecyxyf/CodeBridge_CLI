@@ -68,7 +68,7 @@ test('首次绑定比较创建时的完整基线，之后画布适配不改变�
 
 test('缺少模块职责和接口用途的草稿可保存，修正后没有警告',async()=>{
   const project=Model.createProject('任务板'); project.description='管理任务';
-  const module=Model.createModule({name:'任务模块'}), entry=Model.createInterface(); entry.name='createTask';
+  const module=Model.createModule({name:'任务模块',purpose:''}), entry=Model.createInterface(); entry.name='createTask'; entry.purpose='';
   module.interfaces=[entry]; project.modules=[module]; const f=setup({project});
   await f.controller.save();
   assert.equal(f.states.at(-1).status,'saved'); assert.equal(f.controller.isDirty(),false);
@@ -84,6 +84,37 @@ test('首次绑定拒绝同 ID 但已被外部改动的项目，并保留全部�
   await assert.rejects(f.controller.save(),/外部|打开后|基线/);
   assert.equal(f.file.content,externalHTML); assert.deepEqual(f.project,live);
   assert.equal(f.controller.isDirty(),true); assert.equal(f.controller.getFileName(),'');
+});
+
+test('保存补全空项：取消或失败不改页面，成功后页面和文件一致',async() => {
+  for (const outcome of ['cancel','fail','success']) {
+    const project = Model.createProject('已有项目'), module = Model.createModule({name:'已有模块',purpose:''});
+    const method = {...Model.createInterface(),name:'',englishName:'',purpose:''}; module.interfaces.push(method); project.modules.push(module);
+    const before = copy(project), selection = deferred(); let applied = 0;
+    const target = memoryHandle('original.html',documentFor(project),outcome === 'fail' ? {write:async()=>{throw new Error('写入失败');}} : {});
+    const f = setup({project,pickExisting:()=>selection.promise,prepareSave:Model.fillProjectDefaults,onSaved:() => {applied++; Model.fillProjectDefaults(project);}});
+    const pending = f.controller.save(); assert.deepEqual(project,before);
+    if (outcome === 'cancel') selection.resolve(Promise.reject(Object.assign(new Error('取消'),{name:'AbortError'})));
+    else selection.resolve(target);
+    if (outcome === 'success') {
+      await pending; assert.equal(applied,1); assert.deepEqual(Serialization.readProject(target.content),project);
+      assert.deepEqual(Model.validate(project),{errors:[],warnings:[]}); assert.equal(f.controller.isDirty(),false);
+    } else {
+      await assert.rejects(pending); assert.equal(applied,0); assert.deepEqual(project,before); assert.equal(target.content,documentFor(before));
+    }
+  }
+});
+
+test('保存期间的新编辑不会被旧快照补全覆盖，坏数据仍然拒绝保存',async() => {
+  const project = Model.createProject('旧名称'); project.description = '';
+  const selection = deferred(), target = memoryHandle('original.html',documentFor(project)); let applied = 0;
+  const f = setup({project,pickExisting:()=>selection.promise,prepareSave:Model.fillProjectDefaults,onSaved:()=>{applied++; Model.fillProjectDefaults(project);}});
+  const pending = f.controller.save(); edit(f,'保存期间的新名称'); selection.resolve(target); await pending;
+  assert.equal(applied,0); assert.equal(project.name,'保存期间的新名称'); assert.equal(project.description,''); assert.equal(f.controller.isDirty(),true);
+  assert.equal(Serialization.readProject(target.content).name,'旧名称');
+  assert.deepEqual(Model.validate(Serialization.readProject(target.content)),{errors:[],warnings:[]});
+  project.modules = [{...Model.createModule(),status:'verified',sources:[],purpose:''}];
+  await assert.rejects(f.controller.save(),/有效代码出处/); assert.equal(project.modules[0].status,'verified');
 });
 
 test('首次绑定拒绝不同项目、坏 HTML、结构坏数据',async()=>{
@@ -282,6 +313,23 @@ test('导入选择器立即打开，读取期间的新编辑也须确认',async(
   edit(f,'等待读取时的新编辑'); selected.resolve(target);
   await assert.rejects(pending,error=>error.name==='AbortError');
   assert.equal(confirmations,1); assert.equal(f.project.name,'等待读取时的新编辑'); assert.equal(f.controller.isDirty(),true);
+});
+
+test('导入等待页面确认，取消保留项目；确认后才替换且只执行一次',async()=>{
+  for (const accepted of [false,true]) {
+    const decision = deferred(), opened = deferred(), imported = Model.createProject('新项目');
+    const target = memoryHandle('new.html',documentFor(imported)); let confirmations = 0;
+    const f = setup({pickExisting:()=>target,confirmImport:() => {confirmations++; opened.resolve(); return decision.promise;}});
+    edit(f,'尚未保存'); const before = copy(f.project);
+    const pending = f.controller.importFile();
+    await opened.promise;
+    assert.deepEqual(f.project,before); assert.equal(f.controller.isDirty(),true);
+    await assert.rejects(f.controller.importFile(),/尚未完成/);
+    decision.resolve(accepted);
+    if (accepted) {await pending; assert.deepEqual(f.project,imported); assert.equal(f.controller.isDirty(),false);}
+    else {await assert.rejects(pending,error => error.name === 'AbortError'); assert.deepEqual(f.project,before); assert.equal(f.controller.isDirty(),true);}
+    assert.equal(confirmations,1);
+  }
 });
 
 test('导入和保存互斥，重复导入不会打开第二个选择器',async()=>{

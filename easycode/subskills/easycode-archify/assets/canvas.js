@@ -91,7 +91,7 @@
     for (const [key,value] of Object.entries(attributes)) node.setAttribute(key,String(value));
     return node;
   }
-  function create({project,viewport,world,groupLayer,edgeLayer,nodes,onChange = () => {},onGroupEdit = () => {},confirm = message => root.confirm(message)}) {
+  function create({project,viewport,world,groupLayer,edgeLayer,nodes,onChange = () => {},onGroupEdit = () => {},confirm = message => EC.Dialogs.confirm(message)}) {
     const view = project.view, listeners = [], groupElements = new Map(), relationElements = new Map();
     let drag = null, linkDrag = null, frame = 0, destroyed = false, pointer = null, hover = null, preview = null, selectedRelation = '';
     const connection = createConnection({project,onChange,onState:syncConnection});
@@ -189,11 +189,11 @@
       const point = relationElements.get(id)?.point;
       if (point) annotations.open(id,{x:point.x * view.scale + view.x,y:point.y * view.scale + view.y});
     }
-    function deleteRelation(id) {
+    async function deleteRelation(id) {
       const relation = project.relations.find(item => item.id === id);
       if (!relation) return;
       const name = id => EC.Model.displayName(project.modules.find(item => item.id === id),'未命名模块');
-      if (!confirm(`删除箭头“${name(relation.from)} → ${name(relation.to)}”${relation.label ? `（${relation.label}）` : ''}？`)) return;
+      if (!await confirm(`删除箭头“${name(relation.from)} → ${name(relation.to)}”${relation.label ? `（${relation.label}）` : ''}？`)) return;
       if (EC.Model.removeRelation(project,relation.id)) {selectRelation(''); onChange({semantic:true,render:false}); viewport.focus({preventScroll:true});}
     }
     function paintEdges() {
