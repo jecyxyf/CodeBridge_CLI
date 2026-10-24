@@ -17,6 +17,7 @@
     if (!session.existing && current) throw new Error('模块标识重复，请重新新建。');
     if (session.existing && !hasChanges(session)) return false;
     const trial = structuredClone(project), module = structuredClone(session.module);
+    if (module.codeLocation !== undefined) module.codeLocation = EC.Model.normalizeCodeLocation(module.codeLocation);
     if (session.existing) trial.modules[trial.modules.findIndex(item => item.id === session.id)] = module;
     else trial.modules.push(module);
     // Keep legacy expansion data, removing only references to deleted interfaces.
@@ -54,7 +55,7 @@
     input.addEventListener('change',() => change(input.checked)); wrapper.append(input,document.createTextNode(label)); return wrapper;
   }
   function heading(text, action) {const node = element('div','section-heading',text); if (action) node.append(action); return node;}
-  function create({session,confirm = message => root.confirm(message)}) {
+  function create({session,confirm = message => root.confirm(message),onSummaryChange = () => {}}) {
     const {project,module} = session, editor = element('div','module-editor');
     let sectionId = 0;
     const itemName = item => [item.name,item.englishName].filter(value => value?.trim()).join(' / ');
@@ -111,6 +112,7 @@
       if (entry) EC.Model.updateInterface(project,module.id,entry.id,patch);
       else EC.Model.updateModule(project,module.id,patch);
       refreshStatus();
+      if (!entry) onSummaryChange(module);
     }
     function refreshStatus() {
       for (const label of editor.querySelectorAll('[data-editor-status]')) {
@@ -191,10 +193,60 @@
       const state = element('span','module-status',statusNames[entry.status]); state.dataset.editorStatus = entry.id;
       body.append(state,evidence(module,entry));
     }
+    function requirementGroup() {
+      const group = fold('功能需求',{open:true,key:'requirements'}), list = element('div','requirement-list');
+      const empty = element('p','empty-note','点击右上角“＋”添加具体需求。');
+      const items = () => module.requirements || [];
+      function sync() {
+        const count = items().length;
+        group.setCount(count); empty.hidden = count > 0; list.hidden = count === 0;
+        [...list.children].forEach((row,index) => {
+          row.querySelector('textarea').setAttribute('aria-label',`功能需求 ${index + 1}`);
+          const remove = row.querySelector('button'), label = `删除需求 ${index + 1}`;
+          remove.setAttribute('aria-label',label); remove.title = label;
+        });
+      }
+      function append(value) {
+        const row = element('div','requirement-row'), input = element('textarea');
+        input.value = value; input.rows = 2; input.placeholder = '填写一条具体的模块需求';
+        const rowIndex = () => [...list.children].indexOf(row);
+        input.addEventListener('input',() => {
+          const index = rowIndex(); if (index < 0) return;
+          update(module,null,{requirements:items().map((value,i) => i === index ? input.value : value)});
+        });
+        row.append(input,button('trash','删除需求',() => {
+          const index = rowIndex(); if (index < 0) return;
+          update(module,null,{requirements:items().filter((_,i) => i !== index)});
+          row.remove(); sync();
+          (list.children[index]?.querySelector('textarea') || list.lastElementChild?.querySelector('textarea') || add).focus({preventScroll:true});
+        },'member-delete'));
+        list.append(row); return input;
+      }
+      const add = button('add','新增需求',() => {
+        update(module,null,{requirements:[...items(),'']});
+        group.expand(); const input = append(''); sync();
+        input.focus({preventScroll:true}); input.scrollIntoView?.({block:'nearest'});
+      },'group-add');
+      group.header.append(add); group.body.append(empty,list);
+      for (const value of items()) append(value);
+      sync(); return group;
+    }
     const basics = fold('模块信息',{open:true,key:'basics',className:'module-basics'});
-    const location = field('代码位置',module.codeLocation ?? module.sources.map(source => `${source.path}${source.line ? `:${source.line}` : ''}`).join('\n'),value => update(module,null,{codeLocation:value}),'textarea');
+    const location = field('代码位置',module.codeLocation,value => update(module,null,{codeLocation:value}),'textarea');
+    const locationInput = location.querySelector('textarea');
+    locationInput.placeholder = './testmodel.cpp\n./testmodel.h'; locationInput.spellcheck = false;
+    const locationNote = element('span','field-note','相对项目代码目录，每行一个文件或目录。');
+    locationNote.id = `${module.id}-location-note`; locationInput.setAttribute('aria-describedby',locationNote.id); location.append(locationNote);
+    const language = field('编程语言',module.language,value => update(module,null,{language:value}));
+    const languageInput = language.querySelector('input'), languages = element('datalist'); languages.id = `${module.id}-languages`;
+    languageInput.setAttribute('list',languages.id); languageInput.placeholder = '选择或输入语言';
+    for (const value of ['C','C++','C#','Java','JavaScript','TypeScript','Python','Go','Rust','Kotlin','Swift','Dart','PHP','Ruby','Lua']) {
+      const option = element('option'); option.value = value; languages.append(option);
+    }
+    language.append(languages);
     const state = element('span','module-status'); state.dataset.editorStatus = module.id;
-    basics.body.append(names('模块',module,(key,value) => update(module,null,{[key]:value})),field('模块职责',module.purpose,value => update(module,null,{purpose:value}),'textarea'),location,select('所属层级',module.groupId,[['','不属于层级'],...project.groups.map(group => [group.id,group.name || '未命名层级'])],value => update(module,null,{groupId:value})),state,evidence(module,null));
+    basics.body.append(names('模块',module,(key,value) => update(module,null,{[key]:value})),language,field('模块职责',module.purpose,value => update(module,null,{purpose:value}),'textarea'),location,select('所属层级',module.groupId,[['','不属于层级'],...project.groups.map(group => [group.id,group.name || '未命名层级'])],value => update(module,null,{groupId:value})),state,evidence(module,null));
+    const requirements = requirementGroup();
     const parameters = parameterGroup({title:'参数',key:'parameters',getItems:() => module.parameters || [],setItems:items => update(module,null,{parameters:items}),defaults:true});
     const methods = collection({title:'方法',key:'methods',kind:'方法',getItems:() => module.interfaces,setItems:items => update(module,null,{interfaces:items}),createItem:EC.Model.createInterface,confirmDelete:true,build:methodFields});
     const events = collection({title:'消息事件',key:'events',kind:'事件',getItems:() => module.events || [],setItems:items => update(module,null,{events:items}),createItem:EC.Model.createEvent,confirmDelete:true,
@@ -208,7 +260,7 @@
         const patch = (key,value) => {EC.Model.updateMember(project,module.id,'tests',entry.id,{[key]:value}); refreshStatus();};
         body.append(names('测试项',entry,(key,value) => {patch(key,value); rename();}),field('测试步骤',entry.steps,value => patch('steps',value),'textarea'),field('预期结果',entry.expected,value => patch('expected',value),'textarea'));
       }});
-    editor.append(element('p','dialog-note','点击组标题展开或收起。修改后点“确定”，再用顶部“保存”写入 HTML。'),basics.section,heading('对外接口'),parameters.section,methods.section,events.section,tests.section);
+    editor.append(element('p','dialog-note','点击组标题展开或收起。修改后点“确定”，再用顶部“保存”写入 HTML。'),basics.section,requirements.section,parameters.section,methods.section,events.section,tests.section);
     refreshStatus(); return editor;
   }
   EC.ModuleEditor = {begin,hasChanges,commit,create};

@@ -38,6 +38,68 @@ test('未修改和仅展开接口不产生项目修改',() => {
   assert.deepEqual(project,before);
 });
 
+test('代码位置整理为相对路径，支持多文件和 Windows 分隔符',() => {
+  for (const [input,expected] of [
+    ['', ''],[' \n\t', ''],['testmodel.cpp','./testmodel.cpp'],[' ./testmodel.cpp\r\n./testmodel.h ','./testmodel.cpp\n./testmodel.h'],
+    ['src\\testmodel.cpp\ninclude\\testmodel.h','./src/testmodel.cpp\n./include/testmodel.h'],
+    ['./src/./temporary/../testmodel.cpp','./src/testmodel.cpp'],['./testmodel.cpp/h','./testmodel.cpp/h']
+  ]) assert.equal(M.normalizeCodeLocation(input),expected);
+  for (const value of ['D:\\code\\testmodel.cpp','D:relative.cpp','/src/testmodel.cpp','\\\\server\\share\\file.cpp','../outside.cpp','src/../../outside.cpp','src/task.js:12-30','https://example.com/a.cpp','.','./','src/..',42,null]) {
+    assert.throws(() => M.normalizeCodeLocation(value),/代码位置|路径|项目目录/);
+  }
+});
+
+test('语言和相对位置只在确认时保存，取消不变，语言可自定义',async () => {
+  const {project,module} = fixture(), before = structuredClone(project), session = E.begin(project,module.id);
+  M.updateModule(session.project,module.id,{language:'Zig',codeLocation:'src\\task.zig\n./include/task.zig'});
+  assert.deepEqual(project,before); assert.equal(module.language,'');
+  assert.equal(E.commit(project,session),true);
+  assert.equal(module.language,'Zig'); assert.equal(module.codeLocation,'./src/task.zig\n./include/task.zig');
+  assert.equal(module.status,'modified'); assert.deepEqual(module.sources,before.modules[0].sources,'evidence remains separate from code location');
+  assert.deepEqual(S.readProject(assemble(project,await loadBundle())),project);
+});
+
+test('错误路径和语言类型不能部分提交',() => {
+  for (const patch of [{codeLocation:'C:\\code\\file.cpp'},{codeLocation:'../file.cpp'},{codeLocation:'./file.cpp:12'},{language:[]}]) {
+    const {project,module} = fixture(), before = structuredClone(project), session = E.begin(project,module.id);
+    M.updateModule(session.project,module.id,patch);
+    assert.ok(M.validate(session.project).errors.length); assert.throws(() => E.commit(project,session)); assert.deepEqual(project,before);
+  }
+});
+
+test('功能需求按顺序增删改，只确认草稿后保存，读回保留全部文字',async () => {
+  const {project,module,other} = fixture(), before = structuredClone(project), session = E.begin(project,module.id);
+  assert.deepEqual(module.requirements,[]);
+  M.updateModule(session.project,module.id,{requirements:['保存任务','临时需求','再次打开时恢复任务']});
+  M.updateModule(session.project,module.id,{requirements:session.module.requirements.filter((_,index) => index !== 1)});
+  const requirements = ['校验任务标题后保存\n保存失败时显示原因','再次打开时恢复任务 </script><script>alert(1)</script>'];
+  M.updateModule(session.project,module.id,{requirements});
+  assert.equal(E.hasChanges(session),true);
+  assert.deepEqual(project,before,'取消草稿不改变原模块');
+  assert.equal(E.commit(project,session),true);
+  assert.deepEqual(module.requirements,requirements);
+  assert.equal(module.status,'modified'); assert.deepEqual(module.sources,before.modules[0].sources);
+  assert.deepEqual(other,before.modules[1]);
+  const html = assemble(project,await loadBundle());
+  assert.deepEqual(S.readProject(html),project);
+  assert.equal(html.includes('</script><script>alert(1)</script>'),false);
+  const originalRequirement = requirements[0];
+  session.module.requirements[0] = '草稿之后的更改';
+  assert.equal(module.requirements[0],originalRequirement);
+  const cleared = E.begin(project,module.id);
+  M.updateModule(cleared.project,module.id,{requirements:[]});
+  assert.equal(E.commit(project,cleared),true); assert.deepEqual(module.requirements,[]);
+});
+
+test('功能需求拒绝错误列表和非文字条目，失败不改动项目',() => {
+  for (const requirements of [null,'需求',{},[null],[42],[{}],['有效需求',false]]) {
+    const {project,module} = fixture(), before = structuredClone(project), session = E.begin(project,module.id);
+    M.updateModule(session.project,module.id,{requirements});
+    assert.ok(M.validate(session.project).errors.some(issue => issue.path.startsWith('modules[0].requirements')));
+    assert.throws(() => E.commit(project,session)); assert.deepEqual(project,before);
+  }
+});
+
 test('确认保留标识和位置，更新全部嵌套字段并正确标记待核对',async() => {
   const {project,module,api,parameter,other} = fixture(), session = E.begin(project,module.id);
   M.updateModule(session.project,module.id,{name:'编辑后模块',purpose:'新的职责',groupId:'group-tasks',unknowns:['新问题']});
@@ -123,7 +185,7 @@ test('五组内容在草稿中独立编辑，确认后可完整保存读回',asy
   const setting = {...M.createParameter(),name:'重试次数',englishName:'retryCount',type:'number',description:'失败后重试次数',defaultValue:'3'};
   const event = {...M.createEvent(),name:'任务完成',englishName:'taskCompleted',description:'任务处理完毕',trigger:'保存成功',parameters:[{...M.createParameter(),name:'任务编号',englishName:'taskId',type:'string',description:'完成的任务'}]};
   const check = {...M.createTest(),name:'保存任务',steps:'输入有效任务并保存',expected:'发出任务完成事件'};
-  M.updateModule(session.project,module.id,{englishName:'TaskModule',codeLocation:'src/task.js:1-80',parameters:[setting],events:[event],tests:[check]});
+  M.updateModule(session.project,module.id,{englishName:'TaskModule',language:'JavaScript',codeLocation:'./src/task.js',parameters:[setting],events:[event],tests:[check]});
   M.updateInterface(session.project,module.id,api.id,{name:'创建任务',englishName:'createTask',flow:'1. 检查输入\n2. 保存\n3. 发出事件',errors:'无效输入时返回错误'});
   M.updateMember(session.project,module.id,'events',event.id,{direction:'receive'});
   M.updateMember(session.project,module.id,'tests',check.id,{expected:'接收任务完成事件'});
@@ -155,7 +217,7 @@ test('旧模块缺少新增字段时，打开或无修改确认不会补写或�
 
 test('新分组中的坏结构、重复 ID 或非文字字段不能部分提交',() => {
   const patches = [
-    {parameters:null}, {events:{}}, {tests:[null]}, {englishName:{trim:42}}, {codeLocation:42},
+    {parameters:null}, {events:{}}, {tests:[null]}, {englishName:{trim:42}}, {codeLocation:42}, {language:42},
     {parameters:[{...M.createParameter(),defaultValue:3}]},
     {events:[{...M.createEvent(),direction:'invalid'}]},
     {events:[{...M.createEvent(),parameters:[null]}]},

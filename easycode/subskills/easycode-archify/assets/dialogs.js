@@ -57,7 +57,7 @@
       const form = node('form'), heading = node('h2',title); heading.id = 'ec-dialog-title'; form.append(heading);
       form.noValidate = !!options.noValidate;
       const body = node('div',undefined,'dialog-body'); form.append(body);
-      const controls = build(body), error = node('p','', 'dialog-error'); error.setAttribute('role','alert'); form.append(error);
+      const controls = build(body,heading), error = node('p','', 'dialog-error'); error.setAttribute('role','alert'); form.append(error);
       const actions = node('div',undefined,'dialog-actions');
       if (remove) {const button = node('button',undefined,'dialog-delete'); EC.Icons.set(button,remove.icon || 'trash',remove.label); button.type = 'button'; button.addEventListener('click',() => {try {if (remove.run() !== false) {close(); onChange({semantic:true,render:true});}} catch (issue) {error.textContent = issue.message;}}); actions.append(button);}
       const cancel = node('button'); EC.Icons.set(cancel,'close','取消'); cancel.type = 'button'; cancel.addEventListener('click',close);
@@ -67,8 +67,15 @@
     }
     function editModule(id,position) {
       const session = EC.ModuleEditor.begin(project,id,position);
-      open(session.existing ? '编辑模块' : '新建模块',body => {
-        body.append(EC.ModuleEditor.create({session,confirm}));
+      open('',(body,heading) => {
+        const name = node('span',undefined,'module-dialog-name'), language = node('span',undefined,'module-dialog-language');
+        heading.replaceChildren(name,language);
+        function refreshTitle() {
+          name.textContent = [session.module.name,session.module.englishName].map(value => value?.trim()).filter(Boolean).join(' / ') || '未命名模块';
+          name.title = name.textContent;
+          language.textContent = session.module.language?.trim() || '未设置语言'; language.title = language.textContent;
+        }
+        body.append(EC.ModuleEditor.create({session,confirm,onSummaryChange:refreshTitle})); refreshTitle();
       },() => EC.ModuleEditor.commit(project,session),session.existing ? {label:'删除模块',run() {
         const module = project.modules.find(item => item.id === id);
         if (!module) return false;

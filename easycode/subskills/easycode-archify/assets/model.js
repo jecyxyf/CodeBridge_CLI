@@ -19,8 +19,8 @@
   }
   function createModule(options = {}) {
     return {
-      id: id('module'), name: options.name ?? '', englishName: '', purpose: options.purpose ?? '', codeLocation: '', groupId: options.groupId ?? '',
-      x: options.x ?? 0, y: options.y ?? 0, status: 'planned', sources: [], unknowns: [], interfaces: [], parameters: [], events: [], tests: []
+      id: id('module'), name: options.name ?? '', englishName: '', language: '', purpose: options.purpose ?? '', codeLocation: '', groupId: options.groupId ?? '',
+      x: options.x ?? 0, y: options.y ?? 0, status: 'planned', sources: [], unknowns: [], requirements: [], interfaces: [], parameters: [], events: [], tests: []
     };
   }
   function createInterface() {
@@ -35,6 +35,23 @@
   function createEvent() {return {id:id('event'),name:'',englishName:'',description:'',direction:'emit',trigger:'',parameters:[]};}
   function createTest() {return {id:id('test'),name:'',englishName:'',steps:'',expected:''};}
   function displayName(item,fallback = '') {return (typeof item?.name === 'string' && item.name.trim()) || (typeof item?.englishName === 'string' && item.englishName.trim()) || fallback;}
+  function normalizeCodeLocation(value) {
+    if (typeof value !== 'string') throw new Error('代码位置应为相对项目目录的路径。');
+    return value.split(/\r?\n/).map(line => line.trim()).filter(Boolean).map(line => {
+      const path = line.replace(/\\/g,'/');
+      if (path.startsWith('/') || /[:<>|?*\u0000-\u001f]/.test(path)) throw new Error('代码位置请填写相对项目目录的路径，例如 ./testmodel.cpp；每行一个，不含盘符或行号。');
+      const parts = [];
+      for (const part of path.split('/')) {
+        if (!part || part === '.') continue;
+        if (part === '..') {
+          if (!parts.length) throw new Error('代码位置不能超出项目目录。');
+          parts.pop();
+        } else parts.push(part);
+      }
+      if (!parts.length) throw new Error('请填写模块的相对文件或目录路径，例如 ./testmodel.cpp。');
+      return './' + parts.join('/');
+    }).join('\n');
+  }
   function projectTitle(project) {
     const name = project.name?.trim() || '软件框架图', revision = project.repository.revision.trim();
     if (!revision) return name;
@@ -59,7 +76,7 @@
   function updateModule(project, moduleId, patch) {
     const module = project.modules.find(item => item.id === moduleId);
     if (!module) return null;
-    applyPatch(module, patch, ['name','englishName','purpose','codeLocation','groupId','x','y','status','sources','unknowns','interfaces','parameters','events','tests'], ['groupId','x','y']);
+    applyPatch(module, patch, ['name','englishName','language','purpose','codeLocation','groupId','x','y','status','sources','unknowns','requirements','interfaces','parameters','events','tests'], ['groupId','x','y']);
     if (Array.isArray(patch?.interfaces)) {
       const interfaceIds = new Set(project.modules.flatMap(item => item.interfaces.map(entry => entry.id)));
       project.view.expandedInterfaces = project.view.expandedInterfaces.filter(value => interfaceIds.has(value));
@@ -248,10 +265,14 @@
     modules.forEach((module,index) => {
       const path = `modules[${index}]`; if (!record(module,path)) return;
       identity(module.id,at(path,'id')); bilingualName(module,path); string(module.purpose,at(path,'purpose'),true);
-      optionalText(module,['codeLocation'],path);
+      optionalText(module,['codeLocation','language'],path);
+      if (typeof module.codeLocation === 'string') {
+        try {normalizeCodeLocation(module.codeLocation);} catch (issue) {error(at(path,'codeLocation'),issue.message);}
+      }
       string(module.groupId,at(path,'groupId'));
       if (module.groupId !== '' && !groupIds.has(module.groupId)) error(at(path,'groupId'), '分组不存在');
       number(module.x,at(path,'x')); number(module.y,at(path,'y')); evidence(module,path);
+      if (module.requirements !== undefined) array(module.requirements,at(path,'requirements')).forEach((value,index) => string(value,`${path}.requirements[${index}]`));
       array(module.interfaces,at(path,'interfaces')).forEach((item,index) => {
         interfaceItem(item,`${path}.interfaces[${index}]`); if (object(item)) interfaceIds.add(item.id);
       });
@@ -284,5 +305,5 @@
     }
     return {errors, warnings};
   }
-  namespace.Model = {createProject,createModule,createInterface,createParameter,createEvent,createTest,displayName,projectTitle,validate,markEdited,updateModule,updateInterface,updateMember,removeModule,removeGroup,addRelation,updateRelation,removeRelation};
+  namespace.Model = {createProject,createModule,createInterface,createParameter,createEvent,createTest,displayName,normalizeCodeLocation,projectTitle,validate,markEdited,updateModule,updateInterface,updateMember,removeModule,removeGroup,addRelation,updateRelation,removeRelation};
 })(globalThis);

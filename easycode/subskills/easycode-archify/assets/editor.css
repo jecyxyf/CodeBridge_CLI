@@ -641,9 +641,34 @@ dialog.module-dialog {
   gap: 0
 }
 .module-dialog h2 {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   padding: 20px 24px;
   border-bottom: 1px solid var(--line)
 }
+.module-dialog-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.4
+}
+.module-dialog-language {
+  flex: 0 0 auto;
+  max-width: 35%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  line-height: 1.4
+}
+.field-note {font-size: 11px; line-height: 1.5; color: var(--muted)}
 .module-dialog .dialog-body {
   padding: 20px 24px;
   min-height: 0;
@@ -681,6 +706,9 @@ dialog.module-dialog {
 .fold-body {display: grid; gap: 12px; padding: 14px; border-top: 1px solid var(--line); min-width: 0}
 .member-editor {background: #192331}
 .member-editor .fold-toggle {font-size: 12px}
+.requirement-list {display: grid; gap: 10px; min-width: 0}
+.requirement-row {display: grid; grid-template-columns: minmax(0,1fr) 36px; align-items: start; gap: 8px}
+.requirement-row textarea {min-width: 0; min-height: 60px; resize: vertical}
 .bilingual-fields {display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px}
 .bilingual-fields input {min-width: 0}
 .translation-field {min-width: 0}

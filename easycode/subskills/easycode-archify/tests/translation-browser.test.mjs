@@ -38,6 +38,7 @@ test('翻译按钮：草稿、格式、失败、过期响应、取消和保存�
   assert.equal(await page.evaluate('__translation.calls.length'),0,'no requests on open');
   const before = await page.evaluate(data);
   await openModule(); await click('翻译模块英文名'); await waitValue('模块英文名','SaveTask');
+  assert.equal(await page.evaluate('document.querySelector(".module-dialog-name").textContent'),'保存任务 / SaveTask','translation also refreshes the dialog title');
   assert.deepEqual(await page.evaluate(data),before,'translation is a draft');
   assert.equal(await page.evaluate('EasyCode.app.dialogs.hasDraftChanges()'),true);
   await click('取消'); assert.deepEqual(await page.evaluate(data),before);
