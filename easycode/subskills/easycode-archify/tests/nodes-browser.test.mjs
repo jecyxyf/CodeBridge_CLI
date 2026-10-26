@@ -17,7 +17,8 @@ test('模块卡片：紧凑分组、点击只读详情、外观草稿与保存�
   const blankParameter = {...M.createParameter(),name:'',englishName:'',type:'',description:'',defaultValue:''};
   full.englishName = 'HiddenModuleEnglish'; full.language = 'TypeScript'; full.codeLocation = './src/task-manager.ts';
   full.requirements = ['保存前检查任务名称','完成后通知订阅者\n通知中带上任务编号','  '];
-  full.parameters = [{...M.createParameter(),name:'最大任务数',englishName:'HiddenParameterEnglish',type:'number',description:'允许保存的任务数量',defaultValue:'0'},blankParameter];
+  full.parameters = [{...M.createParameter(),name:'最大任务数',englishName:'HiddenParameterEnglish',type:'number',description:'允许保存的任务数量',defaultValue:'0'},
+    {...M.createParameter(),name:'启用保存',englishName:'saveEnabled',type:'boolean',description:'是否启用任务保存'},blankParameter];
   full.interfaces.push({...M.createInterface(),name:'保存任务',englishName:'HiddenMethodEnglish',purpose:'检查任务内容并写入存储。',flow:'检查名称\n写入任务\n发出通知',errors:'写入失败时返回错误原因',
     inputs:[{...M.createParameter(),name:'任务名称',englishName:'HiddenInputEnglish',type:'string',description:'要保存的任务名称',required:true},
       {...M.createParameter(),name:'优先级',englishName:'priority',type:'number',description:'决定任务的执行顺序\n同级任务按创建时间排序',required:false}],
@@ -55,11 +56,17 @@ test('模块卡片：紧凑分组、点击只读详情、外观草稿与保存�
   assert.equal(await page.evaluate(`getComputedStyle(document.querySelector('${card}')).getPropertyValue('--node').trim()`),'#fcfdff');
   assert.equal(await page.evaluate(`getComputedStyle(document.querySelector('${card} .module-language')).fontSize !== getComputedStyle(document.querySelector('${card} .module-name')).fontSize`),true);
   assert.equal(await page.evaluate(`document.querySelectorAll('${card} .module-requirements li').length`),2);
-  assert.equal(await page.evaluate(`document.querySelectorAll('${card} [data-module-group=parameters] > .module-parameter-list > .module-member').length`),1);
+  assert.equal(await page.evaluate(`document.querySelectorAll('${card} [data-module-group=parameters] > .module-parameter-list > .module-member').length`),2);
+  assert.equal(await page.evaluate(`document.querySelectorAll('${card} .module-header [data-node-action]').length`),1,'only the ellipsis edit entry remains');
+  assert.equal(await page.evaluate(`document.querySelector('${card} [data-node-action=edit]').dataset.icon`),'more');
+  assert.equal(await page.evaluate(`document.querySelectorAll('${card} .module-group-index').length`),0);
+  assert.equal(await page.evaluate(`document.querySelectorAll('${card} .module-ready').length`),0);
+  assert.doesNotMatch(text,/已就绪/);
   assert.equal(await page.evaluate(`(() => {const b=document.querySelector('${card} [data-node-action=edit]').getBoundingClientRect(),l=document.querySelector('${card} .module-language').getBoundingClientRect();return l.right <= b.left;})()`),true);
   await page.click('#ec-warning-close');
-  assert.deepEqual(await page.evaluate(`Array.from(document.querySelectorAll('${card} [data-module-group]'),node => node.dataset.itemCount)`),['2','2','1','2','2']);
+  assert.deepEqual(await page.evaluate(`Array.from(document.querySelectorAll('${card} [data-module-group]'),node => node.dataset.itemCount)`),['2','2','2','2','2']);
   assert.equal(await page.evaluate(`document.querySelector('${card} .module-type-label').textContent`),'num');
+  assert.equal(await page.evaluate(`document.querySelectorAll('${card} .module-type-label')[1].textContent`),'boo');
   assert.equal(await page.evaluate(`document.querySelector('${card} [data-module-group=parameters] .module-member').dataset.valueKind`),'number');
   assert.equal(await page.evaluate(`document.querySelector('${card} .module-shell').contains(document.querySelector('${card} [data-port]'))`),false,'connection ports stay outside the clipped shell');
   const before = await page.evaluate('EasyCode.app.project');
@@ -134,6 +141,7 @@ test('模块卡片：紧凑分组、点击只读详情、外观草稿与保存�
   assert.equal(await page.evaluate('globalThis.__cardInjected === undefined'),true);
   assert.equal(await page.evaluate(`getComputedStyle(document.querySelector('${card}')).getPropertyValue('--node').trim()`),'#253344');
   assert.equal(await page.evaluate(`getComputedStyle(document.querySelector('${card} [data-node-action=edit] .icon')).color`),'rgb(221, 238, 255)');
+  assert.equal(await page.evaluate(`getComputedStyle(document.querySelector('${card} [data-node-action=edit]')).backgroundColor`),'rgb(37, 51, 68)');
   await page.click(`${card} .module-purpose`);
   assert.equal(await page.evaluate('document.querySelector(".module-preview-description").textContent'),longText);
   assert.equal(await page.evaluate('globalThis.__cardInjected === undefined'),true);

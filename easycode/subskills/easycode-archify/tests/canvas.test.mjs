@@ -7,6 +7,33 @@ import '../assets/canvas.js';
 const {Model,Serialization,Canvas} = globalThis.EasyCode;
 const near = (a,b) => assert.ok(Math.abs(a - b) < 1e-8,`${a} != ${b}`);
 const bounds = modules => modules.map(module => ({x:module.x,y:module.y,width:360,height:190}));
+
+test('箭头文字跟随起点分层配色，跨层也不取终点颜色，读取不修改项目',() => {
+  const {project,group} = groupFixture();
+  const [from,to] = project.modules, relation = project.relations[0];
+  group.color = '#123456'; group.backgroundColor = '#A1B2C3';
+  const target = {id:'group-target',name:'另一层',color:'#abcdef',backgroundColor:'#102030',x:600,y:100};
+  project.groups.push(target); to.groupId = target.id;
+  const before = structuredClone(project);
+  assert.deepEqual(Canvas.relationLabelAppearance(project,relation),{color:'#123456',backgroundColor:'rgba(161,178,195,0.5)'});
+  assert.deepEqual(Canvas.relationLabelAppearance(project,{...relation,from:to.id,to:from.id}),{color:'#abcdef',backgroundColor:'rgba(16,32,48,0.5)'});
+  assert.deepEqual(project,before);
+  group.backgroundColor = '#010203';
+  assert.equal(Canvas.relationLabelAppearance(project,relation).backgroundColor,'rgba(1,2,3,0.5)','changes follow the current layer settings');
+});
+
+test('箭头未分层或分层颜色无效时使用安全默认值',() => {
+  const {project,group} = groupFixture(), relation = project.relations[0];
+  const defaults = {color:'#ffffff',backgroundColor:'rgba(129,179,233,0.5)'};
+  project.modules[0].groupId = '';
+  const before = structuredClone(project);
+  assert.deepEqual(Canvas.relationLabelAppearance(project,relation),defaults);
+  assert.deepEqual(Canvas.relationLabelAppearance(project,{...relation,from:'missing-module'}),defaults);
+  assert.deepEqual(project,before);
+  group.color = 'red'; group.backgroundColor = 'url(https://invalid.test)';
+  const unchanged = structuredClone(group);
+  assert.deepEqual(Canvas.layerAppearance(group),defaults); assert.deepEqual(group,unchanged);
+});
 function groupFixture(offGrid = false) {
   const project = Model.createProject('吸附检查'); project.description = '检查移动时保留项目内容';
   const group = {id:'group-main',name:'业务层',color:'#ffffff',backgroundColor:'#81b3e9',x:60,y:100};

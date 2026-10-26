@@ -15,7 +15,7 @@
     if (!hasChanges(draft)) return false;
     return EC.Model.updateRelation(project,draft.id,{label:draft.text});
   }
-  function create({project,container,onChange = () => {},onActiveChange = () => {}}) {
+  function create({project,container,onChange = () => {},onActiveChange = () => {},getAppearance = () => null}) {
     let active = null;
     function cancel() {
       const previous = active; active = null;
@@ -37,6 +37,8 @@
       if (!active) return;
       active.point = point;
       const {wrapper,input} = active;
+      const colors = getAppearance(active.draft.id);
+      if (colors) {wrapper.style.setProperty('--annotation-color',colors.color); wrapper.style.setProperty('--annotation-background',colors.backgroundColor);}
       input.style.height = 'auto'; input.style.height = `${Math.min(140,Math.max(42,input.scrollHeight))}px`;
       wrapper.style.left = `${Math.max(8,Math.min(container.clientWidth - wrapper.offsetWidth - 8,point.x - wrapper.offsetWidth / 2))}px`;
       wrapper.style.top = `${Math.max(8,Math.min(container.clientHeight - wrapper.offsetHeight - 8,point.y - 24))}px`;

@@ -129,7 +129,7 @@
       const type = hasText(item.type) ? item.type.trim() : '—';
       const kind = parameterKind(type); row.dataset.valueKind = kind;
       row.append(element('dt','module-member-name',title),element('dd','module-member-description',item.description || ''));
-      const label = {string:'str',number:'num',boolean:'bool',array:'arr',object:'obj'}[kind] || type;
+      const label = type.slice(0,3);
       const badge = element('dd','module-type-label',label); badge.title = type; badge.setAttribute('aria-label',`参数类型：${type}`); row.append(badge);
       const more = element('span','module-row-more','···'); more.setAttribute('aria-hidden','true'); row.append(more);
       preview.bind(row,module,title,item.description); list.append(row);
@@ -168,8 +168,7 @@
       const heading = element('div','module-group-heading'), name = element('h3','module-group-title');
       const symbol = element('span','module-group-symbol'); symbol.append(EC.Icons.create(icons[key])); name.append(symbol,element('span','',title));
       name.setAttribute('aria-label',`${title}，${count} 项`);
-      const index = element('span','module-group-index',String(container.children.length + 1).padStart(2,'0')); index.setAttribute('aria-hidden','true');
-      heading.append(name,index); body.classList.add('module-group-content'); section.append(heading,body); container.append(section);
+      heading.append(name); body.classList.add('module-group-content'); section.append(heading,body); container.append(section);
     }
     const basics = element('div','module-basics');
     if (hasText(module.purpose)) {

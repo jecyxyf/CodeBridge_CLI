@@ -91,11 +91,23 @@
     for (const [key,value] of Object.entries(attributes)) node.setAttribute(key,String(value));
     return node;
   }
+  function layerAppearance(group) {
+    const valid = value => typeof value === 'string' && /^#[\da-f]{6}$/i.test(value);
+    const color = valid(group?.color) ? group.color : '#ffffff';
+    const fill = valid(group?.backgroundColor) ? group.backgroundColor : '#81b3e9';
+    const rgb = fill.slice(1).match(/../g).map(pair => parseInt(pair,16));
+    return {color,backgroundColor:`rgba(${rgb.join(',')},0.5)`};
+  }
+  function relationLabelAppearance(project,relation) {
+    const from = project.modules.find(module => module.id === relation?.from);
+    return layerAppearance(project.groups.find(group => group.id === from?.groupId));
+  }
   function create({project,viewport,world,groupLayer,edgeLayer,nodes,onChange = () => {},onGroupEdit = () => {},confirm = message => EC.Dialogs.confirm(message)}) {
     const view = project.view, listeners = [], groupElements = new Map(), relationElements = new Map();
     let drag = null, linkDrag = null, frame = 0, destroyed = false, pointer = null, hover = null, preview = null, selectedRelation = '';
     const connection = createConnection({project,onChange,onState:syncConnection});
-    const annotations = EC.Annotations.create({project,container:viewport,onChange,onActiveChange:refreshRelationActions});
+    const annotations = EC.Annotations.create({project,container:viewport,onChange,onActiveChange:refreshRelationActions,
+      getAppearance:id => relationLabelAppearance(project,project.relations.find(relation => relation.id === id))});
     const relationActions = document.createElement('div');
     relationActions.className = 'relation-actions'; relationActions.hidden = true;
     relationActions.setAttribute('role','group'); relationActions.setAttribute('aria-label','箭头操作');
@@ -150,17 +162,16 @@
           node = document.createElement('section'); node.className = 'group-frame'; node.dataset.groupId = group.id;
           const header = document.createElement('header'); header.className = 'group-header'; header.dataset.groupId = group.id;
           const title = document.createElement('span'); title.className = 'group-title';
-          const edit = document.createElement('button'); edit.type = 'button'; EC.Icons.set(edit,'edit','编辑分组'); edit.addEventListener('click',() => onGroupEdit(group.id));
+          const edit = document.createElement('button'); edit.type = 'button'; EC.Icons.set(edit,'more','编辑分组'); edit.addEventListener('click',() => onGroupEdit(group.id));
           const empty = document.createElement('span'); empty.className = 'group-empty'; empty.textContent = '编辑模块，在“所属层级”中加入此层级';
           header.append(title,edit); node.append(header,empty); groupLayer.append(node); groupElements.set(group.id,node);
         }
         const bounds = boundsForGroup(group);
         Object.assign(node.style,{left:`${bounds.x}px`,top:`${bounds.y}px`,width:`${bounds.width}px`,height:`${bounds.height}px`});
         // Only allow an actual color, never arbitrary CSS from the project.
-        const color = /^#[\da-f]{6}$/i.test(group.color) ? group.color : '#ffffff';
-        const backgroundColor = /^#[\da-f]{6}$/i.test(group.backgroundColor) ? group.backgroundColor : '#81b3e9';
-        const rgb = backgroundColor.slice(1).match(/../g).map(pair => parseInt(pair,16));
-        node.style.borderColor = 'transparent'; node.style.backgroundColor = `rgba(${rgb.join(',')},0.5)`;
+        const {color,backgroundColor} = layerAppearance(group);
+        node.style.setProperty('--group-text',color);
+        node.style.borderColor = 'transparent'; node.style.backgroundColor = backgroundColor;
         const title = node.querySelector('.group-title'); title.textContent = group.name || '未命名分组'; title.style.color = color;
         node.querySelector('.group-empty').hidden = project.modules.some(module => module.groupId === group.id);
       }
@@ -178,7 +189,7 @@
       // Keep the buttons readable at every zoom level, anchored below the actual curve midpoint.
       const point = entry.line.getPointAtLength(entry.line.getTotalLength() / 2);
       const x = point.x * view.scale + view.x, y = point.y * view.scale + view.y;
-      const label = entry.label.getBBox();
+      const label = entry.background.classList.contains('is-empty') ? entry.label.getBBox() : entry.background.getBBox();
       const textBottom = (label.y + label.height) * view.scale + view.y;
       relationActions.style.left = `${Math.max(8,Math.min(viewport.clientWidth - relationActions.offsetWidth - 8,x - relationActions.offsetWidth / 2))}px`;
       relationActions.style.top = `${Math.max(8,Math.min(viewport.clientHeight - relationActions.offsetHeight - 8,Math.max(y + 12,textBottom + 8)))}px`;
@@ -220,8 +231,9 @@
         if (!entry) {
           const group = svg('g',{class:'relation-group',tabindex:0,role:'button','data-relation-id':relation.id});
           const line = svg('path',{class:'relation-line','marker-end':'url(#ec-arrow)'}), hit = svg('path',{class:'relation-hit'});
+          const background = svg('rect',{class:'relation-label-background',rx:6,ry:6,'aria-hidden':'true'});
           const label = svg('text',{class:'relation-label','text-anchor':'middle'}), title = svg('title');
-          title.textContent = '点击选中，使用中间的图标编辑文字或删除'; group.append(title,line,hit,label);
+          title.textContent = '点击选中，使用中间的图标编辑文字或删除'; group.append(title,line,hit,background,label);
           group.addEventListener('click',event => {
             if (event.button !== 0 || !annotations.finish()) return;
             cancelConnection(); selectRelation(relation.id); group.focus({preventScroll:true});
@@ -231,20 +243,26 @@
               event.preventDefault(); selectRelation(relation.id); relationActions.querySelector('button').focus({preventScroll:true});
             }
           });
-          entry = {group,line,hit,label}; relationElements.set(relation.id,entry); edgeLayer.insertBefore(group,preview);
+          entry = {group,line,hit,label,background}; relationElements.set(relation.id,entry); edgeLayer.insertBefore(group,preview);
         }
-        const {group,line,hit,label} = entry; entry.point = point;
+        const {group,line,hit,label,background} = entry; entry.point = point;
+        const colors = relationLabelAppearance(project,relation);
+        group.style.setProperty('--label-color',colors.color); group.style.setProperty('--label-background',colors.backgroundColor);
         group.setAttribute('aria-label',`${EC.Model.displayName(from,'未命名模块')} → ${EC.Model.displayName(to,'未命名模块')}：${relation.label || '无备注'}；选中后可编辑或删除`);
         group.classList.toggle('selected',selectedRelation === relation.id); group.setAttribute('aria-pressed',String(selectedRelation === relation.id));
         line.setAttribute('d',path); hit.setAttribute('d',path);
-        label.setAttribute('y',point.y); label.classList.toggle('is-empty',!relation.label);
         const text = relation.label || '';
+        label.setAttribute('y',point.y); label.classList.toggle('is-empty',!text.trim()); background.classList.toggle('is-empty',!text.trim());
         if (entry.text !== text) {
           label.replaceChildren();
           text.split(/\r?\n/).forEach((value,index) => {const span = svg('tspan',{dy:index ? 16 : 0}); span.textContent = value; label.append(span);});
           entry.text = text;
         }
         for (const span of label.children) span.setAttribute('x',point.x);
+        if (text.trim()) {
+          const bounds = label.getBBox();
+          for (const [key,value] of Object.entries({x:bounds.x - 7,y:bounds.y - 4,width:bounds.width + 14,height:bounds.height + 8})) background.setAttribute(key,value);
+        } else {background.setAttribute('width',0); background.setAttribute('height',0);}
         if (annotations.getId() === relation.id) annotations.position({x:point.x * view.scale + view.x,y:point.y * view.scale + view.y});
       }
       refreshRelationActions();
@@ -382,5 +400,5 @@
       finishAnnotation:annotations.finish,hasDraftChanges:annotations.hasDraftChanges,
       destroy() {annotations.cancel(); cancelConnection(); relationActions.remove(); destroyed = true; listeners.forEach(remove => remove()); observer?.disconnect(); mutation.disconnect(); if (frame) cancelAnimationFrame(frame); groupLayer.replaceChildren(); edgeLayer.replaceChildren(); relationElements.clear();}};
   }
-  EC.Canvas = {create,snapPoint,gridStyle,groupBounds,moveSelection,portAnchor,relationGeometry,createConnection};
+  EC.Canvas = {create,snapPoint,gridStyle,groupBounds,moveSelection,portAnchor,relationGeometry,createConnection,layerAppearance,relationLabelAppearance};
 })(globalThis);

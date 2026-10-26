@@ -58,6 +58,14 @@
     const {project,module} = session, editor = element('div','module-editor');
     let sectionId = 0;
     const itemName = item => [item.name,item.englishName].filter(value => value?.trim()).join(' / ');
+    function addInPlace(control,insert) {
+      const form = control.closest('.module-dialog form'), scroller = control.closest('.dialog-body');
+      const scrollTop = scroller?.scrollTop, scrollLeft = scroller?.scrollLeft;
+      // Freeze only this form's height so the centered dialog cannot move the add button.
+      if (form) form.style.height = `${form.getBoundingClientRect().height}px`;
+      insert(); control.focus({preventScroll:true});
+      if (scroller) {scroller.scrollTop = scrollTop; scroller.scrollLeft = scrollLeft;}
+    }
     function fold(title,{open = false,key = '',className = ''} = {}) {
       const section = element('section',`editor-fold ${className}`.trim()), header = element('div','fold-heading');
       const toggle = element('button','fold-toggle'), icon = element('span','fold-icon'), name = element('span','fold-title'), count = element('span','fold-count');
@@ -100,17 +108,10 @@
         list.append(row.section);
         return row;
       }
-      const add = button('add',`添加${title}`,() => {
-        const form = add.closest('.module-dialog form');
-        const scroller = add.closest('.dialog-body');
-        const scrollTop = scroller?.scrollTop, scrollLeft = scroller?.scrollLeft;
-        // The centered dialog must not grow and move the button when a list gains rows.
-        // The form is replaced on each open, so this height belongs only to this session.
-        if (form) form.style.height = `${form.getBoundingClientRect().height}px`;
+      const add = button('add',`添加${title}`,() => addInPlace(add,() => {
         const item = createItem(getItems()); setItems([...getItems(),item]);
-        append(item); syncCount(); add.focus({preventScroll:true});
-        if (scroller) {scroller.scrollTop = scrollTop; scroller.scrollLeft = scrollLeft;}
-      },'group-add');
+        append(item); syncCount();
+      }),'group-add');
       group.header.append(add);
       for (const item of getItems()) append(item);
       syncCount(); return group;
@@ -135,12 +136,46 @@
       const isInput = direction === 'inputs', title = isInput ? '输入参数' : '返回结果';
       return parameterGroup({title,key:direction,getItems:() => entry[direction],setItems:items => update(module,entry,{[direction]:items}),required:isInput,defaults:isInput}).section;
     }
+    function flowSteps(entry) {
+      const group = fold('实现流程',{key:'flow'}), list = element('div','flow-step-list');
+      const empty = element('p','empty-note','点击右上角“＋”添加实现步骤。');
+      const values = entry.flow ? entry.flow.split(/\r\n|\r|\n/) : [];
+      const separator = entry.flow?.match(/\r\n|\r|\n/)?.[0] || '\n';
+      const save = () => update(module,entry,{flow:values.join(separator)});
+      function sync() {
+        group.setCount(values.length); empty.hidden = !!values.length; list.hidden = !values.length;
+        [...list.children].forEach((row,index) => {
+          row.querySelector('.flow-step-index').textContent = String(index + 1);
+          row.querySelector('input').setAttribute('aria-label',`实现步骤 ${index + 1}`);
+          const remove = row.querySelector('button'), label = `删除步骤 ${index + 1}`;
+          remove.setAttribute('aria-label',label); remove.title = label;
+        });
+      }
+      function append(value) {
+        const row = element('div','flow-step-row'), index = element('span','flow-step-index'), input = element('input');
+        index.setAttribute('aria-hidden','true'); input.value = value; input.placeholder = '填写一个实现步骤';
+        input.addEventListener('input',() => {
+          const position = [...list.children].indexOf(row); if (position < 0) return;
+          values[position] = input.value; save();
+        });
+        row.append(index,input,button('trash','删除步骤',() => {
+          const position = [...list.children].indexOf(row); if (position < 0) return;
+          values.splice(position,1); save(); row.remove(); sync();
+          (list.children[position]?.querySelector('input') || list.lastElementChild?.querySelector('input') || add).focus({preventScroll:true});
+        },'member-delete'));
+        list.append(row);
+      }
+      const add = button('add','新增步骤',() => addInPlace(add,() => {
+        const value = `步骤${values.length + 1}`; values.push(value); save(); append(value); sync();
+      }),'group-add');
+      group.header.append(add); group.body.append(empty,list);
+      for (const value of values) append(value);
+      sync(); return group.section;
+    }
     function methodFields(entry,body,rename) {
       body.append(names('方法',entry,(key,value) => {update(module,entry,{[key]:value}); rename();}),field('方法用途',entry.purpose,value => update(module,entry,{purpose:value}),'textarea'));
       body.append(methodParameters(entry,'inputs'),methodParameters(entry,'outputs'));
-      const flow = fold('实现流程',{key:'flow'});
-      flow.body.append(field('实现流程（选填）',entry.flow,value => update(module,entry,{flow:value}),'textarea'));
-      body.append(flow.section,field('可能的错误（选填）',entry.errors,value => update(module,entry,{errors:value}),'textarea'));
+      body.append(flowSteps(entry),field('可能的错误（选填）',entry.errors,value => update(module,entry,{errors:value}),'textarea'));
     }
     function structureFields(entry,patch) {
       const section = element('section','structure-fields'), heading = element('div','structure-fields-heading');
@@ -203,11 +238,10 @@
         },'member-delete'));
         list.append(row); return input;
       }
-      const add = button('add','新增需求',() => {
+      const add = button('add','新增需求',() => addInPlace(add,() => {
         update(module,null,{requirements:[...items(),'']});
-        group.expand(); const input = append(''); sync();
-        input.focus({preventScroll:true}); input.scrollIntoView?.({block:'nearest'});
-      },'group-add');
+        append(''); sync();
+      }),'group-add');
       group.header.append(add); group.body.append(empty,list);
       for (const value of items()) append(value);
       sync(); return group;

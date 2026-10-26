@@ -136,8 +136,9 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
   await openGroup('#ec-dialog [data-editor-group="methods"]');
   assert.equal(await page.evaluate(`${app}.dialogs.hasDraftChanges()`),false,'expanding a group does not edit the draft');
   await openGroup('#ec-dialog [data-editor-group="basics"]');
-  await page.click('#ec-dialog [aria-label="新增需求"]');
-  assert.equal(await page.evaluate('document.activeElement.getAttribute("aria-label")'),'功能需求 1','adding focuses the new requirement');
+  await stableAdd('#ec-dialog [data-editor-group="requirements"]','新增需求');
+  assert.equal(await page.evaluate('document.activeElement.getAttribute("aria-label")'),'新增需求','adding keeps focus on the add button');
+  await openGroup('#ec-dialog [data-editor-group="requirements"]');
   await page.fill('#ec-dialog [aria-label="功能需求 1"]','取消后不能留下需求');
   await page.fill('#ec-dialog [aria-label="模块中文名"]','取消的编辑');
   await page.fill('#ec-dialog [aria-label="模块功能"]','取消的功能修改');
@@ -164,7 +165,8 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
   assert.equal(await page.evaluate(`${app}.dialogs.hasDraftChanges()`),false);
   await openModule(`${draftNode} [data-node-action="edit"]`);
   assert.equal(await page.evaluate('document.querySelectorAll(".requirement-row").length'),0,'cancel discards requirement additions');
-  await page.click('#ec-dialog [aria-label="新增需求"]');
+  await stableAdd('#ec-dialog [data-editor-group="requirements"]','新增需求');
+  await openGroup('#ec-dialog [data-editor-group="requirements"]');
   await page.fill('#ec-dialog [aria-label="功能需求 1"]','Escape 也丢弃需求');
   await page.fill('#ec-dialog [aria-label="模块中文名"]','Escape 丢弃');
   await escape();
@@ -244,11 +246,14 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
   await page.fill('#ec-dialog [aria-label="模块功能"]','收集并保存任务');
   await page.fill('#ec-dialog [aria-label="代码位置"]','src/task.js');
   const savedRequirements = ['保存前检查任务标题不能为空','打开项目时恢复已保存的任务\n损坏的数据应提示原因'];
-  await page.click('#ec-dialog [aria-label="新增需求"]');
+  await stableAdd('#ec-dialog [data-editor-group="requirements"]','新增需求');
+  await openGroup('#ec-dialog [data-editor-group="requirements"]');
   await page.fill('#ec-dialog [aria-label="功能需求 1"]',savedRequirements[0]);
-  await page.click('#ec-dialog [aria-label="新增需求"]');
+  await stableAdd('#ec-dialog [data-editor-group="requirements"]','新增需求');
+  await openGroup('#ec-dialog [data-editor-group="requirements"]');
   await page.fill('#ec-dialog [aria-label="功能需求 2"]','待删除的中间行');
-  await page.click('#ec-dialog [aria-label="新增需求"]');
+  await stableAdd('#ec-dialog [data-editor-group="requirements"]','新增需求');
+  await openGroup('#ec-dialog [data-editor-group="requirements"]');
   await page.fill('#ec-dialog [aria-label="功能需求 3"]','恢复任务');
   await page.click('#ec-dialog [aria-label="删除需求 2"]');
   assert.equal(await page.evaluate('document.activeElement.getAttribute("aria-label")'),'功能需求 2','deleting a row focuses its next sibling');
@@ -267,11 +272,18 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
   await page.fill(`${apiNode} [aria-label="方法中文名"]`,'createTask(input)');
   await page.fill(`${apiNode} [aria-label="方法英文名"]`,'createTask');
   await page.fill(`${apiNode} [aria-label="方法用途"]`,'创建任务');
+  await stableAdd(`${apiNode} [data-editor-group="flow"]`,'新增步骤');
   await openGroup(`${apiNode} [data-editor-group="flow"]`);
-  await page.fill(`${apiNode} [aria-label="实现流程（选填）"]`,'检查输入，再保存任务');
+  await page.fill(`${apiNode} [aria-label="实现步骤 1"]`,'检查输入');
+  await stableAdd(`${apiNode} [data-editor-group="flow"]`,'新增步骤');
+  await page.fill(`${apiNode} [aria-label="实现步骤 2"]`,'临时步骤');
+  await stableAdd(`${apiNode} [data-editor-group="flow"]`,'新增步骤');
+  await page.fill(`${apiNode} [aria-label="实现步骤 3"]`,'保存任务');
+  await page.click(`${apiNode} [aria-label="删除步骤 2"]`);
+  assert.equal(await page.evaluate('document.activeElement.getAttribute("aria-label")'),'实现步骤 2','deleting a flow step retains the next step and updates its index');
   await page.click(`${apiNode} [data-editor-group="flow"] > .fold-heading > .fold-toggle`);
   await openGroup(`${apiNode} [data-editor-group="flow"]`);
-  assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${apiNode} [aria-label="实现流程（选填）"]`)}).value`),'检查输入，再保存任务','collapsing retains unsaved text');
+  assert.deepEqual(await page.evaluate(`Array.from(document.querySelectorAll('${apiNode} .flow-step-row input'),input => input.value)`),['检查输入','保存任务'],'collapsing retains every flow step');
   assert.doesNotMatch(await page.evaluate(`document.querySelector(${JSON.stringify(apiNode)}).textContent`),/待确认|尚未确认|已确认|方案|待核对/);
   await stableAdd(`${apiNode} [data-editor-group="inputs"]`,'添加输入参数');
   await openGroup(`${apiNode} [data-editor-group="inputs"]`); await openGroup(`${apiNode} [data-editor-group="inputs"] .member-editor`);
@@ -298,6 +310,7 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
   await page.fill('#ec-dialog [aria-label="代码位置"]','src/task.js');
   await page.click('#ec-dialog button[aria-label="确定"]');
   const first = await page.evaluate(`${data}.modules[0].id`), firstNode = `.module-node[data-module-id="${first}"]`;
+  assert.equal(await page.evaluate(`${data}.modules[0].interfaces[0].flow`),'检查输入\n保存任务','step rows save using the existing flow field');
   assert.deepEqual(await page.evaluate(`${data}.modules[0].requirements`),savedRequirements);
   assert.equal(await page.evaluate(`${data}.modules[0].x % 10 === 0 && ${data}.modules[0].y % 10 === 0`),true,'new module starts on the grid');
   assert.equal(await page.evaluate(`document.querySelectorAll(${JSON.stringify(`${firstNode} [data-module-group="methods"] > .module-member-list > .module-member`)}).length`),1);
@@ -335,6 +348,8 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
   await page.fill('#ec-dialog [aria-label="层级中文名"]','任务组');
   await page.click('#ec-dialog button[aria-label="确定"]');
   const groupId = await page.evaluate(`${data}.groups[0].id`);
+  assert.equal(await page.evaluate('document.querySelector(".group-header [aria-label=编辑分组]").dataset.icon'),'more');
+  assert.equal(await page.evaluate('getComputedStyle(document.querySelector(".group-header button")).color === getComputedStyle(document.querySelector(".group-title")).color'),true);
   assert.equal(await page.evaluate(`${data}.groups[0].x % 10 === 0 && ${data}.groups[0].y % 10 === 0`),true,'new empty group starts on the grid');
   await openModule(`${firstNode} [data-node-action="edit"]`);
   await page.select('#ec-dialog [aria-label="所属层级"]',groupId);
@@ -347,7 +362,7 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
   const second = await page.evaluate(`${data}.modules[1].id`), secondNode = `.module-node[data-module-id="${second}"]`;
   await page.click('[data-action="fit"]');
   const beforeDrag = await page.evaluate(`${data}.modules[1].x`);
-  await page.drag(`${secondNode} .node-grip`,520,160);
+  await page.drag(`${secondNode} .module-header`,520,160);
   assert.notEqual(await page.evaluate(`${data}.modules[1].x`),beforeDrag,'drag changes stored coordinates');
   assert.equal(await page.evaluate(`${data}.modules[1].x % 10 === 0 && ${data}.modules[1].y % 10 === 0`),true,'dragged module snaps at the current zoom');
   await page.click('[data-action="fit"]');
@@ -430,7 +445,11 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
   assert.equal(await page.evaluate(`${data}.relations[0].label`),'');
   await key('Enter',13);
   assert.equal(await page.evaluate(`${data}.relations[0].label`),'保存任务');
+  assert.equal(await page.evaluate('getComputedStyle(document.querySelector(".relation-label")).fill === getComputedStyle(document.querySelector(".group-title")).color'),true,'arrow text uses the source layer text color');
+  assert.equal(await page.evaluate('getComputedStyle(document.querySelector(".relation-label-background")).fill === getComputedStyle(document.querySelector(".group-frame")).backgroundColor'),true,'arrow label uses the layer background opacity');
+  assert.equal(await page.evaluate('(() => {const label=document.querySelector(".relation-label").getBBox(),background=document.querySelector(".relation-label-background").getBBox();return background.width>label.width && background.height>label.height;})()'),true,'the label background includes padding');
   await editArrow();
+  assert.equal(await page.evaluate('getComputedStyle(document.querySelector(".annotation-editor")).color === getComputedStyle(document.querySelector(".group-title")).color'),true,'editing retains the layer text color');
   await page.fill('[aria-label="箭头备注"]','更新的备注');
   await key('Backspace',8);
   assert.equal(await page.evaluate(`${data}.relations.length`),1,'Backspace in the textarea edits text, not the arrow');
@@ -649,7 +668,8 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
     await screenshot(`module-information-${width}.png`);
     await page.click('#ec-dialog [data-editor-group="basics"] > .fold-heading .fold-toggle');
     for (let index = 0; index < savedRequirements.length; index++) {
-      await page.click('#ec-dialog [aria-label="新增需求"]');
+      await stableAdd('#ec-dialog [data-editor-group="requirements"]','新增需求');
+      await openGroup('#ec-dialog [data-editor-group="requirements"]');
       await page.fill(`#ec-dialog [aria-label="功能需求 ${index + 1}"]`,savedRequirements[index]);
     }
     const requirementLayout = await page.evaluate(`(() => {
@@ -754,10 +774,10 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
     const measure = `(() => {
       const button=document.querySelector(${JSON.stringify(selector)}),group=document.querySelector(${JSON.stringify(groupSelector)});
       const bounds=button.getBoundingClientRect(),scroller=button.closest('.dialog-body');
-      const list=group.querySelector(':scope > .fold-body > .member-list');
+      const list=group.querySelector(':scope > .fold-body > .member-list,:scope > .fold-body > .requirement-list,:scope > .fold-body > .flow-step-list');
       return {left:bounds.left,top:bounds.top,width:bounds.width,height:bounds.height,scrollTop:scroller.scrollTop,scrollLeft:scroller.scrollLeft,
         dialogHeight:button.closest('dialog').getBoundingClientRect().height,expanded:group.querySelector(':scope > .fold-heading > .fold-toggle').getAttribute('aria-expanded'),
-        count:list.children.length,newExpanded:list.lastElementChild?.querySelector('.fold-toggle').getAttribute('aria-expanded'),focused:document.activeElement===button};
+        count:list.children.length,newExpanded:list.lastElementChild?.querySelector('.fold-toggle')?.getAttribute('aria-expanded') ?? null,focused:document.activeElement===button};
     })()`;
     await page.evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center',inline:'center'})`);
     const before = await page.evaluate(measure), point = {x:before.left + before.width / 2,y:before.top + before.height / 2};
@@ -767,7 +787,7 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
     const after = await page.evaluate(measure);
     for (const key of ['left','top','width','height','scrollTop','scrollLeft','dialogHeight']) assert.ok(Math.abs(before[key] - after[key]) < 1,`${label}: ${key} stays fixed`);
     assert.equal(after.expanded,before.expanded,`${label}: group retains its expansion state`);
-    assert.equal(after.newExpanded,'false',`${label}: new row starts collapsed`);
+    if (after.newExpanded !== null) assert.equal(after.newExpanded,'false',`${label}: new row starts collapsed`);
     assert.equal(after.focused,true,`${label}: focus remains on the add button`);
     assert.equal(after.count,before.count + 1);
   }
