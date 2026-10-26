@@ -83,8 +83,8 @@
       const group = fold(title,{key}), list = element('div','member-list'), empty = element('p','empty-note',`尚未添加${title}。`);
       group.body.append(empty,list);
       function syncCount() {group.setCount(getItems().length); empty.hidden = !!getItems().length; afterChange();}
-      function append(item,open = false) {
-        const row = fold(itemName(item) || `未命名${kind}`,{open,className:'member-editor'});
+      function append(item) {
+        const row = fold(itemName(item) || `未命名${kind}`,{className:'member-editor'});
         row.section.dataset.memberId = item.id;
         if (key === 'methods') {
           row.section.classList.add('interface-editor'); row.section.dataset.interfaceId = item.id;
@@ -98,13 +98,20 @@
         },'member-delete'));
         build(item,row.body,() => row.setTitle(itemName(getItems().find(value => value.id === item.id)) || `未命名${kind}`));
         list.append(row.section);
-        if (open) row.body.querySelector('input,textarea,select')?.focus({preventScroll:true});
         return row;
       }
-      group.header.append(button('add',`添加${title}`,() => {
-        const item = createItem(getItems()); setItems([...getItems(),item]); group.expand(); const row = append(item,true); syncCount();
-        row.section.scrollIntoView?.({block:'nearest'});
-      },'group-add'));
+      const add = button('add',`添加${title}`,() => {
+        const form = add.closest('.module-dialog form');
+        const scroller = add.closest('.dialog-body');
+        const scrollTop = scroller?.scrollTop, scrollLeft = scroller?.scrollLeft;
+        // The centered dialog must not grow and move the button when a list gains rows.
+        // The form is replaced on each open, so this height belongs only to this session.
+        if (form) form.style.height = `${form.getBoundingClientRect().height}px`;
+        const item = createItem(getItems()); setItems([...getItems(),item]);
+        append(item); syncCount(); add.focus({preventScroll:true});
+        if (scroller) {scroller.scrollTop = scrollTop; scroller.scrollLeft = scrollLeft;}
+      },'group-add');
+      group.header.append(add);
       for (const item of getItems()) append(item);
       syncCount(); return group;
     }

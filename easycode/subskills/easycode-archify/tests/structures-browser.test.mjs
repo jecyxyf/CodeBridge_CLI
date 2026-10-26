@@ -37,7 +37,10 @@ test('数据结构：增删草稿、保存重开、默认收起和小屏显示',
   assert.equal(await page.evaluate('document.querySelector(".module-dialog-language").hidden'),true);
   const before = await page.evaluate(data);
   await click('添加数据结构');
-  assert.equal(await page.evaluate('document.activeElement.getAttribute("aria-label")'),'数据结构中文名');
+  assert.equal(await page.evaluate('document.activeElement.getAttribute("aria-label")'),'添加数据结构');
+  assert.equal(await page.evaluate(`document.querySelector('${group} > .fold-heading .fold-toggle').getAttribute('aria-expanded')`),'false');
+  assert.equal(await page.evaluate(`document.querySelector('${group} .member-editor > .fold-heading .fold-toggle').getAttribute('aria-expanded')`),'false');
+  await expandStructure();
   await fill('数据结构中文名','任务信息'); await fill('数据结构英文名','TaskInfo');
   assert.equal(await page.evaluate(`document.querySelectorAll('${group} textarea').length`),0,'structure definition uses field rows');
   const values = [['任务名称','taskName','std::string','显示的任务名称 </script><script>globalThis.__injected = true</script>'],['临时字段','temporary','int','稍后删除'],['完成状态','completed','bool','是否已完成']];
@@ -74,6 +77,8 @@ test('数据结构：增删草稿、保存重开、默认收起和小屏显示',
   await click('取消');
   assert.deepEqual(await page.evaluate(`${data}.modules[0].structures`),saved,'canceling the dialog restores deleted entries');
   await open(); await click('添加数据结构');
+  await page.click(`${group} > .fold-heading .fold-toggle`);
+  await page.click(`${group} .member-editor:last-child > .fold-heading .fold-toggle`);
   await page.fill(`${group} .member-editor:last-child [aria-label="数据结构中文名"]`,'临时结构');
   await page.fill(`${group} .member-editor:last-child [aria-label="数据结构英文名"]`,'Temporary');
   await click('确定');

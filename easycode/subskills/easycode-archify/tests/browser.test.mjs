@@ -261,8 +261,9 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
   assert.equal(await page.evaluate('document.querySelector(".module-dialog-name").textContent'),'修改后的任务模块 / TaskModule');
   assert.equal(await page.evaluate('document.querySelector(".module-dialog-language").textContent'),'JavaScript');
   assert.equal(await page.evaluate('(() => {const a = document.querySelector("[aria-label=模块中文名]").getBoundingClientRect(), b = document.querySelector("[aria-label=模块英文名]").getBoundingClientRect(); return Math.abs(a.top-b.top) < 1 && a.right <= b.left;})()'),true,'bilingual names share a row in two columns');
-  await page.click('#ec-dialog button[aria-label="添加方法"]');
+  await stableAdd('#ec-dialog [data-editor-group="methods"]','添加方法');
   const apiId = await page.evaluate('document.querySelector("#ec-dialog .interface-editor").dataset.interfaceId'), apiNode = `#ec-dialog .interface-editor[data-interface-id="${apiId}"]`;
+  await openGroup('#ec-dialog [data-editor-group="methods"]'); await openGroup(apiNode);
   await page.fill(`${apiNode} [aria-label="方法中文名"]`,'createTask(input)');
   await page.fill(`${apiNode} [aria-label="方法英文名"]`,'createTask');
   await page.fill(`${apiNode} [aria-label="方法用途"]`,'创建任务');
@@ -272,13 +273,15 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
   await openGroup(`${apiNode} [data-editor-group="flow"]`);
   assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(`${apiNode} [aria-label="实现流程（选填）"]`)}).value`),'检查输入，再保存任务','collapsing retains unsaved text');
   assert.doesNotMatch(await page.evaluate(`document.querySelector(${JSON.stringify(apiNode)}).textContent`),/待确认|尚未确认|已确认|方案|待核对/);
-  await page.click(`${apiNode} button[aria-label="添加输入参数"]`);
+  await stableAdd(`${apiNode} [data-editor-group="inputs"]`,'添加输入参数');
+  await openGroup(`${apiNode} [data-editor-group="inputs"]`); await openGroup(`${apiNode} [data-editor-group="inputs"] .member-editor`);
   await page.fill(`${apiNode} [aria-label="参数中文名"]`,'title');
   await page.fill(`${apiNode} [aria-label="类型"]`,'string');
   const hostile = '</script><script>globalThis.__injected = true</script><!--EC:DATA-->';
   await page.fill(`${apiNode} [aria-label="参数说明"]`,hostile);
   await openGroup(`${apiNode} [data-editor-group="outputs"]`);
-  await page.click(`${apiNode} button[aria-label="添加返回结果"]`);
+  await stableAdd(`${apiNode} [data-editor-group="outputs"]`,'添加返回结果');
+  await openGroup(`${apiNode} [data-editor-group="outputs"] .member-editor`);
   await page.fill(`${apiNode} [data-editor-group="outputs"] [aria-label="参数中文名"]`,'temporary');
   // Remove the output only; the first row is the retained input.
   await page.click(`${apiNode} [data-editor-group="outputs"] button[aria-label="删除参数"]`);
@@ -307,13 +310,16 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
   assert.equal(await page.evaluate('document.activeElement.getAttribute("aria-label")'),'新增需求');
   assert.equal(await page.evaluate('document.querySelector("[data-editor-group=requirements] .empty-note").hidden'),false);
   assert.equal(await page.evaluate('document.querySelector("[data-editor-group=requirements] .fold-count").textContent'),'0');
-  await page.click('#ec-dialog [data-editor-group="parameters"] button[aria-label="添加参数"]');
+  await stableAdd('#ec-dialog [data-editor-group="parameters"]','添加参数');
+  await openGroup('#ec-dialog [data-editor-group="parameters"]'); await openGroup('#ec-dialog [data-editor-group="parameters"] .member-editor');
   await page.fill('#ec-dialog [data-editor-group="parameters"] [aria-label="参数中文名"]','重试次数');
   await page.fill('#ec-dialog [data-editor-group="parameters"] [aria-label="参数英文名"]','retryCount');
-  await page.click('#ec-dialog [data-editor-group="events"] button[aria-label="添加消息事件"]');
+  await stableAdd('#ec-dialog [data-editor-group="events"]','添加消息事件');
+  await openGroup('#ec-dialog [data-editor-group="events"]'); await openGroup('#ec-dialog [data-editor-group="events"] .member-editor');
   await page.fill('#ec-dialog [data-editor-group="events"] [aria-label="事件中文名"]','任务完成');
   await page.fill('#ec-dialog [data-editor-group="events"] [aria-label="事件英文名"]','taskCompleted');
-  await page.click('#ec-dialog [data-editor-group="tests"] button[aria-label="添加测试项"]');
+  await stableAdd('#ec-dialog [data-editor-group="tests"]','添加测试项');
+  await openGroup('#ec-dialog [data-editor-group="tests"]'); await openGroup('#ec-dialog [data-editor-group="tests"] .member-editor');
   await page.fill('#ec-dialog [data-editor-group="tests"] [aria-label="测试项中文名"]','保存成功');
   assert.deepEqual(await page.evaluate(data),beforeNestedCancel,'all new groups remain drafts');
   assert.equal(await page.evaluate('document.querySelector("[data-editor-group=events] > .fold-heading .fold-count").textContent'),'1');
@@ -659,6 +665,7 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
     await page.fill('#ec-dialog [aria-label="模块中文名"]','长模块名称'.repeat(24));
     await page.fill('#ec-dialog [aria-label="编程语言"]','Custom language with a very long name');
     for (let i = 0; i < 5; i++) await page.click('#ec-dialog button[aria-label="添加方法"]');
+    await openGroup('#ec-dialog [data-editor-group="methods"]');
     const modal = await page.evaluate(`(() => {
       const d = document.querySelector('#ec-dialog').getBoundingClientRect(), body = document.querySelector('.dialog-body');
       const title = document.querySelector('.module-dialog-name').getBoundingClientRect(), language = document.querySelector('.module-dialog-language').getBoundingClientRect();
@@ -741,6 +748,28 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
   async function openGroup(selector) {
     const toggle = `${selector} > .fold-heading > .fold-toggle`;
     if (await page.evaluate(`document.querySelector(${JSON.stringify(toggle)}).getAttribute('aria-expanded') !== 'true'`)) await page.click(toggle);
+  }
+  async function stableAdd(groupSelector,label) {
+    const selector = `${groupSelector} > .fold-heading > button[aria-label="${label}"]`;
+    const measure = `(() => {
+      const button=document.querySelector(${JSON.stringify(selector)}),group=document.querySelector(${JSON.stringify(groupSelector)});
+      const bounds=button.getBoundingClientRect(),scroller=button.closest('.dialog-body');
+      const list=group.querySelector(':scope > .fold-body > .member-list');
+      return {left:bounds.left,top:bounds.top,width:bounds.width,height:bounds.height,scrollTop:scroller.scrollTop,scrollLeft:scroller.scrollLeft,
+        dialogHeight:button.closest('dialog').getBoundingClientRect().height,expanded:group.querySelector(':scope > .fold-heading > .fold-toggle').getAttribute('aria-expanded'),
+        count:list.children.length,newExpanded:list.lastElementChild?.querySelector('.fold-toggle').getAttribute('aria-expanded'),focused:document.activeElement===button};
+    })()`;
+    await page.evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center',inline:'center'})`);
+    const before = await page.evaluate(measure), point = {x:before.left + before.width / 2,y:before.top + before.height / 2};
+    await page.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point});
+    await page.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point});
+    await page.evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    const after = await page.evaluate(measure);
+    for (const key of ['left','top','width','height','scrollTop','scrollLeft','dialogHeight']) assert.ok(Math.abs(before[key] - after[key]) < 1,`${label}: ${key} stays fixed`);
+    assert.equal(after.expanded,before.expanded,`${label}: group retains its expansion state`);
+    assert.equal(after.newExpanded,'false',`${label}: new row starts collapsed`);
+    assert.equal(after.focused,true,`${label}: focus remains on the add button`);
+    assert.equal(after.count,before.count + 1);
   }
   async function escape() {
     await page.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});

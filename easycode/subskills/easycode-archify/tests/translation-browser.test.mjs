@@ -59,10 +59,19 @@ test('翻译按钮：草稿、格式、失败、过期响应、取消和保存�
   await click('翻译层级英文名'); await waitValue('层级英文名','DataLayer'); await click('确定');
   assert.equal(await page.evaluate(`${data}.groups[0].englishName`),'DataLayer');
 
-  await openModule(); await click('添加测试项'); await fill('测试项中文名','保存成功');
+  await openModule(); await click('添加测试项');
+  await page.click('#ec-dialog [data-editor-group="tests"] > .fold-heading .fold-toggle');
+  await page.click('#ec-dialog [data-editor-group="tests"] .member-editor > .fold-heading .fold-toggle');
+  await fill('测试项中文名','保存成功');
   await click('翻译测试项英文名'); await waitValue('测试项英文名','saveSuccess');
-  await click('添加方法'); await fill('方法中文名','保存任务'); await click('翻译方法英文名'); await waitValue('方法英文名','saveTask');
-  await click('添加数据结构'); await fill('数据结构中文名','保存任务');
+  await click('添加方法');
+  await page.click('#ec-dialog [data-editor-group="methods"] > .fold-heading .fold-toggle');
+  await page.click('#ec-dialog [data-editor-group="methods"] .member-editor > .fold-heading .fold-toggle');
+  await fill('方法中文名','保存任务'); await click('翻译方法英文名'); await waitValue('方法英文名','saveTask');
+  await click('添加数据结构');
+  await page.click('#ec-dialog [data-editor-group="structures"] > .fold-heading .fold-toggle');
+  await page.click('#ec-dialog [data-editor-group="structures"] .member-editor > .fold-heading .fold-toggle');
+  await fill('数据结构中文名','保存任务');
   await click('翻译数据结构英文名'); await waitValue('数据结构英文名','SaveTask');
   await click('新增字段'); await fill('中文名','保存任务');
   await click('翻译英文名'); await waitValue('英文名','saveTask');
