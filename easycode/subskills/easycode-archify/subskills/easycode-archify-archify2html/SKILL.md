@@ -1,37 +1,69 @@
 ---
 name: easycode-archify-archify2html
-description: "把 EasyCode 架构 JSON 生成为自带数据、样式和脚本的可编辑 HTML，或用明确的数据基准更新已有网页。用于架构数据转网页，不负责分析源码或自动翻译名称。"
+description: "把 EasyCode 架构 JSON 部署为本地可编辑网站，启动服务并核对数据；也可按需导出独立 HTML。用于架构数据转网页，不负责分析源码或自动翻译名称。"
 ---
 
-# 架构数据转 HTML
+# 架构数据转网页：理解 → 执行 → 检查
 
-## 输入与输出
+输出是完整可编辑网站、当前架构 JSON 和实际访问地址。工具说明见 [README](../../tools/README.md)，字段和校验以 [model.js](../../tools/html/assets/model.js) 为准。
 
-- 输入：符合当前模型的架构 JSON、HTML 输出路径，以及用户要求保留的网页定制。
-- 输出：可独立打开、编辑和保存的 EasyCode HTML。
-- 本技能目录的上两级是技能包根目录。以下默认命令从包根目录运行；用户指定其他输入输出时替换相应路径。
+## 路径约定
 
-数据字段与校验以 [数据模型](../../tools/html/assets/model.js) 为准。使用本包的 [生成工具](../../tools/html/scripts/build.mjs)、[检查工具](../../tools/html/scripts/check.mjs)、tools/html/assets/ 与 tools/html/templates/。
+本 SKILL.md 的上两级是**技能包根目录**。下面的工具命令从技能包根目录运行。目标路径相对于**目标项目根目录**：
 
-## 工作步骤
+| 位置 | 用途 |
+|---|---|
+| 技能包内 `tools/` | 完整工具源目录；其中 JSON 是空框架 |
+| 目标项目 `docs/archify/archify.json` | 当前项目的唯一数据文件 |
+| 目标项目 `docs/archify/index.html` | 网页入口，不内嵌项目快照 |
+| 目标项目 `docs/archify/html/` | 服务、程序、脚本和模板 |
+| 目标项目 `docs/archify/README.md` | 随部署复制的使用说明 |
 
-1. 读取指定 JSON，运行 EasyCode.Model.validate。结构错误修复前不生成目标文件；警告按实际内容处理。
-2. 确定输入基准。用户要求从已编辑 HTML 继续工作时，先由 html2archify 取回已保存数据，不能直接换成旧示例 JSON。
-3. 需要更新已有 HTML 时，确认其中是否有用户定制的模板或脚本。使用 loadBundle 会刷新为本包当前模板和运行代码；需要保留的定制先明确合并方式。
-4. 生成并检查 HTML：
+不要把目标目录拼成 `docs/archify/docs/archify`，也不要把入口放回 `html/index.html`。用户明确指定其他目录时按指定范围处理，并调整相对路径。
 
-    node tools/html/scripts/build.mjs "tools/archify.json" "tools/html/index.html"
-    node tools/html/scripts/check.mjs "tools/html/index.html"
+## 1. 理解
 
-5. 通过 EasyCode.Serialization.readProject 重新读取输出 HTML，并与输入 JSON 深度比较。ID、字段值、布局、分组、连线和视图应保持一致，不补译英文名或擅自整理业务内容。
-6. 需要查看效果且当前工具允许时，检查真实编辑和排版。把数据检查、浏览器检查、原生保存窗口检查分别报告，未执行的不算通过。
+1. 阅读项目协作规则，确定目标项目根目录、当前 JSON、已有部署和用户要求保留的网页定制。已能确定的信息不重复询问。
+2. 默认使用目标项目的 `docs/archify/archify.json`。新项目才使用空框架或明确指定的输入。服务网页以独立 JSON 为准；从导出的 HTML 继续时，先用 html2archify 提取已保存数据。不能用工具空框架覆盖已有设计。
+3. 用 Model.validate 校验输入，确认模块、分层和连线数量。错误解决前不替换目标；警告按实际内容核查。此次只部署时，业务字段、英文名、ID、布局均不改动。
+4. 确认电脑已有 Node.js 22+。本工具不需要安装 npm 依赖；未安装 Node 时说明缺少的环境，不擅自安装。
 
-程序化生成时，tools/html/scripts/build.mjs 导出 loadBundle 和 assemble。assemble(project, await loadBundle()) 返回 HTML；readProject 位于 tools/html/assets/serialization.js，导入后通过 globalThis.EasyCode.Serialization 使用。
+## 2. 执行
 
-生成结果包含 ec-project 项目数据、ec-bundle 源码包和模块节点模板。使用 assemble 或 Serialization.buildDocument 完成内嵌 JSON、脚本和模板槽位的转义与拼装，不手工拼接项目数据块。页面所需的样式、脚本和图标应包含在 HTML 内。
+新部署或更新工具时，使用 [deploy.mjs](../../tools/html/scripts/deploy.mjs)：
 
-## 交付与边界
+```sh
+node tools/html/scripts/deploy.mjs "<目标项目根目录>" --start
+```
 
-交付实际生成的 HTML 路径和检查结果。运行网页的基础功能无需安装 Node 或启动服务，英文名翻译按钮联网时才使用外部服务。Node 用于开发和生成工具。
+明确指定输入 JSON 时，在命令中加入 `--source-json "<JSON路径>"`。命令参数中的相对路径均相对于当前终端目录。已有目标 JSON 会保留；输入与目标不同则停止，先确定正确的数据基准。
 
-网页保存仍写入 HTML 的 ec-project 数据块；不要承诺独立 JSON 自动同步。只刷新网页时不修改输入 JSON、源码或其他项目文件，不另建自动版本副本。
+脚本复制整套工具、打包根目录入口，并启动本机服务。默认从 4175 起选择可用端口；同一目标已有服务时复用。保持服务进程运行，在 Windows 后台启动时隐藏窗口；不要关闭其他项目的服务。
+
+仅需启动已有部署时，从**目标项目根目录**运行：
+
+```sh
+node docs/archify/html/server.mjs
+```
+
+已有网页且只修改了 JSON 时，不重新复制工具或重建 HTML。网页约每 2 秒读取变化；有未保存编辑时保留并提示用户处理。网页保存直接写回同一 JSON。
+
+修改了工具源码或模板时，从**技能包根目录**运行 `node tools/html/scripts/build.mjs --runtime`，再部署新程序。完整指导书 `*.template.html` / `archifytemplate.jsonc` 只供查阅；运行模板中的空槽位由工具填充，不把示例内容当作真实架构。
+
+只有用户需要独立快照时，调用 `build.mjs <JSON路径> <HTML输出路径>`。生成器先写临时文件、读回比较，再替换输出；独立快照不能覆盖网站的 `index.html`。
+
+## 3. 检查
+
+1. 从**目标项目根目录**运行：
+
+```sh
+node docs/archify/html/scripts/check.mjs docs/archify/index.html
+node docs/archify/html/scripts/check.mjs --url <实际访问地址>
+```
+
+2. 核对接口与磁盘 JSON 深度一致，字段、ID、数量、布局、分层和连线不丢失。健康检查通过不等于页面验证通过。
+3. 打开实际 HTTP 地址，核对模块和分层是否在视野内。需要验证写入时使用独立测试项目，检查网页保存后 JSON 更新、外部 JSON 修改后网页刷新，以及冲突时保留未保存内容。不向用户的正式架构添加测试数据。
+4. 独立快照使用 `check.mjs <HTML路径> <输入JSON路径>` 核对；服务入口无 ec-project，不能用 readProject 从入口提取当前设计。
+5. 失败时保留原数据并修复后再验证。分别报告数据检查、服务检查和浏览器检查；未执行的检查不能写成通过。
+
+交付实际部署目录、JSON 路径、HTTP 地址、启动/停止方法和检查结果。网页需要服务保持运行；不要只交付文件路径就声称完成可访问部署。

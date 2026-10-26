@@ -2,6 +2,7 @@
   'use strict';
   const EC = root.EasyCode ||= {};
   const gridSize = 10;
+  const minScale = .01;
   const svgNS = 'http://www.w3.org/2000/svg';
   const interactive = 'input,textarea,select,button,a,label,summary,dialog,[contenteditable=true]';
   const portNames = {top:'上侧',right:'右侧',bottom:'下侧',left:'左侧'};
@@ -102,7 +103,8 @@
     const from = project.modules.find(module => module.id === relation?.from);
     return layerAppearance(project.groups.find(group => group.id === from?.groupId));
   }
-  function create({project,viewport,world,groupLayer,edgeLayer,nodes,onChange = () => {},onGroupEdit = () => {},confirm = message => EC.Dialogs.confirm(message)}) {
+  function create({project,viewport,world,groupLayer,groupTemplate,edgeLayer,nodes,onChange = () => {},onGroupEdit = () => {},confirm = message => EC.Dialogs.confirm(message)}) {
+    if (!groupTemplate?.content?.querySelector('.group-frame')) throw new Error('缺少分层模板');
     const view = project.view, listeners = [], groupElements = new Map(), relationElements = new Map();
     let drag = null, linkDrag = null, frame = 0, destroyed = false, pointer = null, hover = null, preview = null, selectedRelation = '';
     const connection = createConnection({project,onChange,onState:syncConnection});
@@ -159,12 +161,12 @@
       for (const group of project.groups) {
         let node = groupElements.get(group.id);
         if (!node) {
-          node = document.createElement('section'); node.className = 'group-frame'; node.dataset.groupId = group.id;
-          const header = document.createElement('header'); header.className = 'group-header'; header.dataset.groupId = group.id;
-          const title = document.createElement('span'); title.className = 'group-title';
-          const edit = document.createElement('button'); edit.type = 'button'; EC.Icons.set(edit,'more','编辑分组'); edit.addEventListener('click',() => onGroupEdit(group.id));
-          const empty = document.createElement('span'); empty.className = 'group-empty'; empty.textContent = '编辑模块，在“所属层级”中加入此层级';
-          header.append(title,edit); node.append(header,empty); groupLayer.append(node); groupElements.set(group.id,node);
+          const fragment = groupTemplate.content.cloneNode(true);
+          node = fragment.querySelector('.group-frame'); node.dataset.groupId = group.id;
+          node.querySelector('.group-header').dataset.groupId = group.id;
+          EC.Icons.hydrate(node);
+          node.querySelector('[data-group-action="edit"]').addEventListener('click',() => onGroupEdit(group.id));
+          groupLayer.append(fragment); groupElements.set(group.id,node);
         }
         const bounds = boundsForGroup(group);
         Object.assign(node.style,{left:`${bounds.x}px`,top:`${bounds.y}px`,width:`${bounds.width}px`,height:`${bounds.height}px`});
@@ -284,7 +286,7 @@
     function changed() {onChange({semantic:false,render:false});}
     function centerPoint() {return {x:(viewport.clientWidth / 2 - view.x) / view.scale,y:(viewport.clientHeight / 2 - view.y) / view.scale};}
     function zoomAt(factor,x,y) {
-      const next = Math.max(.25,Math.min(1.8,view.scale * factor)); if (next === view.scale) return;
+      const next = Math.max(minScale,Math.min(1.8,view.scale * factor)); if (next === view.scale) return;
       const wx = (x - view.x) / view.scale, wy = (y - view.y) / view.scale;
       view.scale = next; view.x = x - wx * next; view.y = y - wy * next; refresh(); changed();
     }
@@ -295,11 +297,28 @@
       else {
         const left = Math.min(...bounds.map(item => item.x)), top = Math.min(...bounds.map(item => item.y));
         const width = Math.max(...bounds.map(item => item.x + item.width)) - left, height = Math.max(...bounds.map(item => item.y + item.height)) - top;
-        view.scale = Math.max(.25,Math.min(1.2,(viewport.clientWidth - 100) / width,(viewport.clientHeight - 100) / height));
+        view.scale = Math.max(minScale,Math.min(1.2,(viewport.clientWidth - 100) / width,(viewport.clientHeight - 100) / height));
         view.x = (viewport.clientWidth - width * view.scale) / 2 - left * view.scale;
         view.y = (viewport.clientHeight - height * view.scale) / 2 - top * view.scale;
       }
       refresh(); if (notify) changed();
+    }
+    function restoreView() {
+      const defaultView = view.x === 0 && view.y === 0 && view.scale === 1;
+      const previousScale = view.scale;
+      view.scale = Math.max(minScale,view.scale);
+      const bounds = [
+        ...project.modules.map(nodeBounds),
+        ...project.groups.map(group => ({...boundsForGroup(group),height:44}))
+      ];
+      const visible = bounds.some(item => {
+        const left = item.x * view.scale + view.x, top = item.y * view.scale + view.y;
+        return left < viewport.clientWidth && top < viewport.clientHeight &&
+          left + item.width * view.scale > 0 && top + item.height * view.scale > 0;
+      });
+      // Recover an off-screen saved view only when opening or importing a project.
+      if (bounds.length && (defaultView || !visible)) fit({notify:false});
+      else if (view.scale !== previousScale) refresh();
     }
     listen(viewport,'wheel',event => {
       // Text boxes and selects retain normal scrolling and selection behavior.
@@ -396,7 +415,7 @@
     const mutation = new MutationObserver(() => {if (observer) {observer.disconnect(); observer.observe(viewport); for (const module of project.modules) {const node = nodes.getElement(module.id); if (node) observer.observe(node);}} scheduleRefresh();});
     mutation.observe(document.getElementById('ec-nodes') || world,{childList:true});
     refresh();
-    return {refresh,fit,zoomBy,centerPoint,cancelConnection,
+    return {refresh,fit,restoreView,zoomBy,centerPoint,cancelConnection,
       finishAnnotation:annotations.finish,hasDraftChanges:annotations.hasDraftChanges,
       destroy() {annotations.cancel(); cancelConnection(); relationActions.remove(); destroyed = true; listeners.forEach(remove => remove()); observer?.disconnect(); mutation.disconnect(); if (frame) cancelAnimationFrame(frame); groupLayer.replaceChildren(); edgeLayer.replaceChildren(); relationElements.clear();}};
   }

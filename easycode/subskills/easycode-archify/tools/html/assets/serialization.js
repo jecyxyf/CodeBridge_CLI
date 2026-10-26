@@ -1,7 +1,7 @@
 (function (root) {
   'use strict';
   const namespace = root.EasyCode ||= {};
-  const slots = ['TITLE','STYLE','NODE','DATA','BUNDLE','RUNTIME'];
+  const slots = ['TITLE','STYLE','NODE','GROUP','DATA','BUNDLE','RUNTIME'];
   function safeJSON(value) {
     return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g,
       character => '\\u' + character.charCodeAt(0).toString(16).padStart(4,'0'));
@@ -9,8 +9,8 @@
   function escapeHTML(value) {
     return String(value).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
   }
-  function buildDocument(bundle, project) {
-    for (const field of ['canvas','node','css','runtime']) {
+  function buildDocument(bundle, project, {service = false} = {}) {
+    for (const field of ['canvas','node','group','css','runtime']) {
       if (typeof bundle?.[field] !== 'string') throw new Error(`bundle.${field} 应为文字`);
     }
     const validation = namespace.Model.validate(project);
@@ -22,12 +22,13 @@
       TITLE: escapeHTML(namespace.Model.projectTitle(project)),
       STYLE: `<style>${bundle.css.replace(/<\/style/gi, '<\\/style')}</style>`,
       NODE: bundle.node,
-      DATA: `<script id="ec-project" type="application/json">${safeJSON(project)}</script>`,
+      GROUP: bundle.group,
+      DATA: service ? '<meta name="easycode-service" content="archify">' : `<script id="ec-project" type="application/json">${safeJSON(project)}</script>`,
       BUNDLE: `<script id="ec-bundle" type="application/json">${safeJSON(bundle)}</script>`,
       RUNTIME: `<script>${bundle.runtime.replace(/<\/script/gi, '<\\/script')}</script>`
     };
     // A callback replacement never reinterprets text inserted by another slot.
-    return bundle.canvas.replace(/<!--EC:(TITLE|STYLE|NODE|DATA|BUNDLE|RUNTIME)-->/g, (_, slot) => replacements[slot]);
+    return bundle.canvas.replace(/<!--EC:(TITLE|STYLE|NODE|GROUP|DATA|BUNDLE|RUNTIME)-->/g, (_, slot) => replacements[slot]);
   }
   function decodeAttribute(value) {
     return value.replace(/&(#x[0-9a-f]+|#\d+|amp|quot|apos|lt|gt);/gi, (whole, entity) => {
@@ -58,6 +59,7 @@
       const name = match[1].toLowerCase(), closing = match[0][1] === '/';
       if (name === 'template') {templateDepth += closing ? -Math.min(templateDepth,1) : 1; continue;}
       if (closing) continue;
+      if (name === 'meta' && templateDepth === 0 && attributes(match[2]).name === 'easycode-service') throw Object.assign(new Error('这是服务入口，项目数据位于同目录的 archify.json。'),{code:'SERVICE_ENTRY'});
       if (!['script','style','textarea','title','xmp','iframe','noembed','noframes'].includes(name)) continue;
       const endTag = new RegExp(`<\\/${name}\\s*>`,'gi'); endTag.lastIndex = tags.lastIndex;
       const end = endTag.exec(html), content = html.slice(tags.lastIndex, end ? end.index : html.length);

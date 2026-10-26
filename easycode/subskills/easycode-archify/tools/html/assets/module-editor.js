@@ -293,7 +293,7 @@
         const patch = (key,value) => {EC.Model.updateMember(project,module.id,'tests',entry.id,{[key]:value});};
         body.append(names('测试项',entry,(key,value) => {patch(key,value); rename();}),field('测试步骤',entry.steps,value => patch('steps',value),'textarea'),field('预期结果',entry.expected,value => patch('expected',value),'textarea'));
       }});
-    editor.append(element('p','dialog-note','点击组标题展开或收起。修改后点“确定”，再用顶部“保存”写入 HTML。'),appearance.section,basics.section,requirements.section,parameters.section,structures.section,methods.section,events.section,tests.section);
+    editor.append(element('p','dialog-note','点击组标题展开或收起。修改后点“确定”，再用顶部“保存”保存项目。'),appearance.section,basics.section,requirements.section,parameters.section,structures.section,methods.section,events.section,tests.section);
     return editor;
   }
   EC.ModuleEditor = {begin,hasChanges,commit,create};

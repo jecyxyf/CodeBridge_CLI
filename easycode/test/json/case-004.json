@@ -1,0 +1,48 @@
+{
+  "formatVersion": 1,
+  "id": "project-case-004-1",
+  "name": "稳定性测试 004 · 最小项目",
+  "englishName": "stability-case-004",
+  "description": "固定种子 2026102604，最小项目，仅包含生成的测试数据。",
+  "repository": {
+    "path": "",
+    "revision": "test-revision",
+    "dirty": false
+  },
+  "groups": [],
+  "modules": [
+    {
+      "id": "module-case-004-2",
+      "name": "模块1",
+      "englishName": "Module1",
+      "purpose": "处理第 1 个模块的任务。",
+      "language": "",
+      "codeLocation": "",
+      "groupId": "",
+      "x": 80,
+      "y": 120,
+      "appearance": {
+        "textColor": "#17254d",
+        "backgroundColor": "#fcfdff",
+        "headerColor": "#f4f7ff"
+      },
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "requirements": [],
+      "interfaces": [],
+      "parameters": [],
+      "structures": [],
+      "events": [],
+      "tests": []
+    }
+  ],
+  "relations": [],
+  "view": {
+    "x": 0,
+    "y": 0,
+    "scale": 1,
+    "expanded": [],
+    "expandedInterfaces": []
+  }
+}

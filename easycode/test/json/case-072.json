@@ -1,0 +1,913 @@
+{
+  "formatVersion": 1,
+  "id": "project-case-072-1",
+  "name": "稳定性测试 072 · 长文字与特殊字符",
+  "englishName": "stability-case-072",
+  "description": "固定种子 2026102672，长文字与特殊字符，仅包含生成的测试数据。",
+  "repository": {
+    "path": "",
+    "revision": "test-revision",
+    "dirty": false
+  },
+  "groups": [
+    {
+      "id": "group-case-072-2",
+      "name": "层级1",
+      "englishName": "Layer1",
+      "color": "#ffffff",
+      "backgroundColor": "#81b3e9",
+      "x": 0,
+      "y": 60
+    }
+  ],
+  "modules": [
+    {
+      "id": "module-case-072-3",
+      "name": "</script><script>globalThis.__fixtureInjection=true</script> 模块1",
+      "englishName": "Module1",
+      "purpose": "很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。",
+      "language": "",
+      "codeLocation": "",
+      "groupId": "group-case-072-2",
+      "x": 80,
+      "y": 120,
+      "appearance": {
+        "textColor": "#17254d",
+        "backgroundColor": "#fcfdff",
+        "headerColor": "#f4f7ff"
+      },
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "requirements": [
+        "输入后保存内容。",
+        "删除前确认选定对象。",
+        "保存 \"任务\" 与路径 C:\\测试\\任务"
+      ],
+      "interfaces": [
+        {
+          "id": "interface-case-072-12",
+          "name": "方法1",
+          "englishName": "method1",
+          "purpose": "保存 \"任务\" 与路径 C:\\测试\\任务",
+          "flow": "检查输入\n执行处理\n返回结果",
+          "errors": "输入无效时返回错误\n处理失败时保留原因",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": false,
+          "outputsConfirmed": false,
+          "inputs": [
+            {
+              "id": "param-case-072-13",
+              "name": "输入1",
+              "englishName": "parameter13",
+              "type": "number",
+              "description": "中文 English 😀 ∑   分隔符   换行\n第二行\t制表符参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": false,
+              "defaultValue": ""
+            },
+            {
+              "id": "param-case-072-14",
+              "name": "输入2",
+              "englishName": "parameter14",
+              "type": "boolean",
+              "description": "包含 < > & 单引号' 和反引号 ` 的内容参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "param-case-072-15",
+              "name": "输出1",
+              "englishName": "parameter15",
+              "type": "TaskData",
+              "description": "保存 \"任务\" 与路径 C:\\测试\\任务参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": false,
+              "defaultValue": "0"
+            }
+          ]
+        }
+      ],
+      "parameters": [
+        {
+          "id": "param-case-072-4",
+          "name": "参数1",
+          "englishName": "parameter4",
+          "type": "string[]",
+          "description": "包含 < > & 单引号' 和反引号 ` 的内容参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-5",
+          "name": "参数2",
+          "englishName": "parameter5",
+          "type": "std::vector<std::string>",
+          "description": "保存 \"任务\" 与路径 C:\\测试\\任务参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-6",
+          "name": "参数3",
+          "englishName": "parameter6",
+          "type": "string",
+          "description": "<img data-fixture-injection src=x onerror=\"globalThis.__fixtureInjection=true\">参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": "0"
+        },
+        {
+          "id": "param-case-072-7",
+          "name": "参数4",
+          "englishName": "parameter7",
+          "type": "number",
+          "description": "</script><script>globalThis.__fixtureInjection=true</script>参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-8",
+          "name": "参数5",
+          "englishName": "parameter8",
+          "type": "boolean",
+          "description": "中文 English 😀 ∑   分隔符   换行\n第二行\t制表符参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-9",
+          "name": "参数6",
+          "englishName": "parameter9",
+          "type": "TaskData",
+          "description": "包含 < > & 单引号' 和反引号 ` 的内容参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": "0"
+        },
+        {
+          "id": "param-case-072-10",
+          "name": "参数7",
+          "englishName": "parameter10",
+          "type": "string[]",
+          "description": "保存 \"任务\" 与路径 C:\\测试\\任务参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-11",
+          "name": "参数8",
+          "englishName": "parameter11",
+          "type": "std::vector<std::string>",
+          "description": "<img data-fixture-injection src=x onerror=\"globalThis.__fixtureInjection=true\">参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": ""
+        }
+      ],
+      "structures": [],
+      "events": [
+        {
+          "id": "event-case-072-16",
+          "name": "事件1",
+          "englishName": "event1",
+          "description": "<img data-fixture-injection src=x onerror=\"globalThis.__fixtureInjection=true\">",
+          "direction": "emit",
+          "trigger": "",
+          "parameters": [
+            {
+              "id": "param-case-072-17",
+              "name": "消息内容",
+              "englishName": "parameter17",
+              "type": "std::vector<std::string>",
+              "description": "</script><script>globalThis.__fixtureInjection=true</script>参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": false,
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "tests": []
+    },
+    {
+      "id": "module-case-072-18",
+      "name": "中文 English 😀 ∑   分隔符   换行\n第二行\t制表符 模块2",
+      "englishName": "Module2",
+      "purpose": "很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。",
+      "language": "",
+      "codeLocation": "",
+      "groupId": "group-case-072-2",
+      "x": 640,
+      "y": 120,
+      "appearance": {
+        "textColor": "#17254d",
+        "backgroundColor": "#fcfdff",
+        "headerColor": "#f4f7ff"
+      },
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "requirements": [
+        "输入后保存内容。",
+        "删除前确认选定对象。",
+        "<img data-fixture-injection src=x onerror=\"globalThis.__fixtureInjection=true\">"
+      ],
+      "interfaces": [
+        {
+          "id": "interface-case-072-27",
+          "name": "方法1",
+          "englishName": "method1",
+          "purpose": "<img data-fixture-injection src=x onerror=\"globalThis.__fixtureInjection=true\">",
+          "flow": "检查输入\n执行处理\n返回结果",
+          "errors": "输入无效时返回错误\n处理失败时保留原因",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": false,
+          "outputsConfirmed": false,
+          "inputs": [
+            {
+              "id": "param-case-072-28",
+              "name": "输入1",
+              "englishName": "parameter28",
+              "type": "string[]",
+              "description": "中文 English 😀 ∑   分隔符   换行\n第二行\t制表符参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": true,
+              "defaultValue": ""
+            },
+            {
+              "id": "param-case-072-29",
+              "name": "输入2",
+              "englishName": "parameter29",
+              "type": "std::vector<std::string>",
+              "description": "包含 < > & 单引号' 和反引号 ` 的内容参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": false,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "param-case-072-30",
+              "name": "输出1",
+              "englishName": "parameter30",
+              "type": "string",
+              "description": "保存 \"任务\" 与路径 C:\\测试\\任务参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": true,
+              "defaultValue": "0"
+            }
+          ]
+        }
+      ],
+      "parameters": [
+        {
+          "id": "param-case-072-19",
+          "name": "参数1",
+          "englishName": "parameter19",
+          "type": "number",
+          "description": "包含 < > & 单引号' 和反引号 ` 的内容参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-20",
+          "name": "参数2",
+          "englishName": "parameter20",
+          "type": "boolean",
+          "description": "保存 \"任务\" 与路径 C:\\测试\\任务参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-21",
+          "name": "参数3",
+          "englishName": "parameter21",
+          "type": "TaskData",
+          "description": "<img data-fixture-injection src=x onerror=\"globalThis.__fixtureInjection=true\">参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": "0"
+        },
+        {
+          "id": "param-case-072-22",
+          "name": "参数4",
+          "englishName": "parameter22",
+          "type": "string[]",
+          "description": "</script><script>globalThis.__fixtureInjection=true</script>参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-23",
+          "name": "参数5",
+          "englishName": "parameter23",
+          "type": "std::vector<std::string>",
+          "description": "中文 English 😀 ∑   分隔符   换行\n第二行\t制表符参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-24",
+          "name": "参数6",
+          "englishName": "parameter24",
+          "type": "string",
+          "description": "包含 < > & 单引号' 和反引号 ` 的内容参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": "0"
+        },
+        {
+          "id": "param-case-072-25",
+          "name": "参数7",
+          "englishName": "parameter25",
+          "type": "number",
+          "description": "保存 \"任务\" 与路径 C:\\测试\\任务参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-26",
+          "name": "参数8",
+          "englishName": "parameter26",
+          "type": "boolean",
+          "description": "<img data-fixture-injection src=x onerror=\"globalThis.__fixtureInjection=true\">参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": ""
+        }
+      ],
+      "structures": [],
+      "events": [
+        {
+          "id": "event-case-072-31",
+          "name": "事件1",
+          "englishName": "event1",
+          "description": "</script><script>globalThis.__fixtureInjection=true</script>",
+          "direction": "receive",
+          "trigger": "",
+          "parameters": [
+            {
+              "id": "param-case-072-32",
+              "name": "消息内容",
+              "englishName": "parameter32",
+              "type": "boolean",
+              "description": "</script><script>globalThis.__fixtureInjection=true</script>参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "tests": []
+    },
+    {
+      "id": "module-case-072-33",
+      "name": "包含 < > & 单引号' 和反引号 ` 的内容 模块3",
+      "englishName": "Module3",
+      "purpose": "很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。",
+      "language": "",
+      "codeLocation": "",
+      "groupId": "group-case-072-2",
+      "x": 1200,
+      "y": 120,
+      "appearance": {
+        "textColor": "#17254d",
+        "backgroundColor": "#fcfdff",
+        "headerColor": "#f4f7ff"
+      },
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "requirements": [
+        "输入后保存内容。",
+        "删除前确认选定对象。",
+        "</script><script>globalThis.__fixtureInjection=true</script>"
+      ],
+      "interfaces": [
+        {
+          "id": "interface-case-072-42",
+          "name": "方法1",
+          "englishName": "method1",
+          "purpose": "</script><script>globalThis.__fixtureInjection=true</script>",
+          "flow": "检查输入\n执行处理\n返回结果",
+          "errors": "输入无效时返回错误\n处理失败时保留原因",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": false,
+          "outputsConfirmed": false,
+          "inputs": [
+            {
+              "id": "param-case-072-43",
+              "name": "输入1",
+              "englishName": "parameter43",
+              "type": "number",
+              "description": "中文 English 😀 ∑   分隔符   换行\n第二行\t制表符参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": false,
+              "defaultValue": ""
+            },
+            {
+              "id": "param-case-072-44",
+              "name": "输入2",
+              "englishName": "parameter44",
+              "type": "boolean",
+              "description": "包含 < > & 单引号' 和反引号 ` 的内容参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "param-case-072-45",
+              "name": "输出1",
+              "englishName": "parameter45",
+              "type": "TaskData",
+              "description": "保存 \"任务\" 与路径 C:\\测试\\任务参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": false,
+              "defaultValue": "0"
+            }
+          ]
+        }
+      ],
+      "parameters": [
+        {
+          "id": "param-case-072-34",
+          "name": "参数1",
+          "englishName": "parameter34",
+          "type": "string[]",
+          "description": "包含 < > & 单引号' 和反引号 ` 的内容参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-35",
+          "name": "参数2",
+          "englishName": "parameter35",
+          "type": "std::vector<std::string>",
+          "description": "保存 \"任务\" 与路径 C:\\测试\\任务参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-36",
+          "name": "参数3",
+          "englishName": "parameter36",
+          "type": "string",
+          "description": "<img data-fixture-injection src=x onerror=\"globalThis.__fixtureInjection=true\">参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": "0"
+        },
+        {
+          "id": "param-case-072-37",
+          "name": "参数4",
+          "englishName": "parameter37",
+          "type": "number",
+          "description": "</script><script>globalThis.__fixtureInjection=true</script>参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-38",
+          "name": "参数5",
+          "englishName": "parameter38",
+          "type": "boolean",
+          "description": "中文 English 😀 ∑   分隔符   换行\n第二行\t制表符参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-39",
+          "name": "参数6",
+          "englishName": "parameter39",
+          "type": "TaskData",
+          "description": "包含 < > & 单引号' 和反引号 ` 的内容参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": "0"
+        },
+        {
+          "id": "param-case-072-40",
+          "name": "参数7",
+          "englishName": "parameter40",
+          "type": "string[]",
+          "description": "保存 \"任务\" 与路径 C:\\测试\\任务参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-41",
+          "name": "参数8",
+          "englishName": "parameter41",
+          "type": "std::vector<std::string>",
+          "description": "<img data-fixture-injection src=x onerror=\"globalThis.__fixtureInjection=true\">参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": ""
+        }
+      ],
+      "structures": [],
+      "events": [
+        {
+          "id": "event-case-072-46",
+          "name": "事件1",
+          "englishName": "event1",
+          "description": "中文 English 😀 ∑   分隔符   换行\n第二行\t制表符",
+          "direction": "emit",
+          "trigger": "",
+          "parameters": [
+            {
+              "id": "param-case-072-47",
+              "name": "消息内容",
+              "englishName": "parameter47",
+              "type": "std::vector<std::string>",
+              "description": "</script><script>globalThis.__fixtureInjection=true</script>参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": false,
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "tests": []
+    },
+    {
+      "id": "module-case-072-48",
+      "name": "保存 \"任务\" 与路径 C:\\测试\\任务 模块4",
+      "englishName": "Module4",
+      "purpose": "很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。",
+      "language": "",
+      "codeLocation": "",
+      "groupId": "group-case-072-2",
+      "x": 1760,
+      "y": 120,
+      "appearance": {
+        "textColor": "#17254d",
+        "backgroundColor": "#fcfdff",
+        "headerColor": "#f4f7ff"
+      },
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "requirements": [
+        "输入后保存内容。",
+        "删除前确认选定对象。",
+        "中文 English 😀 ∑   分隔符   换行\n第二行\t制表符"
+      ],
+      "interfaces": [
+        {
+          "id": "interface-case-072-57",
+          "name": "方法1",
+          "englishName": "method1",
+          "purpose": "中文 English 😀 ∑   分隔符   换行\n第二行\t制表符",
+          "flow": "检查输入\n执行处理\n返回结果",
+          "errors": "输入无效时返回错误\n处理失败时保留原因",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": false,
+          "outputsConfirmed": false,
+          "inputs": [
+            {
+              "id": "param-case-072-58",
+              "name": "输入1",
+              "englishName": "parameter58",
+              "type": "string[]",
+              "description": "中文 English 😀 ∑   分隔符   换行\n第二行\t制表符参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": true,
+              "defaultValue": ""
+            },
+            {
+              "id": "param-case-072-59",
+              "name": "输入2",
+              "englishName": "parameter59",
+              "type": "std::vector<std::string>",
+              "description": "包含 < > & 单引号' 和反引号 ` 的内容参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": false,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "param-case-072-60",
+              "name": "输出1",
+              "englishName": "parameter60",
+              "type": "string",
+              "description": "保存 \"任务\" 与路径 C:\\测试\\任务参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": true,
+              "defaultValue": "0"
+            }
+          ]
+        }
+      ],
+      "parameters": [
+        {
+          "id": "param-case-072-49",
+          "name": "参数1",
+          "englishName": "parameter49",
+          "type": "number",
+          "description": "包含 < > & 单引号' 和反引号 ` 的内容参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-50",
+          "name": "参数2",
+          "englishName": "parameter50",
+          "type": "boolean",
+          "description": "保存 \"任务\" 与路径 C:\\测试\\任务参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-51",
+          "name": "参数3",
+          "englishName": "parameter51",
+          "type": "TaskData",
+          "description": "<img data-fixture-injection src=x onerror=\"globalThis.__fixtureInjection=true\">参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": "0"
+        },
+        {
+          "id": "param-case-072-52",
+          "name": "参数4",
+          "englishName": "parameter52",
+          "type": "string[]",
+          "description": "</script><script>globalThis.__fixtureInjection=true</script>参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-53",
+          "name": "参数5",
+          "englishName": "parameter53",
+          "type": "std::vector<std::string>",
+          "description": "中文 English 😀 ∑   分隔符   换行\n第二行\t制表符参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-54",
+          "name": "参数6",
+          "englishName": "parameter54",
+          "type": "string",
+          "description": "包含 < > & 单引号' 和反引号 ` 的内容参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": "0"
+        },
+        {
+          "id": "param-case-072-55",
+          "name": "参数7",
+          "englishName": "parameter55",
+          "type": "number",
+          "description": "保存 \"任务\" 与路径 C:\\测试\\任务参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-56",
+          "name": "参数8",
+          "englishName": "parameter56",
+          "type": "boolean",
+          "description": "<img data-fixture-injection src=x onerror=\"globalThis.__fixtureInjection=true\">参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": ""
+        }
+      ],
+      "structures": [],
+      "events": [
+        {
+          "id": "event-case-072-61",
+          "name": "事件1",
+          "englishName": "event1",
+          "description": "包含 < > & 单引号' 和反引号 ` 的内容",
+          "direction": "receive",
+          "trigger": "",
+          "parameters": [
+            {
+              "id": "param-case-072-62",
+              "name": "消息内容",
+              "englishName": "parameter62",
+              "type": "boolean",
+              "description": "</script><script>globalThis.__fixtureInjection=true</script>参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "tests": []
+    },
+    {
+      "id": "module-case-072-63",
+      "name": "<img data-fixture-injection src=x onerror=\"globalThis.__fixtureInjection=true\"> 模块5",
+      "englishName": "Module5",
+      "purpose": "很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。很长的模块功能说明。",
+      "language": "",
+      "codeLocation": "",
+      "groupId": "",
+      "x": 2320,
+      "y": 120,
+      "appearance": {
+        "textColor": "#17254d",
+        "backgroundColor": "#fcfdff",
+        "headerColor": "#f4f7ff"
+      },
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "requirements": [
+        "输入后保存内容。",
+        "删除前确认选定对象。",
+        "包含 < > & 单引号' 和反引号 ` 的内容"
+      ],
+      "interfaces": [
+        {
+          "id": "interface-case-072-72",
+          "name": "方法1",
+          "englishName": "method1",
+          "purpose": "包含 < > & 单引号' 和反引号 ` 的内容",
+          "flow": "检查输入\n执行处理\n返回结果",
+          "errors": "输入无效时返回错误\n处理失败时保留原因",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": false,
+          "outputsConfirmed": false,
+          "inputs": [
+            {
+              "id": "param-case-072-73",
+              "name": "输入1",
+              "englishName": "parameter73",
+              "type": "number",
+              "description": "中文 English 😀 ∑   分隔符   换行\n第二行\t制表符参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": false,
+              "defaultValue": ""
+            },
+            {
+              "id": "param-case-072-74",
+              "name": "输入2",
+              "englishName": "parameter74",
+              "type": "boolean",
+              "description": "包含 < > & 单引号' 和反引号 ` 的内容参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "param-case-072-75",
+              "name": "输出1",
+              "englishName": "parameter75",
+              "type": "TaskData",
+              "description": "保存 \"任务\" 与路径 C:\\测试\\任务参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": false,
+              "defaultValue": "0"
+            }
+          ]
+        }
+      ],
+      "parameters": [
+        {
+          "id": "param-case-072-64",
+          "name": "参数1",
+          "englishName": "parameter64",
+          "type": "string[]",
+          "description": "包含 < > & 单引号' 和反引号 ` 的内容参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-65",
+          "name": "参数2",
+          "englishName": "parameter65",
+          "type": "std::vector<std::string>",
+          "description": "保存 \"任务\" 与路径 C:\\测试\\任务参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-66",
+          "name": "参数3",
+          "englishName": "parameter66",
+          "type": "string",
+          "description": "<img data-fixture-injection src=x onerror=\"globalThis.__fixtureInjection=true\">参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": "0"
+        },
+        {
+          "id": "param-case-072-67",
+          "name": "参数4",
+          "englishName": "parameter67",
+          "type": "number",
+          "description": "</script><script>globalThis.__fixtureInjection=true</script>参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-68",
+          "name": "参数5",
+          "englishName": "parameter68",
+          "type": "boolean",
+          "description": "中文 English 😀 ∑   分隔符   换行\n第二行\t制表符参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-69",
+          "name": "参数6",
+          "englishName": "parameter69",
+          "type": "TaskData",
+          "description": "包含 < > & 单引号' 和反引号 ` 的内容参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": "0"
+        },
+        {
+          "id": "param-case-072-70",
+          "name": "参数7",
+          "englishName": "parameter70",
+          "type": "string[]",
+          "description": "保存 \"任务\" 与路径 C:\\测试\\任务参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-072-71",
+          "name": "参数8",
+          "englishName": "parameter71",
+          "type": "std::vector<std::string>",
+          "description": "<img data-fixture-injection src=x onerror=\"globalThis.__fixtureInjection=true\">参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+          "required": false,
+          "defaultValue": ""
+        }
+      ],
+      "structures": [],
+      "events": [
+        {
+          "id": "event-case-072-76",
+          "name": "事件1",
+          "englishName": "event1",
+          "description": "保存 \"任务\" 与路径 C:\\测试\\任务",
+          "direction": "emit",
+          "trigger": "",
+          "parameters": [
+            {
+              "id": "param-case-072-77",
+              "name": "消息内容",
+              "englishName": "parameter77",
+              "type": "std::vector<std::string>",
+              "description": "</script><script>globalThis.__fixtureInjection=true</script>参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。参数说明。",
+              "required": false,
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "tests": []
+    }
+  ],
+  "relations": [
+    {
+      "id": "relation-case-072-78",
+      "from": "module-case-072-3",
+      "to": "module-case-072-18",
+      "label": "<img data-fixture-injection src=x onerror=\"globalThis.__fixtureInjection=true\">",
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "fromPort": "right",
+      "toPort": "left"
+    },
+    {
+      "id": "relation-case-072-79",
+      "from": "module-case-072-18",
+      "to": "module-case-072-33",
+      "label": "</script><script>globalThis.__fixtureInjection=true</script>",
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "fromPort": "right",
+      "toPort": "left"
+    },
+    {
+      "id": "relation-case-072-80",
+      "from": "module-case-072-33",
+      "to": "module-case-072-48",
+      "label": "中文 English 😀 ∑   分隔符   换行\n第二行\t制表符",
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "fromPort": "right",
+      "toPort": "left"
+    },
+    {
+      "id": "relation-case-072-81",
+      "from": "module-case-072-48",
+      "to": "module-case-072-63",
+      "label": "包含 < > & 单引号' 和反引号 ` 的内容",
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "fromPort": "right",
+      "toPort": "left"
+    }
+  ],
+  "view": {
+    "x": -180,
+    "y": 90,
+    "scale": 0.25,
+    "expanded": [],
+    "expandedInterfaces": []
+  }
+}

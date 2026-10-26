@@ -1,6 +1,6 @@
 ---
 name: easycode-archify-html2archify
-description: "从已保存的 EasyCode HTML 中提取 ec-project 架构数据，检查后输出 JSON。用于取回网页编辑结果，不用于分析任意网站或根据截图猜测架构。"
+description: "取回 EasyCode 网页已保存的架构数据：服务版读取相邻 JSON，独立 HTML 提取 ec-project。用于取回编辑结果，不分析任意网站或根据截图猜测架构。"
 ---
 
 # HTML 转架构数据
@@ -13,7 +13,7 @@ description: "从已保存的 EasyCode HTML 中提取 ec-project 架构数据，
 
 使用 [序列化模块](../../tools/html/assets/serialization.js) 解析保存的数据，并按 [数据模型](../../tools/html/assets/model.js) 校验字段、ID 和引用。
 
-没有另指定路径时，从 tools/html/index.html 提取数据，写入 tools/archify.json；替换已有运行数据前先确认输入基准和保存范围。
+默认路径相对于目标项目根目录：网页入口 docs/archify/index.html，实际数据 docs/archify/archify.json。服务入口不包含项目快照，直接读取同目录的 JSON 并校验；若数据文件就是输出目标，无需重复写入。浏览器未保存的编辑不在文件中，先完成网页保存。以下提取步骤仅用于用户指定的独立导出 HTML，不能用旧导出快照自动覆盖当前 JSON。
 
 ## 工作步骤
 
@@ -31,7 +31,7 @@ description: "从已保存的 EasyCode HTML 中提取 ec-project 架构数据，
     const project = EasyCode.Serialization.readProject(html);
     const result = EasyCode.Model.validate(project);
 
-校验无错误后使用 JSON.stringify(project, null, 2) 写入 JSON。当前检查工具 tools/html/scripts/check.mjs 接受的是 HTML；不要把 JSON 路径当成它的输入。
+校验无错误后，使用 [files.mjs](../../tools/html/scripts/files.mjs) 的 fileVersion 记录目标版本，再用 writeProjectFile(path,project,{expectedVersion}) 保存。目标不存在时版本为 null。检查工具 check.mjs 支持 JSON、服务入口和独立 HTML；独立 HTML 可加第二个 JSON 路径做深度比较。
 
 ## 交付与边界
 

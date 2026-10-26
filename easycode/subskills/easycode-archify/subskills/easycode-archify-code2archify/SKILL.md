@@ -13,7 +13,7 @@ description: "读取指定源代码，提取或核对软件模块、分层、参
 
 按需查看 [数据模型](../../tools/html/assets/model.js)，使用其中的字段、创建函数、更新函数和校验规则。
 
-默认架构文件为 tools/archify.json。新建项目先读取 [默认数据模板](../../tools/html/templates/archifytemplate.json)，使用模型创建新的项目 ID，再应用模板默认值并填入实际源码内容；更新已有项目时保留原 ID。
+默认架构文件为目标项目根目录下的 docs/archify/archify.json。技能包 tools/archify.json 仅是空框架，不能当作用户现有数据。新建项目先读取 [运行骨架](../../tools/html/templates/archifytemplate.json)，使用模型创建新的项目 ID，再应用模板默认值并填入实际源码内容；更新已有项目时保留原 ID。需要逐字段说明时阅读 [完整模板指导书](../../tools/html/templates/archifytemplate.jsonc)，其中的演示业务、标识和来源不作为实际项目内容。
 
 ## 工作步骤
 
@@ -23,7 +23,7 @@ description: "读取指定源代码，提取或核对软件模块、分层、参
 4. 新对象使用 EasyCode.Model.createProject、createModule、createInterface、createParameter、createStructure、createStructureField、createEvent 等创建函数。方法在 JSON 中仍使用 interfaces 字段。用中文名称和说明解释内容；源码中已有的英文标识可记录在 englishName，不随意改名。
 5. 关系通过模块 ID 连接，附上确实读取过的出处。相对代码位置与来源行号分别记录。源码版本和工作区状态按实际仓库填写。
 6. 无法确定的事实单独说明，不编造类型、调用关系或源码依据。只有经过源码核对的事实才标记 verified；修改现有语义时使用模型更新函数，按规则更新来源状态。
-7. 运行 EasyCode.Model.validate(project)。修复结构错误，核查有意义的警告；不要为了消除提示而填入虚假事实。检查通过后写入用户指定的 JSON 文件，再读回比较。
+7. 运行 EasyCode.Model.validate(project)。修复结构错误，核查有意义的警告；不要为了消除提示而填入虚假事实。使用 [files.mjs](../../tools/html/scripts/files.mjs) 的 readProjectFile 读取内容和版本，再用 writeProjectFile(path,project,{expectedVersion:version}) 保存；新文件 expectedVersion 为 null。保存后读回比较。网页服务运行时会自动检测更新，无需重新生成 HTML。
 
 可以从 Node 导入模型，创建函数会注册到 globalThis.EasyCode.Model：
 

@@ -1,14 +1,17 @@
 (function (root) {
   'use strict';
   const EC = root.EasyCode;
-  function boot() {
+  async function boot() {
     const get = id => document.getElementById(id), notice = get('ec-notice');
     function showError(error) {notice.textContent = error?.message || String(error); notice.hidden = false;}
     root.addEventListener('error',event => showError(event.error || event.message));
     root.addEventListener('unhandledrejection',event => {event.preventDefault(); showError(event.reason);});
     try {
       EC.Icons.hydrate(document);
-      let project = JSON.parse(get('ec-project').textContent);
+      const serviceMode = !!document.querySelector('meta[name="easycode-service"]');
+      if (serviceMode && !/^https?:$/.test(root.location.protocol)) throw new Error('请先启动本地服务，再用服务显示的 http://127.0.0.1 地址打开网页。');
+      const initial = serviceMode ? await EC.ServiceStorage.load() : null;
+      let project = initial ? initial.project : JSON.parse(get('ec-project').textContent);
       const bundle = JSON.parse(get('ec-bundle').textContent);
       const validation = EC.Model.validate(project);
       if (validation.errors.length) throw new Error(`项目数据有问题：${validation.errors[0].message}`);
@@ -21,9 +24,23 @@
         warningNotice.update(EC.Feedback.formatWarnings(project,EC.Model.validate(project).warnings),project.id);
       }
       const fileTypes = [{description:'软件框架图 HTML',accept:{'text/html':['.html']}}];
-      const supported = typeof root.showOpenFilePicker === 'function' && typeof root.showSaveFilePicker === 'function';
+      const supported = serviceMode || typeof root.showOpenFilePicker === 'function' && typeof root.showSaveFilePicker === 'function';
+      let canvas, nodes, dialogs;
+      let syncNotice, syncText, reloadButton;
+      if (serviceMode) {
+        syncNotice = document.createElement('div'); syncNotice.id = 'ec-sync-notice'; syncNotice.hidden = true; syncNotice.setAttribute('role','status');
+        syncText = document.createElement('span'); reloadButton = document.createElement('button');
+        reloadButton.type = 'button'; reloadButton.textContent = '载入最新内容';
+        syncNotice.append(syncText,reloadButton); get('ec-feedback').prepend(syncNotice);
+        document.querySelector('[data-action="import"]').title = '导入 JSON 或 HTML';
+        document.querySelector('[data-action="save"]').title = '保存到 archify.json（Ctrl / ⌘ + S）';
+      }
       // Capture the original embedded project before any layout, fit or UI edits.
-      const storage = EC.Storage.createController({
+      const storage = (serviceMode ? EC.ServiceStorage : EC.Storage).createController({
+        version:initial?.version,
+        isBusy:() => get('ec-dialog').open || EC.Dialogs.isConfirming() || !!canvas?.hasDraftChanges(),
+        confirmReload:() => EC.Dialogs.confirm('载入后会放弃网页中尚未保存的修改。需要保留时，请先取消并导出备份。',{title:'载入最新内容',confirmLabel:'放弃修改并载入',danger:true}),
+        onExternal(message,canReload) {syncText.textContent = message; syncNotice.hidden = !message; reloadButton.hidden = !canReload;},
         getProject:() => project,
         buildDocument:snapshot => EC.Serialization.buildDocument(bundle,snapshot),
         readProject:EC.Serialization.readProject,validate:EC.Model.validate,
@@ -33,7 +50,7 @@
         pickNew:suggestedName => root.showSaveFilePicker({types:fileTypes,suggestedName}),
         confirmImport:() => EC.Dialogs.confirm('当前有未保存的修改。导入会替换当前内容，是否继续？',{title:'确认导入',confirmLabel:'继续导入',danger:false}),
         replaceProject(next) {
-          if (dialogs?.isEditingModule() || dialogs?.isEditingProject()) throw new Error('编辑窗口已打开，请先确定或取消，再导入。');
+          if (get('ec-dialog').open) throw new Error('编辑窗口已打开，请先确定或取消，再载入。');
           if (canvas?.hasDraftChanges()) throw new Error('请先完成或取消箭头备注，再导入。');
           const previous = project;
           project = next;
@@ -42,11 +59,11 @@
         },
         onState(state) {
           if (state.status === 'error') showError(state.message);
+          if (serviceMode && ['saved','loaded'].includes(state.status)) notice.hidden = true;
           refreshWarnings();
           document.title = `${state.dirty ? '● ' : ''}${EC.Model.projectTitle(project)}`;
         }
       });
-      let canvas, nodes, dialogs;
       function refreshHeader() {
         const name = get('ec-project-name'), description = get('ec-project-description');
         name.textContent = EC.Model.projectTitle(project); name.title = name.textContent;
@@ -65,16 +82,21 @@
         dialogs = EC.Dialogs.create({project,onChange,onOpen:() => {nodes?.hidePreview(); canvas?.cancelConnection(); return canvas?.finishAnnotation();}});
         nodes = EC.Nodes.create({project,layer:get('ec-nodes'),template:get('ec-module-template'),onEdit:dialogs.editModule});
         nodes.render();
-        canvas = EC.Canvas.create({project,viewport:get('ec-viewport'),world:get('ec-world'),groupLayer:get('ec-groups'),edgeLayer:get('ec-edges'),nodes,onChange,onGroupEdit:dialogs.editGroup});
+        canvas = EC.Canvas.create({project,viewport:get('ec-viewport'),world:get('ec-world'),groupLayer:get('ec-groups'),groupTemplate:get('ec-group-template'),edgeLayer:get('ec-edges'),nodes,onChange,onGroupEdit:dialogs.editGroup});
+        canvas.restoreView();
         refreshHeader();
         EC.app = {project,storage,nodes,canvas,dialogs};
       }
       mount();
-      // Preserve a saved view. New projects with the default view start with all modules visible.
-      if (project.view.x === 0 && project.view.y === 0 && project.view.scale === 1 && project.modules.length) canvas.fit({notify:false});
+      if (serviceMode) {
+        reloadButton.addEventListener('click',() => storage.reload().catch(showError));
+        storage.startSync();
+        root.addEventListener('pagehide',storage.destroy);
+        root.addEventListener('pageshow',event => {if (event.persisted) storage.startSync();});
+      }
       function save(asNew) {
         if (EC.Dialogs.isConfirming()) return;
-        if (dialogs.isEditingModule() || dialogs.isEditingProject()) {dialogs.showMessage('请先点击“确定”或“取消”，再保存 HTML。'); return;}
+        if (get('ec-dialog').open) {dialogs.showMessage('请先点击“确定”或“取消”，再保存。'); return;}
         if (!canvas.finishAnnotation()) return;
         if (!supported) {showError('此浏览器不能直接写入本地文件。请使用新版桌面 Chrome 或 Edge 打开此 HTML。'); return;}
         notice.hidden = true;
@@ -86,9 +108,9 @@
       }
       function importFile() {
         if (EC.Dialogs.isConfirming()) return;
-        if (dialogs.isEditingModule() || dialogs.isEditingProject()) {dialogs.showMessage('请先点击“确定”或“取消”，再导入 HTML。'); return;}
+        if (get('ec-dialog').open) {dialogs.showMessage('请先点击“确定”或“取消”，再导入。'); return;}
         if (!canvas.finishAnnotation()) return;
-        if (typeof root.showOpenFilePicker !== 'function') {showError('此浏览器不能导入本地文件。请使用新版桌面 Chrome 或 Edge。'); return;}
+        if (!serviceMode && typeof root.showOpenFilePicker !== 'function') {showError('此浏览器不能导入本地文件。请使用新版桌面 Chrome 或 Edge。'); return;}
         notice.hidden = true;
         storage.importFile().catch(error => {if (error?.name !== 'AbortError') showError(error);});
       }

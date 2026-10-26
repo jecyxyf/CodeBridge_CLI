@@ -1,0 +1,94 @@
+<!doctype html>
+<!--
+  画布完整模板：指导书。最小运行骨架为同目录的 canvas.html。
+  先阅读说明，再在运行骨架及架构 JSON 中填充项目内容；不要把此文件当成项目数据。
+
+  数据入口：tools/archify.json。完整字段说明见 archifytemplate.jsonc。
+  project.name：项目中文名；project.englishName：英文名，保存在数据中。
+  project.description：项目功能说明。
+  project.repository.path：代码目录；revision：代码版本；dirty：源码工作区是否有改动。
+  groups：分层；modules：模块；relations：模块之间的箭头。
+  view.x、view.y：画布平移量，单位为屏幕像素；view.scale：缩放比例，必须大于 0。
+  按钮、滚轮及适应视野的最小缩放为 0.01（1%）。
+  打开或导入时保留可见的已存视角；若模块及层级标题全部在屏幕外，则自动居中显示内容。
+  view.expanded、view.expandedInterfaces：保留的展开状态 ID 列表，初始使用空数组。
+
+  生成器替换的槽位，每个都必须保留一次：
+  EC:TITLE：项目中文名与代码版本，写入浏览器标签标题。
+  EC:STYLE：assets/editor.css，内嵌样式。
+  EC:NODE：module-node.html，模块节点运行骨架。
+  EC:GROUP：group-layer.html，分层运行骨架。
+  EC:DATA：ec-project 数据块，包含完整项目 JSON。
+  EC:BUNDLE：ec-bundle 源码包，保存时用于重新生成自带资源的 HTML。
+  EC:RUNTIME：assets/ 中的运行脚本，顺序由 scripts/build.mjs 指定。
+
+  使用方式：填充项目 JSON 后运行 scripts/build.mjs；生成的 HTML 才是最终项目网页。
+  单独复制本文件或运行骨架，不能代替生成步骤。不要在骨架中手填业务节点。
+  id、class、data-action、data-icon 与脚本及样式相连；修改它们时同步调整对应代码。
+-->
+<html lang="zh-CN">
+<head>
+  <!-- UTF-8 支持中文；viewport 让画布采用实际窗口宽度。 -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title><!--EC:TITLE--></title>
+  <!--EC:STYLE-->
+</head>
+<body>
+  <!--
+    toolbar：顶部工具栏。
+    project-heading / edit-project：点击后编辑项目名称、描述、代码目录和版本。
+    ec-project-name：显示 Model.projectTitle 的结果；ec-project-description：显示描述。
+    brand-mark：装饰图形，不参与项目数据。
+    aria-label：读屏名称；aria-haspopup=dialog：提示按钮会打开弹窗。
+  -->
+  <header class="toolbar">
+    <button type="button" class="project-heading" data-action="edit-project" aria-label="编辑标题和描述" aria-haspopup="dialog"><span class="brand-mark" aria-hidden="true">◇</span><span><strong id="ec-project-name">软件框架图</strong><small id="ec-project-description"></small></span></button>
+    <!--
+      toolbar-actions：画布操作按钮区；toolbar-separator：新增操作与文件操作之间的分隔符。
+      data-action：app.js 中的动作名称；data-icon：icons.js 中的图标名称。
+      add-module：新建模块；add-group：新建层级。
+      save：保存当前 HTML；import：读取另一个 HTML 的项目数据；export：另存为 HTML。
+      type=button：避免按钮被当作表单提交；title：鼠标停留时的按钮说明。
+    -->
+    <nav class="toolbar-actions" aria-label="画布操作">
+      <button type="button" data-action="add-module" data-icon="module-add" aria-label="新建模块" title="新建模块"></button>
+      <button type="button" data-action="add-group" data-icon="group-add" aria-label="新建层级" title="新建层级"></button>
+      <span class="toolbar-separator" aria-hidden="true"></span>
+      <button type="button" data-action="save" data-icon="save" aria-label="保存" title="保存（Ctrl / ⌘ + S）"></button>
+      <button type="button" data-action="import" data-icon="import" aria-label="导入" title="导入 HTML"></button>
+      <button type="button" data-action="export" data-icon="export" aria-label="导出" title="导出 HTML（Ctrl / ⌘ + Shift + S）"></button>
+    </nav>
+  </header>
+  <!--
+    ec-viewport：可视区，接收平移、缩放、拖动与连接操作；tabindex=0 允许键盘聚焦。
+    ec-world：受 view 平移和缩放影响的内容容器。
+    ec-groups：分层容器；ec-edges：SVG 连线容器；ec-nodes：模块容器。
+    三个容器初始为空，由运行脚本按 JSON 数据填充。
+  -->
+  <main id="ec-viewport" aria-label="模块编辑画布" tabindex="0">
+    <div id="ec-world"><div id="ec-groups"></div><svg id="ec-edges" aria-label="模块关系"></svg><div id="ec-nodes"></div></div>
+    <!-- ec-connection-hint：连接过程的状态提示，初始隐藏；aria-live=polite 允许读屏播报。 -->
+    <div id="ec-connection-hint" class="connection-hint" role="status" aria-live="polite" hidden></div>
+    <!-- ec-empty：项目没有模块和层级时显示的起始入口，由脚本决定是否隐藏。 -->
+    <div id="ec-empty" hidden>从一个模块开始<button type="button" data-action="add-module" data-icon="module-add" aria-label="新建模块" title="新建模块"></button></div>
+  </main>
+  <!-- zoom-out：缩小；ec-zoom：当前比例；zoom-in：放大；fit：让全部内容进入视野。 -->
+  <footer class="statusbar">
+    <div class="zoom-controls"><button type="button" data-action="zoom-out" data-icon="zoom-out" aria-label="缩小" title="缩小"></button><output id="ec-zoom">100%</output><button type="button" data-action="zoom-in" data-icon="zoom-in" aria-label="放大" title="放大"></button><button type="button" data-action="fit" data-icon="fit" aria-label="适应视野" title="适应视野"></button></div>
+  </footer>
+  <!--
+    ec-feedback：错误和缺项提示容器；ec-notice：错误；ec-warnings：可关闭的缺项提示。
+    ec-warning-text：提示内容；ec-warning-close：关闭按钮；初始均隐藏，由反馈模块控制。
+    role=alert：即时播报错误；role=status：播报一般状态。
+  -->
+  <aside id="ec-feedback" aria-label="项目提示"><div id="ec-notice" role="alert" hidden></div><div id="ec-warnings" role="status" aria-live="polite" hidden><span id="ec-warning-text"></span><button id="ec-warning-close" type="button" data-icon="close" aria-label="关闭缺项提示" title="关闭缺项提示"></button></div></aside>
+  <!-- ec-dialog：居中的编辑弹窗；ec-dialog-title 由 dialogs.js 创建。 -->
+  <dialog id="ec-dialog" aria-labelledby="ec-dialog-title"></dialog>
+  <!--EC:NODE-->
+  <!--EC:GROUP-->
+  <!--EC:DATA-->
+  <!--EC:BUNDLE-->
+  <!--EC:RUNTIME-->
+</body>
+</html>

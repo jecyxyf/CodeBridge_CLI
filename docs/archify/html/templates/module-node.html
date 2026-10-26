@@ -1,0 +1,18 @@
+<template id="ec-module-template">
+  <article class="module-node" tabindex="0">
+    <div class="module-shell">
+      <header class="module-header">
+        <span class="node-emblem" aria-hidden="true"></span>
+        <div class="module-heading"><h2 class="module-name"></h2><span class="module-language" hidden></span></div>
+        <div class="module-header-actions">
+          <button type="button" class="module-more" data-node-action="edit" data-icon="more" aria-label="编辑模块" title="编辑模块"></button>
+        </div>
+      </header>
+      <div class="module-content"></div>
+    </div>
+    <button type="button" class="module-port port-top" data-port="top" aria-label="上侧连接点" title="上侧连接点：按住圆点拖到另一个模块的圆点"></button>
+    <button type="button" class="module-port port-right" data-port="right" aria-label="右侧连接点" title="右侧连接点：按住圆点拖到另一个模块的圆点"></button>
+    <button type="button" class="module-port port-bottom" data-port="bottom" aria-label="下侧连接点" title="下侧连接点：按住圆点拖到另一个模块的圆点"></button>
+    <button type="button" class="module-port port-left" data-port="left" aria-label="左侧连接点" title="左侧连接点：按住圆点拖到另一个模块的圆点"></button>
+  </article>
+</template>

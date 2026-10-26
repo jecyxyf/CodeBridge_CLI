@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "id": "project-case-001-1",
+  "name": "稳定性测试 001 · 最小项目",
+  "englishName": "stability-case-001",
+  "description": "固定种子 2026102601，最小项目，仅包含生成的测试数据。",
+  "repository": {
+    "path": "",
+    "revision": "0.0.1",
+    "dirty": false
+  },
+  "groups": [],
+  "modules": [],
+  "relations": [],
+  "view": {
+    "x": 0,
+    "y": 0,
+    "scale": 1,
+    "expanded": [],
+    "expandedInterfaces": []
+  }
+}

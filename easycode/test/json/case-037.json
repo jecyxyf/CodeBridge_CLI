@@ -1,0 +1,787 @@
+{
+  "formatVersion": 1,
+  "id": "project-case-037-1",
+  "name": "稳定性测试 037 · 常规项目",
+  "englishName": "stability-case-037",
+  "description": "固定种子 2026102637，常规项目，仅包含生成的测试数据。",
+  "repository": {
+    "path": "",
+    "revision": "0.0.1",
+    "dirty": false
+  },
+  "groups": [
+    {
+      "id": "group-case-037-2",
+      "name": "层级1",
+      "englishName": "Layer1",
+      "color": "#ffffff",
+      "backgroundColor": "#81b3e9",
+      "x": 0,
+      "y": 60
+    }
+  ],
+  "modules": [
+    {
+      "id": "module-case-037-3",
+      "name": "模块1",
+      "englishName": "Module1",
+      "purpose": "处理第 1 个模块的任务。",
+      "language": "TypeScript",
+      "codeLocation": "",
+      "groupId": "group-case-037-2",
+      "x": 80,
+      "y": 120,
+      "appearance": {
+        "textColor": "#17254d",
+        "backgroundColor": "#fcfdff",
+        "headerColor": "#f4f7ff"
+      },
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "requirements": [
+        "显示模块的中文名称。"
+      ],
+      "interfaces": [
+        {
+          "id": "interface-case-037-6",
+          "name": "方法1",
+          "englishName": "method1",
+          "purpose": "处理输入并返回结果。",
+          "flow": "检查输入\n执行处理\n返回结果",
+          "errors": "输入无效时返回错误\n处理失败时保留原因",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": false,
+          "outputsConfirmed": false,
+          "inputs": [
+            {
+              "id": "param-case-037-7",
+              "name": "输入1",
+              "englishName": "parameter7",
+              "type": "number",
+              "description": "用于保存输入1的数据。",
+              "required": false,
+              "defaultValue": ""
+            },
+            {
+              "id": "param-case-037-8",
+              "name": "输入2",
+              "englishName": "parameter8",
+              "type": "boolean",
+              "description": "用于保存输入2的数据。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "param-case-037-9",
+              "name": "输出1",
+              "englishName": "parameter9",
+              "type": "TaskData",
+              "description": "用于保存输出1的数据。",
+              "required": false,
+              "defaultValue": "0"
+            }
+          ]
+        },
+        {
+          "id": "interface-case-037-10",
+          "name": "方法2",
+          "englishName": "method2",
+          "purpose": "处理输入并返回结果。",
+          "flow": "检查输入\n执行处理\n返回结果",
+          "errors": "输入无效时返回错误\n处理失败时保留原因",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": false,
+          "outputsConfirmed": false,
+          "inputs": [
+            {
+              "id": "param-case-037-11",
+              "name": "输入1",
+              "englishName": "parameter11",
+              "type": "std::vector<std::string>",
+              "description": "用于保存输入1的数据。",
+              "required": false,
+              "defaultValue": ""
+            },
+            {
+              "id": "param-case-037-12",
+              "name": "输入2",
+              "englishName": "parameter12",
+              "type": "string",
+              "description": "用于保存输入2的数据。",
+              "required": true,
+              "defaultValue": "0"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "param-case-037-13",
+              "name": "输出1",
+              "englishName": "parameter13",
+              "type": "number",
+              "description": "用于保存输出1的数据。",
+              "required": false,
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "parameters": [
+        {
+          "id": "param-case-037-4",
+          "name": "参数1",
+          "englishName": "parameter4",
+          "type": "string[]",
+          "description": "用于保存参数1的数据。",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-037-5",
+          "name": "参数2",
+          "englishName": "parameter5",
+          "type": "std::vector<std::string>",
+          "description": "用于保存参数2的数据。",
+          "required": false,
+          "defaultValue": ""
+        }
+      ],
+      "structures": [],
+      "events": [
+        {
+          "id": "event-case-037-14",
+          "name": "事件1",
+          "englishName": "event1",
+          "description": "在数据变化后通知其他模块。",
+          "direction": "emit",
+          "trigger": "",
+          "parameters": [
+            {
+              "id": "param-case-037-15",
+              "name": "消息内容",
+              "englishName": "parameter15",
+              "type": "TaskData",
+              "description": "用于保存消息内容的数据。",
+              "required": false,
+              "defaultValue": "0"
+            }
+          ]
+        }
+      ],
+      "tests": []
+    },
+    {
+      "id": "module-case-037-16",
+      "name": "模块2",
+      "englishName": "Module2",
+      "purpose": "处理第 2 个模块的任务。",
+      "language": "C++",
+      "codeLocation": "",
+      "groupId": "group-case-037-2",
+      "x": 640,
+      "y": 120,
+      "appearance": {
+        "textColor": "#17254d",
+        "backgroundColor": "#fcfdff",
+        "headerColor": "#f4f7ff"
+      },
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "requirements": [],
+      "interfaces": [
+        {
+          "id": "interface-case-037-19",
+          "name": "方法1",
+          "englishName": "method1",
+          "purpose": "处理输入并返回结果。",
+          "flow": "检查输入\n执行处理\n返回结果",
+          "errors": "输入无效时返回错误\n处理失败时保留原因",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": false,
+          "outputsConfirmed": false,
+          "inputs": [
+            {
+              "id": "param-case-037-20",
+              "name": "输入1",
+              "englishName": "parameter20",
+              "type": "boolean",
+              "description": "用于保存输入1的数据。",
+              "required": true,
+              "defaultValue": ""
+            },
+            {
+              "id": "param-case-037-21",
+              "name": "输入2",
+              "englishName": "parameter21",
+              "type": "TaskData",
+              "description": "用于保存输入2的数据。",
+              "required": false,
+              "defaultValue": "0"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "param-case-037-22",
+              "name": "输出1",
+              "englishName": "parameter22",
+              "type": "string[]",
+              "description": "用于保存输出1的数据。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "id": "interface-case-037-23",
+          "name": "方法2",
+          "englishName": "method2",
+          "purpose": "处理输入并返回结果。",
+          "flow": "检查输入\n执行处理\n返回结果",
+          "errors": "输入无效时返回错误\n处理失败时保留原因",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": false,
+          "outputsConfirmed": false,
+          "inputs": [
+            {
+              "id": "param-case-037-24",
+              "name": "输入1",
+              "englishName": "parameter24",
+              "type": "string",
+              "description": "用于保存输入1的数据。",
+              "required": true,
+              "defaultValue": "0"
+            },
+            {
+              "id": "param-case-037-25",
+              "name": "输入2",
+              "englishName": "parameter25",
+              "type": "number",
+              "description": "用于保存输入2的数据。",
+              "required": false,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "param-case-037-26",
+              "name": "输出1",
+              "englishName": "parameter26",
+              "type": "boolean",
+              "description": "用于保存输出1的数据。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "parameters": [
+        {
+          "id": "param-case-037-17",
+          "name": "参数1",
+          "englishName": "parameter17",
+          "type": "std::vector<std::string>",
+          "description": "用于保存参数1的数据。",
+          "required": false,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-037-18",
+          "name": "参数2",
+          "englishName": "parameter18",
+          "type": "string",
+          "description": "用于保存参数2的数据。",
+          "required": true,
+          "defaultValue": "0"
+        }
+      ],
+      "structures": [],
+      "events": [],
+      "tests": []
+    },
+    {
+      "id": "module-case-037-27",
+      "name": "模块3",
+      "englishName": "Module3",
+      "purpose": "处理第 3 个模块的任务。",
+      "language": "Python",
+      "codeLocation": "",
+      "groupId": "group-case-037-2",
+      "x": 1200,
+      "y": 120,
+      "appearance": {
+        "textColor": "#17254d",
+        "backgroundColor": "#fcfdff",
+        "headerColor": "#f4f7ff"
+      },
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "requirements": [],
+      "interfaces": [
+        {
+          "id": "interface-case-037-30",
+          "name": "方法1",
+          "englishName": "method1",
+          "purpose": "处理输入并返回结果。",
+          "flow": "检查输入\n执行处理\n返回结果",
+          "errors": "输入无效时返回错误\n处理失败时保留原因",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": false,
+          "outputsConfirmed": false,
+          "inputs": [
+            {
+              "id": "param-case-037-31",
+              "name": "输入1",
+              "englishName": "parameter31",
+              "type": "number",
+              "description": "用于保存输入1的数据。",
+              "required": false,
+              "defaultValue": ""
+            },
+            {
+              "id": "param-case-037-32",
+              "name": "输入2",
+              "englishName": "parameter32",
+              "type": "boolean",
+              "description": "用于保存输入2的数据。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "param-case-037-33",
+              "name": "输出1",
+              "englishName": "parameter33",
+              "type": "TaskData",
+              "description": "用于保存输出1的数据。",
+              "required": false,
+              "defaultValue": "0"
+            }
+          ]
+        },
+        {
+          "id": "interface-case-037-34",
+          "name": "方法2",
+          "englishName": "method2",
+          "purpose": "处理输入并返回结果。",
+          "flow": "检查输入\n执行处理\n返回结果",
+          "errors": "输入无效时返回错误\n处理失败时保留原因",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": false,
+          "outputsConfirmed": false,
+          "inputs": [
+            {
+              "id": "param-case-037-35",
+              "name": "输入1",
+              "englishName": "parameter35",
+              "type": "std::vector<std::string>",
+              "description": "用于保存输入1的数据。",
+              "required": false,
+              "defaultValue": ""
+            },
+            {
+              "id": "param-case-037-36",
+              "name": "输入2",
+              "englishName": "parameter36",
+              "type": "string",
+              "description": "用于保存输入2的数据。",
+              "required": true,
+              "defaultValue": "0"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "param-case-037-37",
+              "name": "输出1",
+              "englishName": "parameter37",
+              "type": "number",
+              "description": "用于保存输出1的数据。",
+              "required": false,
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "parameters": [
+        {
+          "id": "param-case-037-28",
+          "name": "参数1",
+          "englishName": "parameter28",
+          "type": "string[]",
+          "description": "用于保存参数1的数据。",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-037-29",
+          "name": "参数2",
+          "englishName": "parameter29",
+          "type": "std::vector<std::string>",
+          "description": "用于保存参数2的数据。",
+          "required": false,
+          "defaultValue": ""
+        }
+      ],
+      "structures": [],
+      "events": [],
+      "tests": []
+    },
+    {
+      "id": "module-case-037-38",
+      "name": "模块4",
+      "englishName": "Module4",
+      "purpose": "处理第 4 个模块的任务。",
+      "language": "TypeScript",
+      "codeLocation": "",
+      "groupId": "group-case-037-2",
+      "x": 1760,
+      "y": 120,
+      "appearance": {
+        "textColor": "#17254d",
+        "backgroundColor": "#fcfdff",
+        "headerColor": "#f4f7ff"
+      },
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "requirements": [
+        "显示模块的中文名称。"
+      ],
+      "interfaces": [
+        {
+          "id": "interface-case-037-41",
+          "name": "方法1",
+          "englishName": "method1",
+          "purpose": "处理输入并返回结果。",
+          "flow": "检查输入\n执行处理\n返回结果",
+          "errors": "输入无效时返回错误\n处理失败时保留原因",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": false,
+          "outputsConfirmed": false,
+          "inputs": [
+            {
+              "id": "param-case-037-42",
+              "name": "输入1",
+              "englishName": "parameter42",
+              "type": "string",
+              "description": "用于保存输入1的数据。",
+              "required": true,
+              "defaultValue": "0"
+            },
+            {
+              "id": "param-case-037-43",
+              "name": "输入2",
+              "englishName": "parameter43",
+              "type": "number",
+              "description": "用于保存输入2的数据。",
+              "required": false,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "param-case-037-44",
+              "name": "输出1",
+              "englishName": "parameter44",
+              "type": "boolean",
+              "description": "用于保存输出1的数据。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "id": "interface-case-037-45",
+          "name": "方法2",
+          "englishName": "method2",
+          "purpose": "处理输入并返回结果。",
+          "flow": "检查输入\n执行处理\n返回结果",
+          "errors": "输入无效时返回错误\n处理失败时保留原因",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": false,
+          "outputsConfirmed": false,
+          "inputs": [
+            {
+              "id": "param-case-037-46",
+              "name": "输入1",
+              "englishName": "parameter46",
+              "type": "string[]",
+              "description": "用于保存输入1的数据。",
+              "required": true,
+              "defaultValue": ""
+            },
+            {
+              "id": "param-case-037-47",
+              "name": "输入2",
+              "englishName": "parameter47",
+              "type": "std::vector<std::string>",
+              "description": "用于保存输入2的数据。",
+              "required": false,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "param-case-037-48",
+              "name": "输出1",
+              "englishName": "parameter48",
+              "type": "string",
+              "description": "用于保存输出1的数据。",
+              "required": true,
+              "defaultValue": "0"
+            }
+          ]
+        }
+      ],
+      "parameters": [
+        {
+          "id": "param-case-037-39",
+          "name": "参数1",
+          "englishName": "parameter39",
+          "type": "TaskData",
+          "description": "用于保存参数1的数据。",
+          "required": false,
+          "defaultValue": "0"
+        },
+        {
+          "id": "param-case-037-40",
+          "name": "参数2",
+          "englishName": "parameter40",
+          "type": "string[]",
+          "description": "用于保存参数2的数据。",
+          "required": true,
+          "defaultValue": ""
+        }
+      ],
+      "structures": [],
+      "events": [
+        {
+          "id": "event-case-037-49",
+          "name": "事件1",
+          "englishName": "event1",
+          "description": "在数据变化后通知其他模块。",
+          "direction": "receive",
+          "trigger": "",
+          "parameters": [
+            {
+              "id": "param-case-037-50",
+              "name": "消息内容",
+              "englishName": "parameter50",
+              "type": "boolean",
+              "description": "用于保存消息内容的数据。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "tests": []
+    },
+    {
+      "id": "module-case-037-51",
+      "name": "模块5",
+      "englishName": "Module5",
+      "purpose": "处理第 5 个模块的任务。",
+      "language": "C++",
+      "codeLocation": "",
+      "groupId": "",
+      "x": 2320,
+      "y": 120,
+      "appearance": {
+        "textColor": "#17254d",
+        "backgroundColor": "#fcfdff",
+        "headerColor": "#f4f7ff"
+      },
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "requirements": [],
+      "interfaces": [
+        {
+          "id": "interface-case-037-54",
+          "name": "方法1",
+          "englishName": "method1",
+          "purpose": "处理输入并返回结果。",
+          "flow": "检查输入\n执行处理\n返回结果",
+          "errors": "输入无效时返回错误\n处理失败时保留原因",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": false,
+          "outputsConfirmed": false,
+          "inputs": [
+            {
+              "id": "param-case-037-55",
+              "name": "输入1",
+              "englishName": "parameter55",
+              "type": "number",
+              "description": "用于保存输入1的数据。",
+              "required": false,
+              "defaultValue": ""
+            },
+            {
+              "id": "param-case-037-56",
+              "name": "输入2",
+              "englishName": "parameter56",
+              "type": "boolean",
+              "description": "用于保存输入2的数据。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "param-case-037-57",
+              "name": "输出1",
+              "englishName": "parameter57",
+              "type": "TaskData",
+              "description": "用于保存输出1的数据。",
+              "required": false,
+              "defaultValue": "0"
+            }
+          ]
+        },
+        {
+          "id": "interface-case-037-58",
+          "name": "方法2",
+          "englishName": "method2",
+          "purpose": "处理输入并返回结果。",
+          "flow": "检查输入\n执行处理\n返回结果",
+          "errors": "输入无效时返回错误\n处理失败时保留原因",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": false,
+          "outputsConfirmed": false,
+          "inputs": [
+            {
+              "id": "param-case-037-59",
+              "name": "输入1",
+              "englishName": "parameter59",
+              "type": "std::vector<std::string>",
+              "description": "用于保存输入1的数据。",
+              "required": false,
+              "defaultValue": ""
+            },
+            {
+              "id": "param-case-037-60",
+              "name": "输入2",
+              "englishName": "parameter60",
+              "type": "string",
+              "description": "用于保存输入2的数据。",
+              "required": true,
+              "defaultValue": "0"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "param-case-037-61",
+              "name": "输出1",
+              "englishName": "parameter61",
+              "type": "number",
+              "description": "用于保存输出1的数据。",
+              "required": false,
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "parameters": [
+        {
+          "id": "param-case-037-52",
+          "name": "参数1",
+          "englishName": "parameter52",
+          "type": "string[]",
+          "description": "用于保存参数1的数据。",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "id": "param-case-037-53",
+          "name": "参数2",
+          "englishName": "parameter53",
+          "type": "std::vector<std::string>",
+          "description": "用于保存参数2的数据。",
+          "required": false,
+          "defaultValue": ""
+        }
+      ],
+      "structures": [],
+      "events": [],
+      "tests": []
+    }
+  ],
+  "relations": [
+    {
+      "id": "relation-case-037-62",
+      "from": "module-case-037-3",
+      "to": "module-case-037-16",
+      "label": "传递任务",
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "fromPort": "right",
+      "toPort": "left"
+    },
+    {
+      "id": "relation-case-037-63",
+      "from": "module-case-037-16",
+      "to": "module-case-037-27",
+      "label": "传递任务",
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "fromPort": "right",
+      "toPort": "left"
+    },
+    {
+      "id": "relation-case-037-64",
+      "from": "module-case-037-27",
+      "to": "module-case-037-38",
+      "label": "传递任务",
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "fromPort": "right",
+      "toPort": "left"
+    },
+    {
+      "id": "relation-case-037-65",
+      "from": "module-case-037-38",
+      "to": "module-case-037-51",
+      "label": "传递任务",
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "fromPort": "right",
+      "toPort": "left"
+    }
+  ],
+  "view": {
+    "x": 0,
+    "y": 0,
+    "scale": 1,
+    "expanded": [],
+    "expandedInterfaces": []
+  }
+}

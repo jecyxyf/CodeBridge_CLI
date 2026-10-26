@@ -13,7 +13,7 @@ description: "根据指定中文名称，为 EasyCode 架构 JSON 中选定的�
 
 字段、更新函数和校验以 [数据模型](../../tools/html/assets/model.js) 为准。命名格式可复用 [translation.js](../../tools/html/assets/translation.js) 的纯格式化函数；本技能的语义翻译由当前 Agent 完成，不要求启动额外 Agent 或注册翻译服务。
 
-默认读取和更新 tools/archify.json；用户指定其他架构文件时使用其指定文件。
+默认读取和更新目标项目根目录下的 docs/archify/archify.json；用户指定其他架构文件时使用其指定文件。技能包内 tools/archify.json 是空框架，不能覆盖项目设计。
 
 ## 定位目标
 
@@ -35,10 +35,10 @@ description: "根据指定中文名称，为 EasyCode 架构 JSON 中选定的�
 4. 列出中文名、原英文名、新英文名及对象位置，按项目的确认规则处理覆盖已有值的写入；已明确授权的范围不重复申请。
 5. 更新目标 englishName，中文名、说明、类型、默认值、稳定 ID 和布局保持不变。使用模型语义更新函数；必要时只有相关的来源状态从 verified 变为 modified。
 6. 检查同一作用域的名称，避免意外重名；合法重载遵循目标语言和项目约定。运行模型校验，再检查差异只落在目标英文名及必要状态上。
-7. 保存前检查文件是否出现并发修改，写入后读回核对。
+7. 使用 [files.mjs](../../tools/html/scripts/files.mjs) 的 readProjectFile 记录原内容及 version；修改后通过 writeProjectFile(path,project,{expectedVersion:version}) 保存，再读回核对。发生冲突时重新读取和处理，不能用旧内容覆盖。服务网页会自动检测 JSON 变化，有未保存编辑时提示用户处理。
 
 例如，指定方法“保存任务”可得到 saveTask；指定参数“任务编号”可得到 taskId。最终名称由上下文和项目约定确定，不提供随机同义词抽取。
 
 ## 交付与边界
 
-报告变更清单、JSON 路径和检查结果。只有总任务要求同步网页时，才把输出交给 archify2html。不要顺带翻译全部名称、改动实际源码或调用网页中的在线翻译按钮。
+报告变更清单、JSON 路径和检查结果。已有服务网页只需更新 JSON；需要新部署或导出独立快照时再交给 archify2html。不要顺带翻译全部名称、改动实际源码或调用网页中的在线翻译按钮。
