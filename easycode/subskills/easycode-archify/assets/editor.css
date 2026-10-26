@@ -268,16 +268,12 @@ input[type=number] {
 .module-requirements li {padding: 10px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis}
 .module-requirements li + li {border-top: 1px solid var(--node-rule)}
 .module-member-list {display: grid; gap: 0; padding: 0 9px}
-.module-member-row {--row-tone: var(--node-icon); position: relative; display: grid; grid-template-columns: minmax(90px,36%) minmax(0,1fr) 16px; gap: 9px; align-items: center; min-height: 47px; padding: 3px 0}
+.module-member-row {--row-tone: var(--node-icon); position: relative; display: grid; grid-template-columns: 44px minmax(65px,24%) minmax(0,1fr) 16px; gap: 9px; align-items: center; min-height: 37px; padding: 2px 0}
 .module-member-row + .module-member-row {border-top: 1px solid var(--node-rule)}
-.module-member-name {margin: 0; min-width: 0; color: var(--node-text); font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis}
-.module-member-description {position: relative; margin: 0; min-width: 0; padding: 5px 0 5px 17px; color: var(--node-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis}
+.module-member-name {grid-column: 2; grid-row: 1; margin: 0; min-width: 0; color: var(--node-text); font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis}
+.module-member-description {grid-column: 3; grid-row: 1; position: relative; margin: 0; min-width: 0; padding: 5px 0 5px 17px; color: var(--node-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis}
 .module-member-description::before {content: ''; position: absolute; left: 0; top: 50%; width: 1px; height: 18px; transform: translateY(-50%); background: color-mix(in srgb,var(--node-icon) 20%,var(--node))}
-.module-parameter-list .module-member-row {grid-template-columns: 44px minmax(65px,24%) minmax(0,1fr) 16px; min-height: 37px; padding: 2px 0}
-.module-parameter-list .module-member-name {grid-column: 2; grid-row: 1}
-.module-parameter-list .module-member-description {grid-column: 3; grid-row: 1}
 .module-type-label {grid-column: 1; grid-row: 1; justify-self: start; max-width: 44px; margin: 0; padding: 4px 9px; border: 0; border-radius: 9px; color: var(--row-tone); background: color-mix(in srgb,var(--row-tone) 12%,var(--node)); font-size: 11px; font-weight: 600; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis}
-.module-parameter-list .module-row-more {grid-column: 4; grid-row: 1}
 [data-value-kind=string] {--row-tone: #347cff}
 [data-value-kind=number] {--row-tone: #009c59}
 [data-value-kind=boolean] {--row-tone: #d67c00}
@@ -286,10 +282,9 @@ input[type=number] {
 [data-value-kind=other] {--row-tone: #71809e}
 [data-value-kind=emit] {--row-tone: #9148f4}
 [data-value-kind=receive] {--row-tone: #f5a300}
-[data-value-kind=method] .module-member-name {justify-self: start; max-width: 100%; padding: 6px 11px; border-radius: 9px; color: var(--node-icon); background: color-mix(in srgb,var(--node-icon) 9%,var(--node))}
-[data-value-kind=emit],[data-value-kind=receive] {grid-template-columns: 28px minmax(65px,24%) minmax(0,1fr) 16px; min-height: 33px}
-.module-event-dot {width: 9px; height: 9px; margin-left: 7px; border-radius: 50%; background: var(--row-tone); box-shadow: inset 0 1px 1px #ffffff4d}
-.module-row-more {color: var(--node-text); background: var(--node); font-size: 17px; line-height: 1; letter-spacing: 1px; text-align: right; user-select: none}
+.module-event-dot {grid-column: 1; grid-row: 1; width: 9px; height: 9px; margin-left: 7px; border-radius: 50%; background: var(--row-tone); box-shadow: inset 0 1px 1px #ffffff4d}
+.module-method-symbol {grid-column: 1; grid-row: 1; display: grid; place-items: center; width: 24px; height: 24px; color: var(--node-text)}
+.module-row-more {grid-column: 4; grid-row: 1; color: var(--node-text); background: var(--node); font-size: 17px; line-height: 1; letter-spacing: 1px; text-align: right; user-select: none}
 [data-node-preview] {cursor: pointer; border-radius: 5px}
 [data-node-preview]:hover,[data-node-preview].is-previewing {background: color-mix(in srgb,var(--node-icon) 6%,var(--node))}
 [data-node-preview]:focus-visible {outline: 2px solid var(--node-icon); outline-offset: 2px}
@@ -341,14 +336,19 @@ input[type=number] {
   line-height: 1.7;
 }
 .module-preview-title {margin: 0; font-size: 15px; line-height: 1.5; font-weight: 600; white-space: pre-wrap}
+.module-preview-heading {display: flex; align-items: baseline; gap: 10px}
+.module-preview-heading .module-preview-title {flex: 1; min-width: 0}
+.module-preview-direction {flex: none; padding: 2px 8px; border: 1px solid var(--node-rule); border-radius: 5px; background: var(--node-header); color: var(--node-text); font-size: 11px; line-height: 1.5; white-space: nowrap}
 .module-preview-description {margin: 10px 0 0; color: var(--node-secondary); white-space: pre-wrap}
-.module-preview-signature {display: block; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--node-rule); font: 12px/1.7 Consolas,"Cascadia Code",monospace; color: var(--node-text); white-space: pre-wrap; overflow-wrap: anywhere}
-.module-preview-parameters {display: grid; gap: 8px; margin: 12px 0 0; font-size: 12px}
-.module-preview-parameter {display: grid; grid-template-columns: minmax(0,35%) minmax(0,1fr); gap: 8px; align-items: baseline}
+.module-preview-io {margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--node-rule)}
+.module-preview-io-title {margin: 0; color: var(--node-text); font-size: 13px; line-height: 1.5; font-weight: 600}
+.module-preview-empty {margin: 8px 0 0; color: var(--node-secondary); font-size: 12px}
+.module-preview-parameters {display: grid; gap: 10px; margin: 10px 0 0; font-size: 12px}
 .module-preview-parameter dt,.module-preview-parameter dd {min-width: 0; margin: 0; overflow-wrap: anywhere}
-.module-preview-parameter dt {color: var(--node-text)}
-.module-preview-parameter dt code {font: 12px/1.7 Consolas,"Cascadia Code",monospace}
-.module-preview-parameter dd {color: var(--node-secondary); white-space: pre-wrap}
+.module-preview-parameter dt {display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; color: var(--node-text)}
+.module-preview-parameter dd {margin-top: 4px; color: var(--node-secondary); white-space: pre-wrap}
+.module-preview-parameter-name {min-width: 0; font-weight: 500}
+.module-preview-type {max-width: 100%; padding: 1px 6px; border-radius: 4px; background: var(--node-header); color: var(--node-secondary); font: 11px/1.7 Consolas,"Cascadia Code",monospace; white-space: pre-wrap; overflow-wrap: anywhere}
 .module-appearance-fields {grid-template-columns: repeat(3,minmax(0,1fr))}
 .color-value {font-size: 11px; font-variant-numeric: tabular-nums}
 .editor-section {
@@ -751,8 +751,8 @@ dialog.module-dialog {
   .structure-field-row:last-child {padding-bottom: 0; border-bottom: 0}
   .structure-field-row > .member-delete {grid-column: 2; justify-self: end; margin-top: 0}
 }
-.bilingual-fields {display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px}
-.bilingual-fields input {min-width: 0}
+.bilingual-fields,.parameter-value-fields {display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px}
+.bilingual-fields input,.parameter-value-fields input,.parameter-value-fields .field {min-width: 0}
 .translation-field {min-width: 0}
 .translation-control {position: relative; display: flex; min-width: 0}
 .translation-control input {width: 100%; padding-right: 38px}

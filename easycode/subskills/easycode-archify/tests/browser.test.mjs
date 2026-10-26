@@ -284,6 +284,19 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
   await page.click(`${apiNode} [data-editor-group="flow"] > .fold-heading > .fold-toggle`);
   await openGroup(`${apiNode} [data-editor-group="flow"]`);
   assert.deepEqual(await page.evaluate(`Array.from(document.querySelectorAll('${apiNode} .flow-step-row input'),input => input.value)`),['检查输入','保存任务'],'collapsing retains every flow step');
+  const errorsGroup = `${apiNode} [data-editor-group="errors"]`;
+  assert.equal(await page.evaluate(`document.querySelector('${errorsGroup} > .fold-heading > .fold-toggle').getAttribute('aria-expanded')`),'false');
+  assert.equal(await page.evaluate(`document.querySelector('#ec-dialog [aria-label="可能的错误（选填）"]')`),null);
+  await stableAdd(errorsGroup,'新增错误处理');
+  await openGroup(errorsGroup);
+  await page.fill(`${errorsGroup} [aria-label="错误处理 1"]`,'输入无效时显示具体原因');
+  await stableAdd(errorsGroup,'新增错误处理');
+  await page.fill(`${errorsGroup} [aria-label="错误处理 2"]`,'临时错误处理');
+  await stableAdd(errorsGroup,'新增错误处理');
+  await page.fill(`${errorsGroup} [aria-label="错误处理 3"]`,'保存失败时保留用户输入');
+  await page.click(`${errorsGroup} [aria-label="删除错误处理 2"]`);
+  assert.equal(await page.evaluate('document.activeElement.getAttribute("aria-label")'),'错误处理 2');
+  assert.deepEqual(await page.evaluate(`Array.from(document.querySelectorAll('${errorsGroup} .flow-step-row input'),input => input.value)`),['输入无效时显示具体原因','保存失败时保留用户输入']);
   assert.doesNotMatch(await page.evaluate(`document.querySelector(${JSON.stringify(apiNode)}).textContent`),/待确认|尚未确认|已确认|方案|待核对/);
   await stableAdd(`${apiNode} [data-editor-group="inputs"]`,'添加输入参数');
   await openGroup(`${apiNode} [data-editor-group="inputs"]`); await openGroup(`${apiNode} [data-editor-group="inputs"] .member-editor`);
@@ -291,6 +304,7 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
   await page.fill(`${apiNode} [aria-label="类型"]`,'string');
   const hostile = '</script><script>globalThis.__injected = true</script><!--EC:DATA-->';
   await page.fill(`${apiNode} [aria-label="参数说明"]`,hostile);
+  assert.equal(await page.evaluate(`(() => {const body=document.querySelector('${apiNode} [data-editor-group=inputs] .member-editor > .fold-body'),a=body.querySelector('[aria-label=类型]').getBoundingClientRect(),b=body.querySelector('[aria-label="默认值（选填）"]').getBoundingClientRect(),c=body.querySelector('[aria-label=参数说明]').getBoundingClientRect();return Math.abs(a.top-b.top)<1 && a.right<=b.left && c.top>a.bottom && c.width>a.width;})()`),true,'type/default share two columns and description follows across the full row');
   await openGroup(`${apiNode} [data-editor-group="outputs"]`);
   await stableAdd(`${apiNode} [data-editor-group="outputs"]`,'添加返回结果');
   await openGroup(`${apiNode} [data-editor-group="outputs"] .member-editor`);
@@ -311,6 +325,7 @@ test('opt-in file canvas: module dialogs, gestures, mock save and HTML reopen',{
   await page.click('#ec-dialog button[aria-label="确定"]');
   const first = await page.evaluate(`${data}.modules[0].id`), firstNode = `.module-node[data-module-id="${first}"]`;
   assert.equal(await page.evaluate(`${data}.modules[0].interfaces[0].flow`),'检查输入\n保存任务','step rows save using the existing flow field');
+  assert.equal(await page.evaluate(`${data}.modules[0].interfaces[0].errors`),'输入无效时显示具体原因\n保存失败时保留用户输入','error handling rows save using the existing errors field');
   assert.deepEqual(await page.evaluate(`${data}.modules[0].requirements`),savedRequirements);
   assert.equal(await page.evaluate(`${data}.modules[0].x % 10 === 0 && ${data}.modules[0].y % 10 === 0`),true,'new module starts on the grid');
   assert.equal(await page.evaluate(`document.querySelectorAll(${JSON.stringify(`${firstNode} [data-module-group="methods"] > .module-member-list > .module-member`)}).length`),1);

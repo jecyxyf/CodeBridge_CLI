@@ -27,35 +27,48 @@
     }
     return {left:Math.max(left,Math.min(x,right)),top:Math.max(top,Math.min(y,bottom))};
   }
-  function signatureName(item,fallback,method = false) {
-    if (hasText(item?.englishName)) return item.englishName.trim();
-    const name = typeof item?.name === 'string' ? item.name.trim() : '';
-    const legacy = method ? name.split('(')[0].trim() : name;
-    return /^[A-Za-z_$][\w$]*$/.test(legacy) ? legacy : fallback;
+  function detailTitle(item,kind) {
+    const name = hasText(item?.name) ? item.name.trim() : `未命名${kind}`;
+    return hasText(item?.englishName) ? `${name} / ${item.englishName.trim()}` : name;
   }
-  function methodSignature(method) {
-    const inputs = Array.isArray(method?.inputs) ? method.inputs : [];
-    const outputs = Array.isArray(method?.outputs) ? method.outputs : [];
-    const types = outputs.map(value => hasText(value?.type) ? value.type.trim() : 'unknown');
-    const result = types.length > 1 ? `(${types.join(', ')})` : types[0] || 'void';
-    return `${result} ${signatureName(method,'method',true)}(${inputs.map((value,index) => signatureName(value,`param${index + 1}`)).join(', ')})`;
+  function detailParameters(values) {
+    return Array.isArray(values) ? values.map(value => ({
+      name:hasText(value?.name) ? value.name : '未命名参数',
+      type:hasText(value?.type) ? value.type.trim() : '—',
+      description:hasText(value?.description) ? value.description : '暂无说明'
+    })) : [];
+  }
+  function methodDetails(method) {
+    return {title:detailTitle(method,'方法'),description:method?.purpose || '',inputs:detailParameters(method?.inputs),outputs:detailParameters(method?.outputs)};
+  }
+  function eventDetails(event) {
+    return {title:detailTitle(event,'事件'),description:event?.description || '',direction:event?.direction === 'receive' ? 'receive' : 'emit',parameters:detailParameters(event?.parameters)};
+  }
+  function parameterGroup(key,title,values,emptyText) {
+    const section = element('section','module-preview-io'), heading = element('h5','module-preview-io-title',title);
+    section.dataset.direction = key; heading.id = `ec-preview-${key}`; section.setAttribute('aria-labelledby',heading.id); section.append(heading);
+    if (!values.length) {section.append(element('p','module-preview-empty',emptyText)); return section;}
+    const list = element('dl','module-preview-parameters');
+    for (const value of values) {
+      const row = element('div','module-preview-parameter'), label = element('dt');
+      label.append(element('span','module-preview-parameter-name',value.name),element('code','module-preview-type',value.type));
+      row.append(label,element('dd','',value.description)); list.append(row);
+    }
+    section.append(list); return section;
   }
   function detailContent(title,description,details) {
+    const method = details.method ? methodDetails(details.method) : null, event = details.event ? eventDetails(details.event) : null;
+    const detail = method || event;
+    if (detail) {title = detail.title; description = detail.description;}
     const content = element('div','module-preview-content'), heading = element('h4','module-preview-title',title);
-    heading.id = 'ec-module-preview-title'; content.append(heading);
+    heading.id = 'ec-module-preview-title';
+    if (event) {
+      const header = element('div','module-preview-heading'), badge = element('span','module-preview-direction',event.direction === 'receive' ? '接收' : '发出');
+      badge.dataset.direction = event.direction; header.append(heading,badge); content.append(header);
+    } else content.append(heading);
     if (hasText(description)) content.append(element('p','module-preview-description',description));
-    if (details.method) content.append(element('code','module-preview-signature',methodSignature(details.method)));
-    const values = Array.isArray(details.parameters) ? details.parameters : [];
-    if (values.length) {
-      const parameters = element('dl','module-preview-parameters');
-      for (const [index,value] of values.entries()) {
-        const row = element('div','module-preview-parameter'), label = element('dt');
-        label.append(element('code','',signatureName(value,`param${index + 1}`)),document.createTextNode('：'));
-        row.append(label,element('dd','',hasText(value?.description) ? value.description : '暂无说明'));
-        parameters.append(row);
-      }
-      content.append(parameters);
-    }
+    if (method) content.append(parameterGroup('inputs','输入',method.inputs,'无输入参数'),parameterGroup('outputs','输出',method.outputs,'无输出参数'));
+    else if (event) content.append(parameterGroup('parameters','消息参数',event.parameters,'无消息参数'));
     return content;
   }
   function applyAppearance(node,module) {
@@ -153,10 +166,12 @@
       row.dataset[isMethod ? 'methodId' : 'eventId'] = item.id;
       row.dataset.valueKind = isMethod ? 'method' : item.direction === 'receive' ? 'receive' : 'emit';
       if (!isMethod) row.setAttribute('aria-label',`${item.direction === 'receive' ? '接收' : '发出'}事件：${title}`);
-      if (!isMethod) {const dot = element('span','module-event-dot'); dot.setAttribute('aria-hidden','true'); row.append(dot);}
+      if (isMethod) {
+        const symbol = element('span','module-method-symbol'); symbol.setAttribute('aria-hidden','true'); symbol.append(EC.Icons.create('function')); row.append(symbol);
+      } else {const dot = element('span','module-event-dot'); dot.setAttribute('aria-hidden','true'); row.append(dot);}
       row.append(element('span','module-member-name',title),element('span','module-member-description',description || ''));
       const more = element('span','module-row-more','···'); more.setAttribute('aria-hidden','true'); row.append(more);
-      preview.bind(row,module,title,description,{method:isMethod ? item : null,parameters:isMethod ? item.inputs : item.parameters}); list.append(row);
+      preview.bind(row,module,title,description,isMethod ? {method:item} : {event:item}); list.append(row);
     }
     return list;
   }
@@ -217,5 +232,5 @@
     }
     return {render,hidePreview:preview.hide,getElement:id => elements.get(id),destroy() {preview.destroy(); layer.replaceChildren(); elements.clear();}};
   }
-  EC.Nodes = {create,previewPosition,methodSignature};
+  EC.Nodes = {create,previewPosition,methodDetails,eventDetails};
 })(globalThis);

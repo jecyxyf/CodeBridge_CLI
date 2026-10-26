@@ -27,7 +27,7 @@ test('模块卡片：紧凑分组、点击只读详情、外观草稿与保存�
     parameters:[{...M.createParameter(),name:'任务编号',englishName:'HiddenPayloadEnglish',type:'string',description:'已保存任务的唯一编号'},
       {...M.createParameter(),name:'保存时间',englishName:'savedAt',type:'string',description:'记录保存完成的时间\n用于显示最近更新时间'}]});
   full.interfaces.push({...M.createInterface(),name:'读取任务',purpose:'读取当前任务列表'});
-  full.events.push({...M.createEvent(),name:'清理完毕',description:'通知清理已完成'});
+  full.events.push({...M.createEvent(),name:'请求清理',englishName:' ',description:'收到后清理缓存',direction:'receive'});
   full.structures.push({...M.createStructure(),name:'不应显示的数据结构'});
   full.tests.push({...M.createTest(),name:'不应显示的测试项'});
   full.unknowns.push('不应显示的待确认事项'); full.sources.push({path:'hidden-evidence.ts'});
@@ -79,30 +79,45 @@ test('模块卡片：紧凑分组、点击只读详情、外观草稿与保存�
   assert.equal(await page.evaluate('document.querySelector(".module-preview").hidden'),true,'right click does not open details');
   await page.click(method);
   assert.equal(await page.evaluate('document.querySelector(".module-preview").hidden'),false);
-  assert.equal(await page.evaluate('document.querySelector(".module-preview-title").textContent'),'保存任务');
+  assert.equal(await page.evaluate('document.querySelector(".module-preview-title").textContent'),'保存任务 / HiddenMethodEnglish');
   assert.equal(await page.evaluate('document.querySelector(".module-preview-description").textContent'),'检查任务内容并写入存储。');
   assert.equal(await page.evaluate('document.querySelector(".module-preview-content").children.length'),4);
-  assert.equal(await page.evaluate('document.querySelector(".module-preview-signature").textContent'),'boolean HiddenMethodEnglish(HiddenInputEnglish, priority)');
-  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll(".module-preview-parameter"),row => [row.querySelector("dt code").textContent,row.querySelector("dd").textContent])'),[
-    ['HiddenInputEnglish','要保存的任务名称'],['priority','决定任务的执行顺序\n同级任务按创建时间排序']
+  assert.equal(await page.evaluate('document.querySelector(".module-preview-signature")'),null,'methods no longer show a combined signature');
+  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll(".module-preview-io-title"),node => node.textContent)'),['输入','输出']);
+  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll("[data-direction=inputs] .module-preview-parameter"),row => [row.querySelector(".module-preview-parameter-name").textContent,row.querySelector(".module-preview-type").textContent,row.querySelector("dd").textContent])'),[
+    ['任务名称','string','要保存的任务名称'],['优先级','number','决定任务的执行顺序\n同级任务按创建时间排序']
   ]);
-  assert.doesNotMatch(await page.evaluate('document.querySelector(".module-preview").textContent'),/保存结果|输入参数|输出参数/);
+  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll("[data-direction=outputs] .module-preview-parameter"),row => [row.querySelector(".module-preview-parameter-name").textContent,row.querySelector(".module-preview-type").textContent,row.querySelector("dd").textContent])'),[
+    ['保存结果','boolean','是否保存成功']
+  ]);
+  assert.doesNotMatch(await page.evaluate('document.querySelector(".module-preview").textContent'),/HiddenInputEnglish|HiddenOutputEnglish|HiddenMethodEnglish\(/);
   assert.equal(await page.evaluate(`document.querySelector('${method}').getAttribute('aria-expanded')`),'true');
   await page.evaluate(`document.querySelector('${method}').dispatchEvent(new PointerEvent('pointerleave'))`);
   assert.equal(await page.evaluate('document.querySelector(".module-preview").hidden'),false,'leaving the row keeps click details open');
   await page.click(method);
   assert.equal(await page.evaluate('document.querySelector(".module-preview").hidden'),true,'same row toggles closed');
   await page.click(`${card} [data-method-id="${full.interfaces[1].id}"]`);
-  assert.equal(await page.evaluate('document.querySelector(".module-preview-parameters")'),null,'no parameter section for methods without inputs');
+  assert.equal(await page.evaluate('document.querySelector(".module-preview-parameters")'),null,'empty methods have no parameter rows');
+  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll(".module-preview-io-title"),node => node.textContent)'),['输入','输出']);
+  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll(".module-preview-empty"),node => node.textContent)'),['无输入参数','无输出参数']);
   await page.click(event);
-  assert.equal(await page.evaluate('document.querySelector(".module-preview-title").textContent'),'任务已保存');
+  assert.equal(await page.evaluate('document.querySelector(".module-preview-title").textContent'),'任务已保存 / HiddenEventEnglish');
   assert.equal(await page.evaluate('document.querySelector(".module-preview-description").textContent'),'通知任务已完成保存');
+  assert.equal(await page.evaluate('document.querySelector(".module-preview-direction").textContent'),'发出');
+  assert.equal(await page.evaluate('document.querySelector(".module-preview-direction").dataset.direction'),'emit');
   assert.equal(await page.evaluate('document.querySelector(".module-preview-signature")'),null,'messages have no method signature');
-  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll(".module-preview-parameter"),row => [row.querySelector("dt code").textContent,row.querySelector("dd").textContent])'),[
-    ['HiddenPayloadEnglish','已保存任务的唯一编号'],['savedAt','记录保存完成的时间\n用于显示最近更新时间']
+  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll(".module-preview-io-title"),node => node.textContent)'),['消息参数']);
+  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll("[data-direction=parameters] .module-preview-parameter"),row => [row.querySelector(".module-preview-parameter-name").textContent,row.querySelector(".module-preview-type").textContent,row.querySelector("dd").textContent])'),[
+    ['任务编号','string','已保存任务的唯一编号'],['保存时间','string','记录保存完成的时间\n用于显示最近更新时间']
   ]);
+  assert.doesNotMatch(await page.evaluate('document.querySelector(".module-preview").textContent'),/HiddenPayloadEnglish|savedAt|写入成功后|触发条件/);
   await page.click(`${card} [data-event-id="${full.events[1].id}"]`);
-  assert.equal(await page.evaluate('document.querySelector(".module-preview-parameters")'),null,'events without payloads omit the parameter list');
+  assert.equal(await page.evaluate('document.querySelector(".module-preview-title").textContent'),'请求清理');
+  assert.equal(await page.evaluate('document.querySelector(".module-preview-direction").textContent'),'接收');
+  assert.equal(await page.evaluate('document.querySelector(".module-preview-direction").dataset.direction'),'receive');
+  assert.deepEqual(await page.evaluate('Array.from(document.querySelectorAll(".module-preview-io-title"),node => node.textContent)'),['消息参数']);
+  assert.equal(await page.evaluate('document.querySelector(".module-preview-parameters")'),null,'events without payloads have no parameter rows');
+  assert.equal(await page.evaluate('document.querySelector(".module-preview-empty").textContent'),'无消息参数');
   await page.click(`${card} .module-group-title`);
   assert.equal(await page.evaluate('document.querySelector(".module-preview").hidden'),true,'outside click closes details');
   await page.evaluate(`document.querySelector('${method}').focus()`);

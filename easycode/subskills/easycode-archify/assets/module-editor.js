@@ -121,52 +121,54 @@
       else EC.Model.updateModule(project,module.id,patch);
       if (!entry) onSummaryChange(module);
     }
-    function parameterFields(item,body,patch,{required = false,defaults = false} = {}) {
-      body.append(names('参数',item,patch),field('类型',item.type,value => patch('type',value)),field('参数说明',item.description,value => patch('description',value),'textarea'));
-      if (defaults) body.append(field('默认值（选填）',item.defaultValue,value => patch('defaultValue',value)));
+    function parameterFields(item,body,patch,{required = false} = {}) {
+      const values = element('div','parameter-value-fields');
+      values.append(field('类型',item.type,value => patch('type',value)),field('默认值（选填）',item.defaultValue,value => patch('defaultValue',value)));
+      body.append(names('参数',item,patch),values,field('参数说明',item.description,value => patch('description',value),'textarea'));
       if (required) body.append(check('必填',item.required,value => patch('required',value)));
     }
-    function parameterGroup({title,key,getItems,setItems,required = false,defaults = false,afterChange}) {
+    function parameterGroup({title,key,getItems,setItems,required = false,afterChange}) {
       return collection({title,key,kind:'参数',getItems,setItems,createItem:EC.Model.createParameter,afterChange,
         build(item,body,rename) {
-          parameterFields(item,body,(key,value) => {setItems(getItems().map(current => current.id === item.id ? {...current,[key]:value} : current)); rename();},{required,defaults});
+          parameterFields(item,body,(key,value) => {setItems(getItems().map(current => current.id === item.id ? {...current,[key]:value} : current)); rename();},{required});
         }});
     }
     function methodParameters(entry,direction) {
       const isInput = direction === 'inputs', title = isInput ? '输入参数' : '返回结果';
-      return parameterGroup({title,key:direction,getItems:() => entry[direction],setItems:items => update(module,entry,{[direction]:items}),required:isInput,defaults:isInput}).section;
+      return parameterGroup({title,key:direction,getItems:() => entry[direction],setItems:items => update(module,entry,{[direction]:items}),required:isInput}).section;
     }
-    function flowSteps(entry) {
-      const group = fold('实现流程',{key:'flow'}), list = element('div','flow-step-list');
-      const empty = element('p','empty-note','点击右上角“＋”添加实现步骤。');
-      const values = entry.flow ? entry.flow.split(/\r\n|\r|\n/) : [];
-      const separator = entry.flow?.match(/\r\n|\r|\n/)?.[0] || '\n';
-      const save = () => update(module,entry,{flow:values.join(separator)});
+    function methodSteps(entry,key) {
+      const flow = key === 'flow', title = flow ? '实现流程' : '错误处理', item = flow ? '步骤' : '错误处理', label = flow ? '实现步骤' : '错误处理';
+      const group = fold(title,{key}), list = element('div','flow-step-list');
+      const empty = element('p','empty-note',`点击右上角“＋”添加${label}。`);
+      const values = entry[key] ? entry[key].split(/\r\n|\r|\n/) : [];
+      const separator = entry[key]?.match(/\r\n|\r|\n/)?.[0] || '\n';
+      const save = () => update(module,entry,{[key]:values.join(separator)});
       function sync() {
         group.setCount(values.length); empty.hidden = !!values.length; list.hidden = !values.length;
         [...list.children].forEach((row,index) => {
           row.querySelector('.flow-step-index').textContent = String(index + 1);
-          row.querySelector('input').setAttribute('aria-label',`实现步骤 ${index + 1}`);
-          const remove = row.querySelector('button'), label = `删除步骤 ${index + 1}`;
-          remove.setAttribute('aria-label',label); remove.title = label;
+          row.querySelector('input').setAttribute('aria-label',`${label} ${index + 1}`);
+          const remove = row.querySelector('button'), removeLabel = `删除${item} ${index + 1}`;
+          remove.setAttribute('aria-label',removeLabel); remove.title = removeLabel;
         });
       }
       function append(value) {
         const row = element('div','flow-step-row'), index = element('span','flow-step-index'), input = element('input');
-        index.setAttribute('aria-hidden','true'); input.value = value; input.placeholder = '填写一个实现步骤';
+        index.setAttribute('aria-hidden','true'); input.value = value; input.placeholder = flow ? '填写一个实现步骤' : '填写一条错误处理';
         input.addEventListener('input',() => {
           const position = [...list.children].indexOf(row); if (position < 0) return;
           values[position] = input.value; save();
         });
-        row.append(index,input,button('trash','删除步骤',() => {
+        row.append(index,input,button('trash',`删除${item}`,() => {
           const position = [...list.children].indexOf(row); if (position < 0) return;
           values.splice(position,1); save(); row.remove(); sync();
           (list.children[position]?.querySelector('input') || list.lastElementChild?.querySelector('input') || add).focus({preventScroll:true});
         },'member-delete'));
         list.append(row);
       }
-      const add = button('add','新增步骤',() => addInPlace(add,() => {
-        const value = `步骤${values.length + 1}`; values.push(value); save(); append(value); sync();
+      const add = button('add',`新增${item}`,() => addInPlace(add,() => {
+        const value = `${item}${values.length + 1}`; values.push(value); save(); append(value); sync();
       }),'group-add');
       group.header.append(add); group.body.append(empty,list);
       for (const value of values) append(value);
@@ -175,7 +177,7 @@
     function methodFields(entry,body,rename) {
       body.append(names('方法',entry,(key,value) => {update(module,entry,{[key]:value}); rename();}),field('方法用途',entry.purpose,value => update(module,entry,{purpose:value}),'textarea'));
       body.append(methodParameters(entry,'inputs'),methodParameters(entry,'outputs'));
-      body.append(flowSteps(entry),field('可能的错误（选填）',entry.errors,value => update(module,entry,{errors:value}),'textarea'));
+      body.append(methodSteps(entry,'flow'),methodSteps(entry,'errors'));
     }
     function structureFields(entry,patch) {
       const section = element('section','structure-fields'), heading = element('div','structure-fields-heading');
@@ -273,7 +275,7 @@
     language.append(languages);
     basics.body.append(names('模块',module,(key,value) => update(module,null,{[key]:value})),field('模块功能',module.purpose,value => update(module,null,{purpose:value}),'textarea'),language,location,select('所属层级',module.groupId,[['','无'],...project.groups.map(group => [group.id,group.name || '未命名层级'])],value => update(module,null,{groupId:value})));
     const requirements = requirementGroup();
-    const parameters = parameterGroup({title:'参数',key:'parameters',getItems:() => module.parameters || [],setItems:items => update(module,null,{parameters:items}),defaults:true});
+    const parameters = parameterGroup({title:'参数',key:'parameters',getItems:() => module.parameters || [],setItems:items => update(module,null,{parameters:items})});
     const structures = collection({title:'数据结构',key:'structures',kind:'数据结构',getItems:() => module.structures || [],setItems:items => update(module,null,{structures:items}),createItem:EC.Model.createStructure,confirmDelete:true,
       build(entry,body,rename) {
         const patch = (key,value) => EC.Model.updateMember(project,module.id,'structures',entry.id,{[key]:value});

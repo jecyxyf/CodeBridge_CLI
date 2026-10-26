@@ -218,7 +218,7 @@ test('五组内容在草稿中独立编辑，确认后可完整保存读回',asy
   const event = {...M.createEvent(),name:'任务完成',englishName:'taskCompleted',description:'任务处理完毕',trigger:'保存成功',parameters:[{...M.createParameter(),name:'任务编号',englishName:'taskId',type:'string',description:'完成的任务'}]};
   const check = {...M.createTest(),name:'保存任务',steps:'输入有效任务并保存',expected:'发出任务完成事件'};
   M.updateModule(session.project,module.id,{englishName:'TaskModule',language:'JavaScript',codeLocation:'./src/task.js',parameters:[setting],events:[event],tests:[check]});
-  M.updateInterface(session.project,module.id,api.id,{name:'创建任务',englishName:'createTask',flow:'1. 检查输入\n2. 保存\n3. 发出事件',errors:'无效输入时返回错误'});
+  M.updateInterface(session.project,module.id,api.id,{name:'创建任务',englishName:'createTask',flow:'1. 检查输入\n2. 保存\n3. 发出事件',errors:'输入无效时显示原因\r\n保存失败时保留内容'});
   M.updateMember(session.project,module.id,'events',event.id,{direction:'receive'});
   M.updateMember(session.project,module.id,'tests',check.id,{expected:'接收任务完成事件'});
   assert.deepEqual(project,before,'nested edits remain isolated until confirmation');
@@ -226,6 +226,7 @@ test('五组内容在草稿中独立编辑，确认后可完整保存读回',asy
   assert.equal(module.status,'modified'); assert.equal(module.interfaces[0].status,'modified');
   assert.equal(module.interfaces[0].id,api.id); assert.deepEqual(module.sources,before.modules[0].sources);
   assert.equal(module.events[0].direction,'receive'); assert.equal(module.parameters[0].defaultValue,'3');
+  assert.equal(module.interfaces[0].errors,'输入无效时显示原因\r\n保存失败时保留内容');
   assert.equal(module.tests[0].expected,'接收任务完成事件');
   assert.deepEqual(M.validate(project),{errors:[],warnings:[]});
   assert.deepEqual(S.readProject(assemble(project,await loadBundle())),project);
