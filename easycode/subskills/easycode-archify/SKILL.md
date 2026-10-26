@@ -1,71 +1,72 @@
 ---
 name: easycode-archify
-description: "Create and update a standalone editable HTML module canvas for software design, change planning, or source-backed repository analysis. Show module responsibilities, interfaces, parameters, groups, and directed relationships."
+description: "根据用户需求规划并依次执行 EasyCode 架构任务：源代码转架构 JSON、架构 JSON 转 HTML、从已保存 HTML 提取架构 JSON，以及指定中文名称的英文命名。用于选择或串联这些操作。"
 ---
 
 # EasyCode Archify
 
-Deliver one HTML with embedded styles, scripts, templates, and project data. Opening, editing and saving it needs no Node, Python, server, or network. Only the optional English-name translation button needs a network connection. Node is only needed by the agent's build/check tools. Use this package's editor, not the separate `../archify/` engine.
+作为面向用户的总入口，确定任务的输入、输出和执行顺序，然后执行所需子技能。用户可以用自然语言提出要求，也可以直接指定某个子技能。
 
-## Ground the content in the user's task
+本包中的 archify 指符合 tools/html/assets/model.js 的架构 JSON。当前使用 formatVersion: 1，不因技能命名新增数据格式或文件扩展名。已有 Agent 执行技能；网页不负责安装、扫描、启动或管理 Agent。
 
-Describe proposed behavior as `planned`. For changes, read the existing project and relevant code first; distinguish proposals from checked facts through status and unknowns. For source analysis, inspect the requested repository scope and record evidence. These are authoring tasks, not selectable project modes. Project data has no `mode` field; there is no working-mode control, validator, or migration. The webpage does not scan or analyze source files.
+## 数据与网页位置
 
-Read [project-data.md](references/project-data.md) before constructing or changing data. For source analysis or rechecking edited facts, also read [repository-analysis.md](references/repository-analysis.md). Ask only for missing choices that materially affect the result.
+| 文件 | 用途 |
+|---|---|
+| [tools/archify.json](tools/archify.json) | 当前项目实际使用的架构数据 |
+| [archifytemplate.json](tools/html/templates/archifytemplate.json) | 新建项目的默认数据模板 |
+| [tools/html/index.html](tools/html/index.html) | 根据当前架构数据生成的运行网页 |
 
-## Create a canvas
+用户没有另指定文件时使用以上位置，指定了其他位置则尊重用户选择。新建项目读取默认模板，并使用 Model.createProject 生成新的项目 ID；不要把模板 ID 当成每个项目共用的 ID。已有项目以当前数据为准。
 
-Use `Model.createProject`, `createModule`, `createInterface` (a public method), `createParameter`, `createEvent`, and `createTest` from `assets/model.js`; they generate complete defaults and unique IDs. Fill the requested scope, keeping unknown inputs/outputs unconfirmed. Groups are one level; each module has zero or one group. Relationships connect modules, not individual interface ports.
+## 子技能
 
-Run these commands from this skill's directory, replacing the example paths with the intended files:
+| 子技能 | 何时使用 | 输入 → 输出 |
+|---|---|---|
+| [easycode-archify-code2archify](subskills/easycode-archify-code2archify/SKILL.md) | 从实际代码建立或更新架构 | 源代码 → 架构 JSON |
+| [easycode-archify-archify2html](subskills/easycode-archify-archify2html/SKILL.md) | 生成或更新可编辑网页 | 架构 JSON → HTML |
+| [easycode-archify-html2archify](subskills/easycode-archify-html2archify/SKILL.md) | 取回已保存网页里的设计数据 | EasyCode HTML → 架构 JSON |
+| [easycode-archify-translate](subskills/easycode-archify-translate/SKILL.md) | 翻译指定变量、参数、字段或方法的中文名称 | 架构 JSON + 目标范围 → 更新英文名的架构 JSON |
 
-```powershell
-node scripts/build.mjs examples/task-board.json examples/task-board.html
-node scripts/check.mjs examples/task-board.html
-```
+只读取当次需要的子技能说明。调用指在当前 Agent 中读取相应 SKILL.md 并执行；环境支持正式技能调用时可以使用该能力，不要求额外创建 Agent。
 
-The JSON is an agent-side build input, not a second file the user must maintain. Deliver the HTML. `examples/task-board.*` is a design example, not evidence about real code. Webpage and module templates are maintained separately in `templates/canvas.html` and `templates/module-node.html`.
+## 规划任务
 
-The top title and description share a clickable area that fills the space to the left of the actions. Long text truncates with an ellipsis and exposes its full value on hover. Click either line (or activate the area by keyboard) to open project settings; Confirm applies edits, Cancel/Escape discards them, and unchanged confirmation does not dirty the project. There is no separate title-edit icon. A vertical separator divides Add module / Add layer from Save / Import / Export. The footer contains only zoom controls and Fit; it has no file name, save-state text or static gesture instructions. Keep actual file saving, dirty tracking, close-page protection and error reporting working. Finish or cancel an open project-settings draft before saving/importing.
+1. 确认用户要达到的结果、已有输入文件、源码范围和输出位置。能从当前工作目录或对话确定的内容自行确定，只询问影响结果的缺失信息。
+2. 确定哪份输入是当前依据。用户从网页继续工作时先提取其已保存数据；不能用旧示例 JSON 覆盖网页中的新内容。已知浏览器仍有未保存编辑时，先请用户保存相关 HTML。
+3. 列出简短的顺序表：每步的子技能、输入、输出和检查方式。遵守项目关于写入前确认的要求；已有明确授权的范围不重复申请。
+4. 逐项执行，把上一步经过检查的产物作为下一步输入。传递用户目标、文件路径、目标对象和检查结果，不让用户重复提供相同上下文。
+5. 某步失败时停止依赖它的后续步骤，保留原文件并报告原因，不拿旧产物冒充新结果。
+6. 报告实际执行的步骤、输出路径和检查结果。请求提交、推送或额外产物时再执行对应工作。
 
-Project settings contain bilingual name, description, code directory and code version. The folder icon invokes `showDirectoryPicker({id:'easycode-code-directory',mode:'read'})` directly from its click, then fills only the directory name: browsers do not expose an absolute local path. Keep the path editable and explain this limitation beside it. Do not enumerate or read directory contents, retain its handle, or save on selection. Cancellation preserves the current value; errors and unsupported browsers keep manual input available. Ignore results from a closed/replaced dialog or after manual typing.
+## 常见顺序
 
-`Model.projectTitle(project)` combines the Chinese project name and `repository.revision` for the canvas heading, hover text, browser tab, and saved HTML `<title>`. `0.0.1` and `v0.0.1` both display as `软件框架图v0.0.1`; empty versions show the name alone. Non-version references such as Git hashes or branch names are separated by a space and do not receive a misleading `v`. Store name and revision separately; the title formatter never changes the project data. Tab dirty markers remain intact.
+| 用户需求 | 执行顺序 |
+|---|---|
+| 从源码生成架构数据 | code2archify |
+| 从源码生成可编辑网页 | code2archify → archify2html |
+| 用已有 JSON 生成网页 | archify2html |
+| 从编辑后的网页取回数据 | html2archify |
+| 翻译 JSON 中指定的方法或变量 | translate |
+| 翻译网页里的名称并更新网页 | html2archify → translate → archify2html |
 
-Canvas module cards only show name, responsibility summary, member counts and status. The edit button opens a dialog whose header shows Chinese / English module names on the left and programming language on the right, updating live from the draft. Blank names show the available name or 未命名模块; blank language shows 未设置语言. Six sections collapse independently: module information and functional requirements (initially open), followed by parameters, methods, message events, and test items (initially closed), with no extra external-interface heading. Module information includes bilingual name, programming language (suggested choices plus custom input), responsibility, code location and layer. Code location accepts one project-relative file or directory per line, such as ./testmodel.cpp and ./testmodel.h; Confirm normalizes separators and ./ prefixes, rejecting absolute paths, line-number suffixes and paths outside the project. Source evidence remains separate and is not used as a location fallback. Module, parameter, method and event names use one row with two columns: Chinese on the left and English on the right. Each member and a method's implementation flow can also collapse; adding opens and focuses the new member. Collapsing retains edits and never dirties project data. Confirm applies the draft; Cancel/Escape discards it. A new module is not added until confirmed. Confirm/Cancel/Delete remain visible at the bottom. After confirming, use the top Save action to write the HTML. Keep drag, grid snapping and relationship controls available on the canvas.
+不要求每次都执行四个子技能。根据输入和目标选取必要步骤，翻译只在用户要求的范围内执行。
 
-Functional requirements appear directly below module information. Use the plus button (新增需求) to add and focus a text row; each row holds one specific requirement, supports line breaks and has a delete icon. Deleting retains the other rows and focuses an adjacent row, or the add button when empty. The section shows a count and can collapse without losing text. Requirements are an ordered string array stored with the module; Confirm/Cancel and HTML saving follow the same draft flow as other module fields.
+## 共用约定
 
-Project, layer, module, parameter/attribute, method, event and test names all expose Chinese (`name`) and English (`englishName`) in settings. Each English input contains a translate icon, not a random-name button. Clicking it sends only that Chinese name to MyMemory's anonymous `get` endpoint, explicitly `langpair=zh-CN|en`, with no account, key, cookies, extra dependencies or Agent. MyMemory currently allows 5,000 characters/day anonymously and at most 500 UTF-8 bytes/request. Translation can be literal or inaccurate; users can edit the result before confirming. Project names use kebab-case, module/layer names PascalCase, and other member names camelCase. Formatting does not infer tense, boolean prefixes or synonyms. Never silently translate existing data on open or save.
+- 数据字段、创建函数和校验以 [model.js](tools/html/assets/model.js) 为准。tools/archify.json 是当前项目数据，archifytemplate.json 是默认数据模板。
+- 修改现有数据时保留稳定 ID、无关字段、布局和关系。新增对象使用模型创建函数，提供完整默认值。
+- 使用模型更新函数处理语义变化和来源状态；保存前检查类型、ID 和引用，检查失败不替换原文件。重新读取写出的结果进行核对。
+- 保存前检查输入和目标文件是否已被其他操作改变；发生冲突时先处理，不直接覆盖新内容。
+- 网页工程位于 tools/html/，包含 assets/、templates/、scripts/。生成和检查入口为 tools/html/scripts/build.mjs、tools/html/scripts/check.mjs；使用本包工具，不切换到旁边独立的 archify 引擎。
+- 当前网页编辑结果保存到 HTML 的 ec-project 数据块；取回 JSON 使用 html2archify。不能声称网页已经持续读写、自动刷新独立 JSON。
+- 界面行为以 tools/html/assets/ 和 tools/html/templates/ 中的实现为准；各子技能就地维护所需规则。
 
-Successful translations are cached only in page memory (up to 200 phrases); cache data is not included in saved HTML. Requests time out after 12 seconds. Empty/oversized input, service limits, unavailable service, or non-English responses show a field-level message and retain the old English value. Typing in either field, removing the item, or closing the dialog invalidates pending results. Generated names stay in the form draft until Confirm; Cancel/Escape discards them. Canvas module labels and their hover text show only `name`, with a Chinese unnamed placeholder when blank.
+## 数据与校验要点
 
-Existing `interfaces` are displayed as methods; keep their IDs, original names, parameters, evidence and legacy expansion fields. New bilingual/section fields are optional for format-1 compatibility, including English names on projects, groups and tests. Do not guess translations or add empty fields when only refreshing an existing HTML. Code evidence and unresolved facts remain available inside collapsed details.
-
-Connect modules by holding an edge point, dragging to another module's point, and releasing. Each module has one point at the middle of each of its four sides; the drag starts at the output and ends at the input. There is no toolbar button for adding arrows. Single clicks do not connect. Escape or releasing on blank canvas/the same module cancels the preview. All arrows are plain visual relationship markers, with no call/dependency distinction or configuration dialog. Left-click an arrow or its text to select it: the line and arrowhead turn bright orange without a selection rectangle. Edit and Delete icons appear below the curve midpoint, follow movement/zoom, and avoid the text. Click Edit to change the optional text inline; double-clicking does not edit. Enter or blur applies it, Shift+Enter adds a line, and Escape discards it. The icons hide while editing and return afterwards. Click Delete (or press Delete/Backspace on the selected arrow) to remove it with confirmation. Click blank canvas or press Escape outside text editing to deselect and hide the icons. Selection alone never dirties project data. New arrows persist their selected sides in optional `fromPort` / `toPort` fields; preserve old arrows without those fields and any legacy metadata. These are module attachment points, not API-specific ports.
-
-For ordinary canvas authoring, build, check, and read back the project data. Run `node --test tests/*.test.mjs` when changing this package's code, templates, or tooling; it is not a step for every generated canvas.
-
-## Update an existing HTML
-
-Read the user's current HTML first with `EasyCode.Serialization.readProject(html)` after importing `assets/model.js` and `assets/serialization.js` in Node. Do not execute the document to extract data. Validate it before edits. Work from that returned object, not a regenerated example or an older JSON: preserve IDs, positions, groups, relationships, view/expanded state, descriptions, and user changes outside the requested scope.
-
-Use `Model.updateModule` / `updateInterface` for semantic edits so checked facts become `modified`; use the remove helpers to clean references. Recheck sources before restoring `verified`. Build with `Serialization.buildDocument(await loadBundle(), project)` using `loadBundle` from `scripts/build.mjs`, then check and read back the result. This refreshes the editor bundle from the maintained package while retaining project content. If the supplied HTML has custom template/runtime changes, preserve and reconcile those explicitly before rebuilding; `readProject` extracts project data only.
-
-Overwrite the intended HTML by default; create another file only for Save As or an explicitly requested copy. Do not create automatic version copies. Inside the page, first Save asks the user to select the original HTML; later Save reuses its confirmed handle. Save As selects a new destination. External file changes are detected and reported rather than silently overwritten. Use a recent desktop Chrome/Edge for native file writing.
-
-## Verify and hand off
-
-Check for model errors and address meaningful warnings. Read back the generated project and compare it with the intended data. When browser execution is permitted, check real edits, drag/zoom, groups, relationships, saved HTML reopen, and the visible layout. Never count skipped or simulated checks as native browser/file-picker verification.
-
-`tests/browser.test.mjs` is opt-in and default tests skip it. For an independently authorized local run with Node 22+ and an installed Chromium browser:
-
-```powershell
-$env:EASYCODE_BROWSER_TEST = '1'
-$env:EASYCODE_BROWSER_EXECUTABLE = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
-node --test tests/browser.test.mjs
-```
-
-The runner launches a hidden, isolated browser, blocks page HTTP(S), writes screenshots and reopened HTML to its reported temporary directory, and uses simulated file handles. It does not test native file dialogs. Separately open the delivered HTML visibly and verify original-file selection, permission, overwrite, Save As, cancel, and reopen. Honor any execution restriction in the current session; setting this flag is not permission to bypass one.
-
-Module-document templates and a one-click document update button are deferred; do not imply that the current canvas generates module documentation.
+- 顶层保存项目名称、描述、repository、groups、modules、relations 和 view；formatVersion 表示数据格式版本，repository.revision 表示被描述代码的版本，两者分别保存。
+- 对象 ID 在项目内全局唯一，以英文字母开头，仅含英文字母、数字、下划线和连字符。重命名不换 ID；分层、连线和展开状态通过 ID 引用，删除后清理失效引用。
+- 模块成员和字段类型以模型为准，不能因为网页逐行编辑就把原本的文字字段改成数组。保留用户的默认值、来源、布局和未涉及内容。
+- codeLocation 是相对项目代码目录的路径，可逐行记录多个位置；源码出处单独保存在 sources，包含相对路径、从 1 开始的行号和必要的符号信息。
+- planned 表示尚未核对的设计，verified 表示有源码依据的事实，modified 表示已核对内容发生了语义修改。结构校验通过不等于源码事实已被证实。
+- Model.validate(project) 返回 errors 和 warnings。错误处理完成后才替换目标文件，警告按实际内容核查；保存后读回比较，不能用虚假内容填平缺项。

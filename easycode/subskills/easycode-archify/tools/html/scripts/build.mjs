@@ -28,7 +28,7 @@ export async function build(projectPath, outputPath, bundle) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [projectPath,outputPath] = process.argv.slice(2);
   if (!projectPath || !outputPath) {
-    console.error('用法: node scripts/build.mjs <project.json> <output.html>'); process.exitCode = 1;
+    console.error('用法: node tools/html/scripts/build.mjs <project.json> <output.html>'); process.exitCode = 1;
   } else {
     try {console.log(JSON.stringify(await build(projectPath,outputPath),null,2));}
     catch (error) {console.error(error.message); process.exitCode = 1;}

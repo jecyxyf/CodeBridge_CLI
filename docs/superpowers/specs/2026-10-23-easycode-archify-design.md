@@ -1,5 +1,7 @@
 # EasyCode Archify 初版设计
 
+> 2026-10-26 目录整理：网页工程已迁入 easycode/subskills/easycode-archify/tools/html/，原 tests/、examples/ 内容已删除，references/ 中的必要规则已合并进技能说明。本文保留初版设计和实施历史；历史文件清单不作为当前依赖，当前技能分工、数据位置与生成命令以[现行技能入口](../../../easycode/subskills/easycode-archify/SKILL.md)为准。
+
 日期：2026-10-23
 
 状态：用户已于 2026-10-23 确认并授权执行；实现进度见同目录体系下的实施计划。后续修改继续更新本文件。

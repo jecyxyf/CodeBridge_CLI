@@ -10,7 +10,7 @@ export async function check(file) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [file] = process.argv.slice(2);
-  if (!file) {console.error('用法: node scripts/check.mjs <project.html>'); process.exitCode = 1;}
+  if (!file) {console.error('用法: node tools/html/scripts/check.mjs <project.html>'); process.exitCode = 1;}
   else {
     try {
       const result = await check(file); console.log(JSON.stringify(result,null,2));

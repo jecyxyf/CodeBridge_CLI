@@ -1,5 +1,7 @@
 # EasyCode Archify Implementation Plan
 
+> 2026-10-26 目录整理：网页工程已迁入 easycode/subskills/easycode-archify/tools/html/，原 tests/、examples/ 内容已删除，references/ 中的必要规则已合并进技能说明。本文保留初版设计和实施历史；历史文件清单不作为当前依赖，当前技能分工、数据位置与生成命令以[现行技能入口](../../../easycode/subskills/easycode-archify/SKILL.md)为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 交付可离线打开、编辑模块和接口、分组连线并覆盖保存的单文件 HTML，以及生成它的独立技能包。
