@@ -63,7 +63,7 @@
     return {x:Math.round(x / gridSize) * gridSize || 0,y:Math.round(y / gridSize) * gridSize || 0};
   }
   function gridStyle(view) {
-    const size = gridSize * view.scale;
+    const size = gridSize * 2 * view.scale;
     // The gradient's dot is at the tile center; offset half a tile to put it at world (0,0).
     return {backgroundSize:`${size}px ${size}px`,backgroundPosition:`${view.x - size / 2}px ${view.y - size / 2}px`};
   }
@@ -110,7 +110,7 @@
     function listen(target,type,callback,options) {target.addEventListener(type,callback,options); listeners.push(() => target.removeEventListener(type,callback,options));}
     function nodeBounds(module) {
       const node = nodes.getElement(module.id);
-      return {x:module.x,y:module.y,width:node?.offsetWidth || 400,height:node?.offsetHeight || 190};
+      return {x:module.x,y:module.y,width:node?.offsetWidth || 480,height:node?.offsetHeight || 190};
     }
     const boundsForGroup = group => groupBounds(group,project.modules.filter(module => module.groupId === group.id).map(nodeBounds));
     function syncConnection(state = connection.getState()) {

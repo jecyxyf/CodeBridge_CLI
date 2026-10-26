@@ -63,6 +63,9 @@
     node.style.setProperty('--node-text',colors.textColor);
     node.style.setProperty('--node',colors.backgroundColor);
     node.style.setProperty('--node-header',colors.headerColor);
+    const customText = colors.textColor !== EC.Model.moduleAppearance().textColor;
+    node.style.setProperty('--node-icon',customText ? colors.textColor : '#347cff');
+    node.style.setProperty('--node-event-icon',customText ? colors.textColor : '#8547e9');
   }
   function createPreview() {
     const panel = element('aside','module-preview'), listeners = [];
@@ -123,10 +126,24 @@
     const list = element('dl','module-member-list module-parameter-list');
     for (const item of values) {
       const row = element('div','module-member module-member-row'), title = named(item,'参数');
+      const type = hasText(item.type) ? item.type.trim() : '—';
+      const kind = parameterKind(type); row.dataset.valueKind = kind;
       row.append(element('dt','module-member-name',title),element('dd','module-member-description',item.description || ''));
+      const label = {string:'str',number:'num',boolean:'bool',array:'arr',object:'obj'}[kind] || type;
+      const badge = element('dd','module-type-label',label); badge.title = type; badge.setAttribute('aria-label',`参数类型：${type}`); row.append(badge);
+      const more = element('span','module-row-more','···'); more.setAttribute('aria-hidden','true'); row.append(more);
       preview.bind(row,module,title,item.description); list.append(row);
     }
     return list;
+  }
+  function parameterKind(type) {
+    const value = type.toLowerCase().replace(/\s/g,'');
+    if (/\[\]$|^(?:array|list|vector|std::vector)(?:<|\[|$)/.test(value)) return 'array';
+    if (/^(?:bool|boolean)$/.test(value)) return 'boolean';
+    if (/^(?:str|string|std::string|char(?:\*|\[\])?)$/.test(value)) return 'string';
+    if (/^(?:number|u?int(?:8|16|32|64|128)?(?:_t)?|float(?:32|64)?|double|decimal|long|short|size_t)$/.test(value)) return 'number';
+    if (/^(?:obj|object|map|dict|dictionary|record|struct|class)(?:<|\[|$)/.test(value)) return 'object';
+    return 'other';
   }
   function memberList(values,kind,module,preview) {
     const list = element('div','module-member-list');
@@ -134,16 +151,25 @@
       const row = element('div','module-member module-member-row'), isMethod = kind === 'method';
       const title = named(item,isMethod ? '方法' : '事件'), description = isMethod ? item.purpose : item.description;
       row.dataset[isMethod ? 'methodId' : 'eventId'] = item.id;
+      row.dataset.valueKind = isMethod ? 'method' : item.direction === 'receive' ? 'receive' : 'emit';
+      if (!isMethod) row.setAttribute('aria-label',`${item.direction === 'receive' ? '接收' : '发出'}事件：${title}`);
+      if (!isMethod) {const dot = element('span','module-event-dot'); dot.setAttribute('aria-hidden','true'); row.append(dot);}
       row.append(element('span','module-member-name',title),element('span','module-member-description',description || ''));
+      const more = element('span','module-row-more','···'); more.setAttribute('aria-hidden','true'); row.append(more);
       preview.bind(row,module,title,description,{method:isMethod ? item : null,parameters:isMethod ? item.inputs : item.parameters}); list.append(row);
     }
     return list;
   }
   function renderContent(container,module,preview) {
-    function group(key,title,body) {
+    function group(key,title,body,count) {
       if (!body) return;
-      const section = element('section','module-group'); section.dataset.moduleGroup = key;
-      body.classList.add('module-group-content'); section.append(element('h3','module-group-title',title),body); container.append(section);
+      const section = element('section','module-group'); section.dataset.moduleGroup = key; section.dataset.itemCount = count;
+      const icons = {basics:'info',requirements:'list',parameters:'parameters',methods:'code',events:'event'};
+      const heading = element('div','module-group-heading'), name = element('h3','module-group-title');
+      const symbol = element('span','module-group-symbol'); symbol.append(EC.Icons.create(icons[key])); name.append(symbol,element('span','',title));
+      name.setAttribute('aria-label',`${title}，${count} 项`);
+      const index = element('span','module-group-index',String(container.children.length + 1).padStart(2,'0')); index.setAttribute('aria-hidden','true');
+      heading.append(name,index); body.classList.add('module-group-content'); section.append(heading,body); container.append(section);
     }
     const basics = element('div','module-basics');
     if (hasText(module.purpose)) {
@@ -151,17 +177,17 @@
       preview.bind(purpose,module,named(module,'模块'),module.purpose); basics.append(purpose);
     }
     const metadata = properties(module,preview); if (metadata) basics.append(metadata);
-    group('basics','模块信息',basics.children.length ? basics : null);
+    group('basics','模块信息',basics.children.length ? basics : null,Number(hasText(module.purpose)) + Number(!!metadata));
     const requirements = (module.requirements || []).filter(hasText);
     if (requirements.length) {
       const list = element('ul','module-requirements');
       for (const value of requirements) {const row = element('li','',value); preview.bind(row,module,'功能需求',value); list.append(row);}
-      group('requirements','功能需求',list);
+      group('requirements','功能需求',list,requirements.length);
     }
     const parameters = items(module.parameters,hasParameter), methods = items(module.interfaces,hasMethod), events = items(module.events,hasEvent);
-    if (parameters.length) group('parameters','参数',parameterList(parameters,module,preview));
-    if (methods.length) group('methods','方法',memberList(methods,'method',module,preview));
-    if (events.length) group('events','消息事件',memberList(events,'event',module,preview));
+    if (parameters.length) group('parameters','参数',parameterList(parameters,module,preview),parameters.length);
+    if (methods.length) group('methods','方法',memberList(methods,'method',module,preview),methods.length);
+    if (events.length) group('events','消息事件',memberList(events,'event',module,preview),events.length);
   }
   function create({project,layer,template,onSelect = () => {},onEdit = () => {}}) {
     const elements = new Map(), preview = createPreview();
@@ -171,6 +197,7 @@
       for (const module of project.modules) {
         const fragment = template.content.cloneNode(true), node = fragment.querySelector('.module-node');
         EC.Icons.hydrate(node); applyAppearance(node,module);
+        node.querySelector('.node-emblem').append(EC.Icons.create('node'));
         const moduleName = module.name?.trim() || '未命名模块';
         node.dataset.moduleId = module.id; node.setAttribute('aria-label',`模块：${moduleName}`);
         node.style.left = `${module.x}px`; node.style.top = `${module.y}px`; node.classList.toggle('selected',selected === module.id);
@@ -178,7 +205,7 @@
         const language = node.querySelector('.module-language');
         language.textContent = module.language?.trim() || ''; language.title = language.textContent; language.hidden = !language.textContent;
         renderContent(node.querySelector('.module-content'),module,preview);
-        node.querySelector('[data-node-action=edit]').addEventListener('click',() => {preview.hide(); onEdit(module.id);});
+        for (const action of node.querySelectorAll('[data-node-action]')) action.addEventListener('click',() => {preview.hide(); onEdit(module.id);});
         for (const port of node.querySelectorAll('[data-port]')) {
           port.setAttribute('aria-label',`${moduleName}：${port.getAttribute('aria-label')}`); port.setAttribute('aria-pressed','false');
         }

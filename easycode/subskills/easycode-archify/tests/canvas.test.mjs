@@ -33,15 +33,15 @@ test('新建位置吸附到最近的 10 像素，支持小数和负坐标',() =>
   }
 });
 
-test('缩放和平移后，背景点仍与世界坐标的 10 倍数重合',() => {
+test('缩放和平移后，背景点仍与世界坐标的 20 倍数重合',() => {
   for (const scale of [0.25,0.6,1,1.8]) {
     const view = {x:-17.4,y:91.2,scale}, style = Canvas.gridStyle(view);
     const size = style.backgroundSize.split(' ').map(parseFloat);
     const offset = style.backgroundPosition.split(' ').map(parseFloat);
-    near(size[0],10 * scale); near(size[1],10 * scale);
+    near(size[0],20 * scale); near(size[1],20 * scale);
     for (const index of [-3,0,5]) {
-      near(offset[0] + size[0] / 2 + index * size[0],view.x + index * 10 * scale);
-      near(offset[1] + size[1] / 2 + index * size[1],view.y + index * 10 * scale);
+      near(offset[0] + size[0] / 2 + index * size[0],view.x + index * 20 * scale);
+      near(offset[1] + size[1] / 2 + index * size[1],view.y + index * 20 * scale);
     }
   }
 });

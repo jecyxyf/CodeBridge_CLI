@@ -4,6 +4,13 @@
   const svgNS = 'http://www.w3.org/2000/svg';
   // Local line icons: no fonts, downloads, or user-supplied SVG markup.
   const paths = {
+    node:'M4 4h6v6H4ZM14 4h6v6h-6ZM4 14h6v6H4ZM14 14h6v6h-6Z',
+    more:'M12 5h.01M12 12h.01M12 19h.01',
+    info:'M5 3h10l4 4v14H5ZM14 3v5h5M8 12h8M8 16h6',
+    list:'m4 6 2 2 3-4M12 6h8m-16 8 2 2 3-4M12 14h8M4 21h16',
+    parameters:'m10 3-.6 2-2 .9-1.9-.5-2 3.4 1.4 1.5v2.4l-1.4 1.5 2 3.4 1.9-.5 2 .9.6 2h4l.6-2 2-.9 1.9.5 2-3.4-1.4-1.5v-2.4l1.4-1.5-2-3.4-1.9.5-2-.9-.6-2ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
+    code:'m8 6-6 6 6 6m8-12 6 6-6 6M14 3l-4 18',
+    event:'m13 2-9 12h7l-1 8 10-13h-8l1-7Z',
     folder:'M3 7V5a1 1 0 0 1 1-1h5l2 3h9a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7Z',
     translate:'M3 5h12M9 3v2M6 5c0 5 3 8 7 10M12 5c0 5-3 8-8 11M13 21l4-11 4 11M15 17h4',
     add:'M12 5v14M5 12h14',

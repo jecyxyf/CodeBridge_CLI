@@ -1,0 +1,148 @@
+{
+  "formatVersion": 1,
+  "id": "project-node-reference",
+  "name": "图片样式对照",
+  "englishName": "new-project",
+  "description": "项目功能说明",
+  "repository": {
+    "path": "",
+    "revision": "",
+    "dirty": false
+  },
+  "groups": [],
+  "modules": [
+    {
+      "id": "module-board-reference",
+      "name": "看板界面",
+      "englishName": "BoardView",
+      "purpose": "按任务状态展示列表，提供拖动任务和打开编辑表单的入口。",
+      "language": "TypeScript",
+      "codeLocation": "",
+      "groupId": "",
+      "x": 40,
+      "y": 30,
+      "appearance": {
+        "textColor": "#17254d",
+        "backgroundColor": "#fcfdff",
+        "headerColor": "#f4f7ff"
+      },
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "requirements": [],
+      "interfaces": [
+        {
+          "id": "reference-method-render",
+          "name": "renderBoard(tasks)",
+          "englishName": "renderBoard",
+          "purpose": "按待办、进行中和已完成三列显示任务。",
+          "flow": "",
+          "errors": "",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": false,
+          "outputsConfirmed": false,
+          "inputs": [
+            {
+              "id": "reference-input-tasks",
+              "name": "任务列表",
+              "englishName": "tasks",
+              "type": "Task[]",
+              "description": "需要展示的任务列表",
+              "required": false,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": []
+        }
+      ],
+      "parameters": [
+        {
+          "id": "reference-param-1",
+          "name": "参数1",
+          "englishName": "parameter1",
+          "type": "string",
+          "description": "保存参数1的值",
+          "required": false,
+          "defaultValue": ""
+        },
+        {
+          "id": "reference-param-2",
+          "name": "参数2",
+          "englishName": "parameter2",
+          "type": "number",
+          "description": "保存参数2的值",
+          "required": false,
+          "defaultValue": ""
+        },
+        {
+          "id": "reference-param-3",
+          "name": "参数3",
+          "englishName": "parameter3",
+          "type": "boolean",
+          "description": "保存参数3的值",
+          "required": false,
+          "defaultValue": ""
+        },
+        {
+          "id": "reference-param-4",
+          "name": "参数4",
+          "englishName": "parameter4",
+          "type": "object",
+          "description": "保存参数4的值",
+          "required": false,
+          "defaultValue": ""
+        }
+      ],
+      "structures": [],
+      "events": [
+        {
+          "id": "reference-event-1",
+          "name": "事件1",
+          "englishName": "event1",
+          "description": "事件说明",
+          "direction": "emit",
+          "trigger": "",
+          "parameters": []
+        },
+        {
+          "id": "reference-event-2",
+          "name": "事件2",
+          "englishName": "event2",
+          "description": "事件说明",
+          "direction": "emit",
+          "trigger": "",
+          "parameters": []
+        },
+        {
+          "id": "reference-event-3",
+          "name": "事件3",
+          "englishName": "event3",
+          "description": "事件说明",
+          "direction": "receive",
+          "trigger": "",
+          "parameters": []
+        },
+        {
+          "id": "reference-event-4",
+          "name": "事件4",
+          "englishName": "event4",
+          "description": "事件说明",
+          "direction": "receive",
+          "trigger": "",
+          "parameters": []
+        }
+      ],
+      "tests": []
+    }
+  ],
+  "relations": [],
+  "view": {
+    "x": 0,
+    "y": 0,
+    "scale": 1,
+    "expanded": [],
+    "expandedInterfaces": []
+  }
+}

@@ -14,9 +14,9 @@ function fixture() {
 
 test('模块颜色有完整独立默认值，读取外观不修改项目',() => {
   const a = M.createModule(), b = M.createModule();
-  assert.deepEqual(a.appearance,{textColor:'#e8eef5',backgroundColor:'#202b3a',headerColor:'#202b3a'});
+  assert.deepEqual(a.appearance,{textColor:'#17254d',backgroundColor:'#fcfdff',headerColor:'#f4f7ff'});
   a.appearance.textColor = '#123456';
-  assert.equal(b.appearance.textColor,'#e8eef5');
+  assert.equal(b.appearance.textColor,'#17254d');
   const before = structuredClone(a), colors = M.moduleAppearance(a); colors.headerColor = '#ffffff';
   assert.deepEqual(a,before);
   const missing = {name:'外观未设置'};

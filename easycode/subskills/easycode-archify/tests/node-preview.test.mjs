@@ -39,7 +39,7 @@ test('小屏两侧不足时显示在下方或上方，保留窗口边距',() => 
 test('画布缩放、边缘节点和长内容的浮层位置始终留在可视画布内',() => {
   const before = structuredClone(viewport);
   for (const scale of [.25,.6,1,1.8]) for (const x of [-300,20,700,1200]) for (const y of [-200,100,800,1200]) {
-    const anchor = {left:x,right:x + 400 * scale,top:y,bottom:y + 26 * scale};
+    const anchor = {left:x,right:x + 480 * scale,top:y,bottom:y + 26 * scale};
     for (const height of [90,500,1200]) {
       const size = {width:360,height}, result = previewPosition(anchor,size,viewport);
       assert.ok(result.left >= viewport.left + 12);

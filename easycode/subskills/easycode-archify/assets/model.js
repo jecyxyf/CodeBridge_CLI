@@ -6,7 +6,7 @@
   const portSides = ['top', 'right', 'bottom', 'left'];
   const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
   const isColor = value => typeof value === 'string' && /^#[\da-f]{6}$/i.test(value);
-  const appearanceDefaults = Object.freeze({textColor:'#e8eef5',backgroundColor:'#202b3a',headerColor:'#202b3a'});
+  const appearanceDefaults = Object.freeze({textColor:'#17254d',backgroundColor:'#fcfdff',headerColor:'#f4f7ff'});
   function moduleAppearance(module) {
     return Object.fromEntries(Object.entries(appearanceDefaults).map(([key,fallback]) => [key,isColor(module?.appearance?.[key]) ? module.appearance[key] : fallback]));
   }
