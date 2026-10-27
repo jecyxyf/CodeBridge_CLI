@@ -1,6 +1,6 @@
 ---
 name: xyf-easycode
-description: "XYF EasyCode 项目入口：从需求或源码建立软件架构，部署可编辑架构网站，再根据架构编写和测试代码。用户要求用 EasyCode 规划、维护或实现项目时使用。"
+description: "XYF EasyCode 项目入口：从需求或源码建立软件架构，部署可编辑架构网站，按架构编写和测试代码，或检查代码是否符合文档。用户要求用 EasyCode 规划、维护、实现或核对项目时使用。"
 ---
 
 # XYF EasyCode
@@ -15,12 +15,13 @@ description: "XYF EasyCode 项目入口：从需求或源码建立软件架构�
 
 ## 执行
 
-本包只保留下面三个子技能，均直接放在 subskills/，不再嵌套一层子技能：
+本包包含下面四个子技能，均直接放在 subskills/：
 
 | 子技能 | 用途 |
 |---|---|
 | [xyf-archify](subskills/xyf-archify/SKILL.md) | 从需求或源码生成架构配置，维护设计、部署网页、取回已保存数据、翻译指定名称 |
 | [xyf-code](subskills/xyf-code/SKILL.md) | 根据架构配置编写或修改代码，并运行对应检查 |
+| [xyf-archifycheck](subskills/xyf-archifycheck/SKILL.md) | 只读检查代码是否符合架构配置或指定文档，报告差异、证据和修改建议 |
 | [brainstorming](subskills/brainstorming/SKILL.md) | 梳理尚未确定的需求与设计 |
 
 只读取当前任务需要的说明。调用子技能是读取相应 SKILL.md 并执行，不要求启动额外 Agent。
@@ -31,6 +32,8 @@ description: "XYF EasyCode 项目入口：从需求或源码建立软件架构�
 | 按已有框架编码、修改实现或测试 | xyf-code |
 | 从需求完成框架和代码 | xyf-archify（先通过 brainstorming 确定设计）→ xyf-code |
 | 修改架构数据、翻译名称、取回网页设计 | xyf-archify |
+| 检查代码是否符合架构或指定文档，按文档审查实现 | xyf-archifycheck |
+| 按框架实现代码，并独立核对实现与文档是否一致 | xyf-code → xyf-archifycheck |
 
 把目标项目路径、当前数据文件、修改范围和已有授权带入所选技能。串联时使用上一步核对后的产物，不把源码分析成功当作实现已经完成。
 
@@ -42,19 +45,20 @@ description: "XYF EasyCode 项目入口：从需求或源码建立软件架构�
 
 | 位置 | 用途 |
 |---|---|
-| docs/archfiy/archify.js | 目标项目当前的架构数据 |
-| docs/archfiy/index.html | 可双击打开的编辑器，脚本、样式和模板已内嵌 |
-| docs/archfiy/html/ | 仅可选服务模式部署；默认本地模式不需要 |
+| docs/archfiy/archify.json | 目标项目当前的架构数据 |
+| docs/archfiy/index.html | Node 生成的编辑器，脚本、样式和模板已内嵌 |
+| docs/archfiy/html/ | Node 服务程序及维护工具 |
+| docs/archfiy/ReadMe.md | 启动成功后记录实际网页地址、五位数端口和重启命令 |
 
-用户指定路径和已有项目的实际配置优先；旧目录 docs/archify/ 不自动迁移。工具自带的 archify.js 是空框架，已有项目使用自己的数据。xyf-code 把业务代码写到目标项目的代码位置，不写进技能工具目录。
+用户指定路径和已有项目的实际配置优先；旧目录 docs/archify/ 不自动迁移。工具自带的 archify.json 是空框架，已有项目使用自己的数据。xyf-code 把业务代码写到目标项目的代码位置，不写进技能工具目录。
 
 网页保存配置，技能由用户所在的 Agent 执行，网页不会自动启动 Agent。
 
-默认复制已打包的 index.html 和项目 archify.js 到交付目录，无需 Node、编译或启动服务。双击网页自动加载同目录配置；首次保存时选择对应配置文件并允许写入，之后在授权有效时保存回该文件。重新打开后仍自动读取配置，保存可能需要再次选文件或授权。只支持 archify.js 新格式，不导入、转换、迁移或备份旧 JSON。服务模式仅在明确需要时使用。
+默认使用 Node.js 22+ 生成并启动网页服务，自动读取部署目录的 archify.json；点击保存直接写回同一文件，不弹出文件选择器。配置是带缩进的纯 JSON，沿用已有字段、稳定 ID 和布局。默认随机选择 10000～65535 的空闲端口，启动成功后在 ReadMe.md 写入实际访问地址；重启后更新地址。通过 HTTP 地址打开网页，不能把双击文件作为默认验收方式。环境缺少 Node 时说明阻碍，不默默退回本地文件模式。
 
 ## 检查与交付
 
-按所选技能核对数据、文件、服务或代码。用简短表格报告实际改动、输出位置、访问地址（如适用）和已执行的检查；未做的检查如实说明。提交、推送、合并按用户要求执行。
+按所选技能核对数据、文件、服务或代码。架构网页交付时，检查真实页面及保存后刷新，核对 ReadMe.md 地址、接口和磁盘 JSON 一致；接口成功不能代替页面检查。用简短表格报告实际改动、输出位置、访问地址（如适用）和已执行的检查；未做的检查如实说明。提交、推送、合并按用户要求执行。
 
 ## 调用示例
 
@@ -63,3 +67,5 @@ description: "XYF EasyCode 项目入口：从需求或源码建立软件架构�
 - `$xyf-easycode 分析 src 目录，更新架构配置。`
 - `$xyf-easycode 按架构中的任务模块实现代码并测试。`
 - `$xyf-easycode 把任务模块中“保存任务”方法的英文名翻译好，保留其他内容。`
+- `$xyf-easycode 检查当前项目代码是否符合 docs/archfiy/archify.json，只报告问题。`
+- `$xyf-easycode 对照指定接口文档，检查任务模块的输入输出、默认值和错误处理。`

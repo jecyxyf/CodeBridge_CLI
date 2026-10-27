@@ -1,7 +1,7 @@
 <!--
   模块完整模板：指导书。最小运行骨架为同目录的 module-node.html。
   节点结构由 nodes.js 复制，实际内容来自 project.modules，不在 HTML 中硬编码业务数据。
-  每个模块及其成员的完整 JSON 写法见 archifytemplate.template.js。
+  每个模块及其成员的完整 JSON 写法见 archifytemplate.template.jsonc。
 
   模块数据：
   id：全项目唯一标识，改名时保持不变；节点的 data-module-id 由脚本填入。
@@ -23,7 +23,7 @@
   events[].direction：事件类型，emit 为发送消息，receive 为接受消息。
   events[].flow：可选实现流程字符串，默认空；在消息参数下方逐行增删步骤，保存时用换行分隔，默认折叠。
   tests：测试项，含 id、name、englishName、steps、expected。
-  方法、事件和参数的详细填写规则以 archifytemplate.template.js 的逐字段说明为准。
+  方法、事件和参数的详细填写规则以 archifytemplate.template.jsonc 的逐字段说明为准。
 
   运行显示：
   模块信息、功能需求、参数、方法、消息事件由 nodes.js 按内容生成；没有内容的分组跳过。

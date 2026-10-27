@@ -9,18 +9,12 @@
     try {
       EC.Icons.hydrate(document);
       const serviceEntry = !!document.querySelector('meta[name="easycode-service"]');
-      // A service package opened as a file uses the adjacent configuration too.
+      // File-mode is an explicit manual JSON editor; HTTP uses the Node service.
       const localMode = !!document.querySelector('meta[name="easycode-local"]') || serviceEntry && !/^https?:$/.test(root.location.protocol);
       const serviceMode = serviceEntry && !localMode;
       const syncMode = serviceMode || localMode;
-      let localInitial = null, localError = '';
-      if (localMode) {
-        try {
-          if (root.ARCHIFY_DATA === undefined) throw new Error('未能加载同目录的 archify.js，请确认文件存在且格式正确，或手动加载配置。');
-          EC.ProjectFile.validate(root.ARCHIFY_DATA);
-          localInitial = structuredClone(root.ARCHIFY_DATA);
-        } catch (error) {localError = `配置加载失败：${error.message}`;}
-      }
+      const localInitial = null;
+      const localError = localMode ? '请通过 ReadMe.md 中的网页地址打开，自动读取 archify.json；也可手动加载配置。' : '';
       let projectOpened = !localMode || localInitial !== null;
       const initial = serviceMode ? await EC.ServiceStorage.load() : null;
       let project = initial ? initial.project : localMode ? localInitial || EC.Model.createProject() : JSON.parse(get('ec-project').textContent);
@@ -36,7 +30,7 @@
         if (!projectOpened) {warningNotice.update('',project.id); return;}
         warningNotice.update(EC.Feedback.formatWarnings(project,EC.Model.validate(project).warnings),project.id);
       }
-      const fileTypes = localMode ? [{description:'软件框架配置',accept:{'text/javascript':['.js']}}] : [{description:'软件框架图 HTML',accept:{'text/html':['.html']}}];
+      const fileTypes = localMode ? [{description:'软件框架配置',accept:{'application/json':['.json']}}] : [{description:'软件框架图 HTML',accept:{'text/html':['.html']}}];
       // Stable per-entry IDs let the browser remember the last directory, without granting file access.
       let pickerHash = 2166136261;
       for (const character of root.location.href.split(/[?#]/)[0]) pickerHash = Math.imul(pickerHash ^ character.charCodeAt(0),16777619);
@@ -56,7 +50,7 @@
         const saveButton = document.querySelector('[data-action="save"]');
         saveButton.title = '保存配置（Ctrl / ⌘ + S）'; saveButton.setAttribute('aria-label','保存配置');
       }
-      if (localMode) {
+      if (syncMode) {
         const saveAsButton = document.querySelector('[data-action="export"]');
         saveAsButton.title = '另存为配置（Ctrl / ⌘ + Shift + S）'; saveAsButton.setAttribute('aria-label','另存为配置');
         get('ec-export-html').hidden = false;
@@ -132,7 +126,7 @@
         if (localMode) root.addEventListener('focus',() => storage.refresh());
       }
       function canOperate() {
-        if (!projectOpened) {showError('请先加载 archify.js。'); return false;}
+        if (!projectOpened) {showError('请先加载 archify.json。'); return false;}
         return true;
       }
       function save(asNew) {

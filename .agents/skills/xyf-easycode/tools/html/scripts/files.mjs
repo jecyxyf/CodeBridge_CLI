@@ -16,7 +16,7 @@ export function parseProject(content) {
   catch (error) {throw Object.assign(error,{status:422});}
 }
 export async function readProjectFile(file) {
-  if (extname(file).toLowerCase() !== '.js') throw new Error('项目数据文件必须使用 .js 扩展名。');
+  if (extname(file).toLowerCase() !== '.json') throw new Error('项目数据文件必须使用 .json 扩展名。');
   const content = await readFile(file,'utf8');
   return {project:parseProject(content),version:versionOf(content),content};
 }
@@ -42,7 +42,7 @@ export async function writeAtomic(file,content,{expectedVersion,verify = () => {
   }
 }
 export async function writeProjectFile(file,project,{expectedVersion} = {}) {
-  if (extname(file).toLowerCase() !== '.js') throw new Error('项目数据文件必须使用 .js 扩展名。');
+  if (extname(file).toLowerCase() !== '.json') throw new Error('项目数据文件必须使用 .json 扩展名。');
   validateProject(project);
   const content = globalThis.EasyCode.ProjectFile.stringify(project);
   const verify = text => {

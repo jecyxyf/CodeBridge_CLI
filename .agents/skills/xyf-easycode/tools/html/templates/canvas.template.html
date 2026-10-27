@@ -3,7 +3,7 @@
   画布完整模板：指导书。最小运行骨架为同目录的 canvas.html。
   先阅读说明，再在运行骨架及架构 JSON 中填充项目内容；不要把此文件当成项目数据。
 
-  数据入口：tools/archify.js。完整字段说明见 archifytemplate.template.js。
+  数据入口：tools/archify.json。完整字段说明见 archifytemplate.template.jsonc。
   project.name：项目中文名；project.englishName：英文名，保存在数据中。
   project.description：项目功能说明。
   project.repository.path：代码目录；revision：代码版本；dirty：源码工作区是否有改动。
@@ -75,7 +75,7 @@
     <!-- ec-empty：项目没有模块和层级时显示的起始入口，由脚本决定是否隐藏。 -->
     <div id="ec-empty" hidden>从一个模块开始<button type="button" data-action="add-module" data-icon="module-add" aria-label="新建模块" title="新建模块"></button></div>
     <!-- ec-open-project：配置加载失败时的入口，未加载有效配置时禁止编辑空白占位项目。 -->
-    <section id="ec-open-project" class="open-project" aria-label="打开软件框架" hidden><h1>加载软件框架配置</h1><p id="ec-open-message">未能加载同目录的 archify.js。<br>请检查文件，或手动选择配置。</p><button type="button" class="primary" data-action="import">加载配置</button><small>请使用新版桌面 Chrome 或 Edge，无需启动服务。</small></section>
+    <section id="ec-open-project" class="open-project" aria-label="打开软件框架" hidden><h1>加载软件框架配置</h1><p id="ec-open-message">请通过 ReadMe.md 中的网页地址打开。<br>也可手动选择 archify.json。</p><button type="button" class="primary" data-action="import">加载配置</button><small>Node 服务自动加载和保存配置。</small></section>
   </main>
   <!-- zoom-out：缩小；ec-zoom：当前比例；zoom-in：放大；fit：让全部内容进入视野。 -->
   <footer class="statusbar">

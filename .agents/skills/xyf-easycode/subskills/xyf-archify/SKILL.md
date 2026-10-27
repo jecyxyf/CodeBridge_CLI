@@ -53,19 +53,20 @@ description: "通过头脑风暴对话或真实源码生成、维护 EasyCode �
 
 | 位置 | 用途 |
 |---|---|
-| 目标项目 docs/archfiy/archify.js | 项目当前架构数据 |
-| 目标项目 docs/archfiy/index.html | 可直接双击的本地配置编辑器，所需资源已内嵌 |
-| 目标项目 docs/archfiy/html/ | 仅可选服务模式部署，默认不需要 |
+| 目标项目 docs/archfiy/archify.json | 项目当前架构数据 |
+| 目标项目 docs/archfiy/index.html | Node 生成的配置编辑器，所需资源已内嵌 |
+| 目标项目 docs/archfiy/html/ | Node 服务程序及维护工具 |
+| 目标项目 docs/archfiy/ReadMe.md | 实际网页地址、五位数端口和重启命令 |
 | [tools/README.md](../../tools/README.md) | 工具部署、同步和检查说明 |
-| [tools/archify.js](../../tools/archify.js) | 工具自带空框架，不能代替项目内容 |
+| [tools/archify.json](../../tools/archify.json) | 工具自带空框架，不能代替项目内容 |
 
-默认目录按约定使用 **docs/archfiy/**，配置文件名仍为 **archify.js**。用户明确指定的位置或已有项目的实际数据位置优先。旧项目若使用 docs/archify/，继续使用其当前配置和部署位置，不自动迁移；两个目录都有数据且无法确定基准时，先解决冲突。
+默认目录按约定使用 **docs/archfiy/**，配置文件名仍为 **archify.json**。用户明确指定的位置或已有项目的实际数据位置优先。旧项目若使用 docs/archify/，继续使用其当前配置和部署位置，不自动迁移；两个目录都有数据且无法确定基准时，先解决冲突。
 
 [model.js](../../tools/html/assets/model.js) 是字段、创建函数、更新函数和校验规则的依据，当前 formatVersion 为 1。完整模板用于理解字段和显示能力，运行骨架用于生成网页。示例不代表项目事实，按当前配置格式生成数据文件。
 
 | 类型 | 完整指导书 | 运行骨架 |
 |---|---|---|
-| 项目数据 | [archifytemplate.template.js](../../tools/html/templates/archifytemplate.template.js) | [archifytemplate.js](../../tools/html/templates/archifytemplate.js) |
+| 项目数据 | [archifytemplate.template.jsonc](../../tools/html/templates/archifytemplate.template.jsonc) | [archifytemplate.json](../../tools/html/templates/archifytemplate.json) |
 | 画布 | [canvas.template.html](../../tools/html/templates/canvas.template.html) | [canvas.html](../../tools/html/templates/canvas.html) |
 | 模块 | [module-node.template.html](../../tools/html/templates/module-node.template.html) | [module-node.html](../../tools/html/templates/module-node.html) |
 | 分层 | [group-layer.template.html](../../tools/html/templates/group-layer.template.html) | [group-layer.html](../../tools/html/templates/group-layer.html) |
@@ -128,37 +129,32 @@ sources 记录实际读过的仓库相对路径、从 1 开始的 line，以及�
 | 数据结构 | Model.validate 无 errors；warnings 逐项处理，不填假数据消除提示 |
 | 修改范围 | 稳定 ID、用户编辑、范围外字段和关系得到保留 |
 
-使用 globalThis.EasyCode.Model；网页中可直接调用模型校验，不要求安装 Node。新项目用 createProject，模块和成员用对应 createModule、createInterface、createParameter、createStructure、createStructureField、createEvent、createTest 创建，再填入真实内容。不能保留创建函数的默认示例文字。
+使用 globalThis.EasyCode.Model；Node 或网页中均可调用模型校验。新项目用 createProject，模块和成员用对应 createModule、createInterface、createParameter、createStructure、createStructureField、createEvent、createTest 创建，再填入真实内容。不能保留创建函数的默认示例文字。
 
 更新已有语义使用 Model.updateModule、updateInterface、updateMember、updateRelation 等函数。对象 ID 全局唯一，改名不换 ID；删除时清理失效引用。方法 flow、errors 和事件 flow 是逐行字符串，参数 defaultValue 保存字符串，不能改变字段类型。
 
-正式配置固定为 `window.ARCHIFY_DATA = { ... };`：赋值右侧必须是严格 JSON 对象，不含注释、函数、其他语句或 `__proto__` 字段。它是架构数据文件，不是业务代码。只支持此格式的 .js 文件，不导入、转换、迁移或备份旧 JSON。
+正式配置为 archify.json，内容是带两空格缩进和末尾换行的纯 JSON 对象，不含脚本赋值、注释、函数或 __proto__ 字段；保留已有字段、稳定 ID 和布局。完整字段指导书 archifytemplate.template.jsonc 仅用于说明，不是正式数据。
 
-[project-file.js](../../tools/html/assets/project-file.js) 的 EasyCode.ProjectFile.parse / stringify 统一负责解析和生成包装；解析只提取固定包装内的数据并运行 JSON.parse，不用 eval、动态 import 或执行文件来取回数据。正式数据仍按 model.js 校验，保留现有字段、ID 和布局。
-
-Agent 使用现有文件工具读取并记录文件内容或哈希；写入前再次核对原文件，变化时先处理冲突，不能盲目覆盖。写入后按同一解析规则读回并深度比较。新文件须确认目标不存在。有现成 Node 环境时可选用 [files.mjs](../../tools/html/scripts/files.mjs) 的 readProjectFile / writeProjectFile 和 expectedVersion 完成相同检查；不把它作为部署前提，不为本技能安装 Node。
+[project-file.js](../../tools/html/assets/project-file.js) 的 EasyCode.ProjectFile.parse / stringify 统一负责 JSON 解析和生成，不执行文件。Agent 读取并记录原内容或哈希，写入前再次检查，变化时处理冲突；写入后解析、校验并深度比较。可用 [files.mjs](../../tools/html/scripts/files.mjs) 的 readProjectFile / writeProjectFile 和 expectedVersion 完成检查。不能用工具空框架覆盖项目现有数据。
 
 ### 围绕配置部署网页
 
 框架配置完成并通过上述检查后，继续部署网页供用户阅读和修改；用户明确只要配置时按其范围交付。只修改已有配置时不重新部署程序，也不重新生成入口。
 
-默认采用直接复制文件的本地部署，不依赖 Node、编译、安装程序或本地服务：
+默认使用 Node.js 22+ 生成并启动 HTTP 网页服务，不再默认复制本地文件后双击打开：
 
-1. 检查目标项目的 docs/archfiy/ 或用户指定目录。保留已有配置和网页定制；目标已有不同数据时先确定当前基准，不用空框架覆盖。
-2. 将已打包的 tools/index.html 复制到目标目录，并将本次已核实的配置保存为同目录的 archify.js。仅更新网页时不改配置。目标应位于授权项目范围内，不能覆盖工具源目录。
-3. 交付 index.html 和 archify.js 的绝对路径。无需复制 html/ 源码、依赖或开发工具，也不生成 README.md。
+1. 检查目标项目 docs/archfiy/ 或用户指定目录，沿用当前已保存的 archify.json；保留用户内容和网页定制。已有不同数据时先确定当前基准，不用空框架覆盖。
+2. 从 xyf-easycode 根目录运行 `node tools/html/scripts/deploy.mjs "<目标项目根目录>" --output-dir docs/archfiy --source-file "<已核实的archify.json路径>"`。目标已有相同配置时保留；仅更新配置不用重新生成网页。输出应位于授权项目范围内，不能与技能工具源目录重叠。
+3. 命令生成 index.html、部署 html/ 并启动服务。默认在 10000～65535 中随机选择空闲端口，占用时重新随机选择。启动并检查成功后交付实际 HTTP 地址。Node 缺失或服务无法启动时说明阻碍，不把文件路径当作已可访问的网页。
+4. 服务启动成功后自动生成或更新部署目录的 ReadMe.md，记录实际地址、端口、archify.json 和 `node html/server.mjs` 重启命令。重启后地址可能改变，以更新后的说明为准。保留 ReadMe.md 中生成区域外的用户备注。
 
-双击 index.html 会通过普通 script 标签自动加载同目录的 archify.js；不用 fetch 读取本地文件，也不用模块脚本。文件缺失、语法或数据结构错误时显示原因和“加载配置”入口，不显示空框架冒充项目内容。
+网页打开时通过服务自动读取 archify.json；点击“保存配置”或 Ctrl+S 直接写回同一文件，无需原生文件选择器。服务按文件版本检查冲突，写入后读回核对。约每 2 秒检查外部更新；无未保存编辑时刷新内容，有未保存编辑或编辑窗口打开时保留编辑并提示。刷新、重新打开或重启后仍读取同一 JSON。
 
-自动显示不会获得写入权限。第一次点击“保存配置”或 Ctrl+S 时，选择当前页面对应的 archify.js 并允许写入。工具比较所选文件与最初加载的数据，文件不匹配或被外部修改时拒绝覆盖。授权有效时后续保存直接写回同一文件；重新打开后自动显示数据，但保存可能需要再次选文件或授权。不能承诺选文件窗口首次定位到 HTML 目录；使用固定选择器 ID 让浏览器优先记住上次目录。
+“另存为配置”下载 JSON 副本，不改变服务绑定的数据文件；“HTML 快照”供分享，不表示配置已保存。导入 JSON 后需点击保存才写入服务配置。读取、导入或保存失败时保留当前编辑。
 
-“另存为配置”会切换当前保存文件；下次重新打开 index.html 仍默认加载旁边的 archify.js，不会自动加载另存到别处的文件。HTML 快照只供分享，不表示配置已保存。
+服务默认只监听本机。部署命令保持运行以提供网页，可按 Ctrl+C 停止；已有同目录服务时核对并复用实际地址。用户指定五位数端口可传 `--port`；`--no-start` 只生成文件，不能报告服务已启动。仅明确要求手动文件模式时使用 `--mode local`，需要手动选择 JSON，不自动读取同目录配置。
 
-尚未绑定文件时，外部更新通过刷新或重开网页读取。手动加载或首次保存绑定文件后，约每 2 秒检查外部变化，窗口重新获得焦点时也检查；后台页面可能延迟。有未保存编辑或编辑窗口未结束时保留内容并提示。取消授权、读取或保存失败时不丢失编辑。后续工作以用户实际保存的配置为准。
-
-现成的 Node.js 22+ 工具只作为可选维护方式：从 xyf-easycode 根目录运行 `node tools/html/scripts/deploy.mjs "<目标项目根目录>" --output-dir docs/archfiy --source-file "<archify.js路径>"`，同样保留已有目标配置。仅用户明确需要服务模式时加 `--mode service --start`，额外部署 html/ 并交付实际 HTTP 地址；默认不使用服务。服务也读写 archify.js，不保留 JSON 文件模式。
-
-只有网页源码或运行模板修改时才更新 tools/index.html；维护环境可用 `node tools/html/scripts/build.mjs --runtime` 打包。日常部署直接复制产物，用户不需要运行该命令。独立快照可用 `build.mjs <archify.js路径> <HTML输出路径>` 生成，不能覆盖编辑器入口。
+修改网页源码或运行模板后，使用 `node tools/html/scripts/build.mjs --runtime` 更新工具入口；默认生成服务版。独立快照使用 `build.mjs <archify.json路径> <HTML输出路径>`，不能覆盖编辑器入口。
 
 ### 已有配置的指定修改与数据取回
 
@@ -166,16 +162,14 @@ Agent 使用现有文件工具读取并记录文件内容或哈希；写入前�
 
 名称翻译仅更新指定 englishName 及相应状态。结合已确定的用途、类型和项目命名习惯处理，检查标识合法性和重名；已有源码标识按代码保留。用户明确要改变已有代码名称时，将确认的新名称作为 planned 设计，不把它标成现有源码事实，也不在本技能中改业务代码。可以使用 [translation.js](../../tools/html/assets/translation.js) 的 formatName 整理格式，该函数不负责语义翻译。
 
-本地和服务入口均没有 ec-project 快照，取回数据按固定包装解析实际使用的 archify.js；若已是当前文件则不重复写入。不能拿另存为之前的文件当作最新数据。明确指定独立 HTML 时，使用 [serialization.js](../../tools/html/assets/serialization.js) 的 EasyCode.Serialization.readProject 解析数据块，不执行页面脚本、不从外观猜测内容。提取结果先检查完整性与事实依据，发现疑点先处理；通过后保留字段和 ID，检查目标版本再保存并读回比较，不拿旧快照自动覆盖当前设计。
+服务入口没有 ec-project 快照，取回数据时解析实际使用的 archify.json；若已是当前文件则不重复写入。另存为副本不改变服务的数据基准。明确指定独立 HTML 时，使用 [serialization.js](../../tools/html/assets/serialization.js) 的 EasyCode.Serialization.readProject 解析数据块，不执行页面脚本、不从外观猜测内容。提取结果先检查完整性与事实依据，发现疑点先处理；通过后保留字段和 ID，检查目标版本再保存并读回比较，不拿旧快照自动覆盖当前设计。
 
 ## 3. 检查与交付
 
-数据修改均做内容核实、模型校验、范围差异检查和保存后读回比较。默认检查交付目录的 index.html 与 archify.js，确认页面除同目录的数据脚本外，运行脚本、样式和模板均已内嵌，不依赖网络或技能目录。
+数据修改均做内容核实、模型校验、范围差异检查和保存后读回比较。运行 `node tools/html/scripts/check.mjs "<部署目录>/index.html"` 检查配置与网页，再运行 `node tools/html/scripts/check.mjs --url <实际HTTP地址>` 核对服务、磁盘 JSON 和 ReadMe.md 地址一致。
 
-用 file:// 打开 index.html，确认无需选文件即可显示数据；检查缺失或损坏配置时的提示和手动加载入口。模块、层级和连线显示完整，分层自上而下，节点无重叠，箭头方向和文字清楚，默认视角可读。文件检查不能替代页面检查。布局有问题时调整本次范围内的位置和连接点，不通过删减内容掩盖问题。
+通过真实 HTTP 地址打开网页，确认自动加载 archify.json，模块、层级和连线完整，分层自上而下，节点无重叠，箭头方向和文字清楚，默认视角可读。实际修改并保存、刷新或重新打开，确认内容来自同一 JSON。接口检查不能代替真实页面检查；无浏览器工具时如实说明未完成的验收。布局有问题时调整本次范围内的位置和连接点，不删减内容掩盖问题。
 
-现成维护环境可选运行 `node tools/html/scripts/check.mjs "<目标项目根目录>/docs/archfiy/index.html"`；实际目录不同则替换。服务模式额外核对接口与磁盘配置一致。没有 Node 时使用现有文件工具和网页模型校验，不安装环境，也不宣称执行过未运行的检查。
+保存、服务重启、外部更新、未保存冲突、导入和损坏 JSON 的验证使用独立临时项目，不向正式框架加入测试数据。检查随机端口为五位数，ReadMe.md 记录的是成功启动后的地址；重启后同步更新。检查失败先处理，不能用旧产物当新结果。
 
-需要验证保存、关闭重开、外部更新、未保存冲突、拒绝授权或服务恢复时使用独立临时项目，不向正式框架加入测试数据。检查失败先处理，不能用旧产物当新结果。
-
-用简短表格交付配置和 HTML 的绝对路径、生成依据、完整覆盖的范围、实际修改和执行的检查；默认说明双击自动加载、首次保存选择原文件和授权的方法，服务模式才说明地址与启停。源码模式附真实版本及必要的工作区差异。数据校验、源码核对、服务和页面检查分别报告，未做的检查不写成通过。关键内容无法核实则说明具体阻碍，保留原文件，不交付不完整配置。
+用简短表格交付 archify.json、index.html、ReadMe.md 的绝对路径、实际 HTTP 地址、端口、生成依据、覆盖范围及已执行检查。说明通过地址访问、直接保存和服务启停方式。源码模式附真实版本及必要的工作区差异。数据校验、源码核对、服务和页面检查分别报告，未做的检查不写成通过。关键内容无法核实则说明具体阻碍，保留原文件，不交付不完整配置。

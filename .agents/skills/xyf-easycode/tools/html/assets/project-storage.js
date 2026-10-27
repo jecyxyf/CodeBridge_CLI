@@ -7,10 +7,10 @@
     let initialData = initialProject === null ? null : JSON.stringify(initialProject);
     let inFlight = null, checking = false, timer, stopped = false;
     const isDirty = () => unconfirmed || editVersion !== savedVersion;
-    const getFileName = () => handle?.name || (loaded ? 'archify.js' : '');
+    const getFileName = () => handle?.name || (loaded ? 'archify.json' : '');
     const state = (status,message) => onState({status,message,dirty:isDirty(),fileName:getFileName()});
     const read = async target => (await target.getFile()).text();
-    const checkFile = target => {if (!/\.js$/i.test(target.name || '')) throw new Error('请选择 .js 格式的架构配置文件。');};
+    const checkFile = target => {if (!/\.json$/i.test(target.name || '')) throw new Error('请选择 .json 格式的架构配置文件。');};
     function check(project) {
       const result = validate(project);
       if (result.errors.length) throw new Error(result.errors.map(item => `${item.path}: ${item.message}`).join('\n'));
@@ -23,7 +23,7 @@
       return new Error('配置文件不匹配或已被其他操作修改，未覆盖原文件。');
     };
     function ready() {
-      if (!loaded) throw new Error('请先加载 archify.js。');
+      if (!loaded) throw new Error('请先加载 archify.json。');
       if (isBusy()) throw new Error('请先完成或取消当前编辑，再操作文件。');
     }
     // Invoke action synchronously: native pickers and permission requests need the user's click.
@@ -66,9 +66,9 @@
         check(snapshot); prepareSave(snapshot); check(snapshot);
         const content = EC.ProjectFile.stringify(snapshot);
         // Request permission before reading the disk or waiting on anything else.
-        const selection = asNew ? pickNew(getFileName() || 'archify.js',handle) : handle || pickExisting();
+        const selection = asNew ? pickNew(getFileName() || 'archify.json',handle) : handle || pickExisting();
         const permission = !asNew && handle?.requestPermission ? handle.requestPermission({mode:'readwrite'}) : 'granted';
-        state('saving',handle || asNew ? '正在保存配置' : '请选择当前页面对应的 archify.js');
+        state('saving',handle || asNew ? '正在保存配置' : '请选择当前页面对应的 archify.json');
         if (await permission !== 'granted') throw new Error('没有获得写入权限，当前编辑仍保留。请再次点击保存并允许写入。');
         const target = await selection;
         checkFile(target);
@@ -135,7 +135,7 @@
       await refresh();
       if (!stopped) timer = setTimeout(poll,2000);
     }
-    state(loaded ? 'loaded' : 'idle',loaded ? '已自动加载；首次保存时选择原文件' : '请加载 archify.js');
+    state(loaded ? 'loaded' : 'idle',loaded ? '已加载；首次保存时选择原文件' : '请加载 archify.json');
     return {
       importFile:open,save:() => save(),saveAs:() => save(true),reload:() => refresh(true),refresh,
       startSync() {stopped = false; clearTimeout(timer); timer = setTimeout(poll,2000);},

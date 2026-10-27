@@ -10,15 +10,15 @@ function summary(project,mode) {
 }
 export async function check(file,expectedFile) {
   let project,mode;
-  if (/\.js$/i.test(file)) {({project} = await readProjectFile(file)); mode = 'config';}
+  if (/\.json$/i.test(file)) {({project} = await readProjectFile(file)); mode = 'config';}
   else {
     const html = await readFile(file,'utf8');
     try {project = globalThis.EasyCode.Serialization.readProject(html); mode = 'snapshot';}
     catch (error) {
       if (!['SERVICE_ENTRY','LOCAL_ENTRY'].includes(error.code)) throw error;
-      ({project} = await readProjectFile(join(dirname(file),'archify.js'))); mode = error.code === 'SERVICE_ENTRY' ? 'service' : 'local';
+      ({project} = await readProjectFile(join(dirname(file),'archify.json'))); mode = error.code === 'SERVICE_ENTRY' ? 'service' : 'local';
       const resources = globalThis.EasyCode.Serialization.entryResources(html);
-      if (resources.length !== 1 || resources[0].tag !== 'script' || resources[0].src !== './archify.js' || resources[0].type || Object.hasOwn(resources[0],'async') || Object.hasOwn(resources[0],'defer')) throw new Error('编辑器须仅引用同目录的普通 archify.js 数据脚本，其余脚本和样式须内嵌。');
+      if (resources.length) throw new Error('编辑器的脚本和样式须内嵌，配置通过 Node 服务读取。');
     }
   }
   if (expectedFile && !isDeepStrictEqual(project,(await readProjectFile(expectedFile)).project)) throw new Error('输出与指定配置不一致。');
@@ -38,12 +38,14 @@ export async function checkService(url) {
   if (!isDeepStrictEqual(project,disk.project) || response.headers.get('ETag') !== disk.version) throw new Error('网页接口与磁盘配置不一致，请重试核对。');
   const html = await (await get('/')).text();
   if (!html.includes('<meta name="easycode-service" content="archify">')) throw new Error('没有返回服务版网页入口。');
+  const readme = await (await get('/ReadMe.md')).text();
+  if (!readme.includes(base + '/') || !readme.includes('archify.json')) throw new Error('ReadMe.md 中的访问地址或数据文件与实际服务不一致。');
   return {url:base + '/',projectFile:health.projectFile,...summary(project,'service')};
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [file,expectedFile] = process.argv.slice(2);
-  if (!file) {console.error('用法: node html/scripts/check.mjs <index.html | archify.js | export.html> [expected.js]\n或: node html/scripts/check.mjs --url <http://127.0.0.1:端口>'); process.exitCode = 1;}
+  if (!file) {console.error('用法: node html/scripts/check.mjs <index.html | archify.json | export.html> [expected.json]\n或: node html/scripts/check.mjs --url <http://127.0.0.1:端口>'); process.exitCode = 1;}
   else {
     try {
       const result = file === '--url' ? await checkService(expectedFile) : await check(file,expectedFile); console.log(JSON.stringify(result,null,2));

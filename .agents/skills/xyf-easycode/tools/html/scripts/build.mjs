@@ -32,7 +32,7 @@ export async function build(projectPath, outputPath, bundle) {
 }
 
 // Both entries contain the editor without a stale project snapshot.
-export async function buildRuntime(outputPath = fileURLToPath(new URL('../../index.html',import.meta.url)),bundle,{mode = 'local'} = {}) {
+export async function buildRuntime(outputPath = fileURLToPath(new URL('../../index.html',import.meta.url)),bundle,{mode = 'service'} = {}) {
   if (!['local','service'].includes(mode)) throw new Error('网页模式应为 local 或 service。');
   const expectedVersion = await fileVersion(outputPath);
   const empty = globalThis.EasyCode.Model.createProject();
@@ -50,11 +50,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   if (projectPath === '--runtime' || projectPath === '--service') {
     try {
       if (rest.length || outputPath?.startsWith('--')) throw new Error('请在模式参数后指定 HTML 输出路径。');
-      console.log(JSON.stringify(await buildRuntime(outputPath,undefined,{mode:projectPath === '--service' ? 'service' : 'local'}),null,2));
+      console.log(JSON.stringify(await buildRuntime(outputPath,undefined,{mode:'service'}),null,2));
     }
     catch (error) {console.error(error.message); process.exitCode = 1;}
   } else if (!projectPath || !outputPath) {
-    console.error('用法: node html/scripts/build.mjs --runtime [index.html]\n或: node html/scripts/build.mjs --service [index.html]\n或: node html/scripts/build.mjs <archify.js> <export.html>'); process.exitCode = 1;
+    console.error('用法: node html/scripts/build.mjs --runtime [index.html]\n或: node html/scripts/build.mjs --service [index.html]\n或: node html/scripts/build.mjs <archify.json> <export.html>'); process.exitCode = 1;
   } else {
     try {console.log(JSON.stringify(await build(projectPath,outputPath),null,2));}
     catch (error) {console.error(error.message); process.exitCode = 1;}

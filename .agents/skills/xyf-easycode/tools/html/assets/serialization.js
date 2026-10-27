@@ -24,7 +24,7 @@
       STYLE: `<style>${bundle.css.replace(/<\/style/gi, '<\\/style')}</style>`,
       NODE: bundle.node,
       GROUP: bundle.group,
-      DATA: service || local ? `<meta name="easycode-${service ? 'service' : 'local'}" content="archify"><script src="./archify.js"></script>` : `<script id="ec-project" type="application/json">${safeJSON(project)}</script>`,
+      DATA: service || local ? `<meta name="easycode-${service ? 'service' : 'local'}" content="archify">` : `<script id="ec-project" type="application/json">${safeJSON(project)}</script>`,
       BUNDLE: `<script id="ec-bundle" type="application/json">${safeJSON(bundle)}</script>`,
       RUNTIME: `<script>${bundle.runtime.replace(/<\/script/gi, '<\\/script')}</script>`
     };
@@ -60,8 +60,8 @@
       const name = match[1].toLowerCase(), closing = match[0][1] === '/';
       if (name === 'template') {templateDepth += closing ? -Math.min(templateDepth,1) : 1; continue;}
       if (closing) continue;
-      if (name === 'meta' && templateDepth === 0 && attributes(match[2]).name === 'easycode-service') throw Object.assign(new Error('这是服务入口，项目数据位于同目录的 archify.js。'),{code:'SERVICE_ENTRY'});
-      if (name === 'meta' && templateDepth === 0 && attributes(match[2]).name === 'easycode-local') throw Object.assign(new Error('这是本地配置编辑器入口，请读取实际使用的 archify.js。'),{code:'LOCAL_ENTRY'});
+      if (name === 'meta' && templateDepth === 0 && attributes(match[2]).name === 'easycode-service') throw Object.assign(new Error('这是服务入口，项目数据位于同目录的 archify.json。'),{code:'SERVICE_ENTRY'});
+      if (name === 'meta' && templateDepth === 0 && attributes(match[2]).name === 'easycode-local') throw Object.assign(new Error('这是手动加载配置的入口，请读取实际使用的 archify.json。'),{code:'LOCAL_ENTRY'});
       if (!['script','style','textarea','title','xmp','iframe','noembed','noframes'].includes(name)) continue;
       const endTag = new RegExp(`<\\/${name}\\s*>`,'gi'); endTag.lastIndex = tags.lastIndex;
       const end = endTag.exec(html), content = html.slice(tags.lastIndex, end ? end.index : html.length);
