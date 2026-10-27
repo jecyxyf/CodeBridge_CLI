@@ -9,7 +9,8 @@
   function escapeHTML(value) {
     return String(value).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
   }
-  function buildDocument(bundle, project, {service = false} = {}) {
+  function buildDocument(bundle, project, {service = false,local = false} = {}) {
+    if (service && local) throw new Error('网页只能选择一种数据读取方式。');
     for (const field of ['canvas','node','group','css','runtime']) {
       if (typeof bundle?.[field] !== 'string') throw new Error(`bundle.${field} 应为文字`);
     }
@@ -23,7 +24,7 @@
       STYLE: `<style>${bundle.css.replace(/<\/style/gi, '<\\/style')}</style>`,
       NODE: bundle.node,
       GROUP: bundle.group,
-      DATA: service ? '<meta name="easycode-service" content="archify">' : `<script id="ec-project" type="application/json">${safeJSON(project)}</script>`,
+      DATA: service ? '<meta name="easycode-service" content="archify">' : local ? '<meta name="easycode-local" content="archify">' : `<script id="ec-project" type="application/json">${safeJSON(project)}</script>`,
       BUNDLE: `<script id="ec-bundle" type="application/json">${safeJSON(bundle)}</script>`,
       RUNTIME: `<script>${bundle.runtime.replace(/<\/script/gi, '<\\/script')}</script>`
     };
@@ -60,6 +61,7 @@
       if (name === 'template') {templateDepth += closing ? -Math.min(templateDepth,1) : 1; continue;}
       if (closing) continue;
       if (name === 'meta' && templateDepth === 0 && attributes(match[2]).name === 'easycode-service') throw Object.assign(new Error('这是服务入口，项目数据位于同目录的 archify.json。'),{code:'SERVICE_ENTRY'});
+      if (name === 'meta' && templateDepth === 0 && attributes(match[2]).name === 'easycode-local') throw Object.assign(new Error('这是本地 JSON 编辑器入口，请读取实际打开的 archify.json。'),{code:'LOCAL_ENTRY'});
       if (!['script','style','textarea','title','xmp','iframe','noembed','noframes'].includes(name)) continue;
       const endTag = new RegExp(`<\\/${name}\\s*>`,'gi'); endTag.lastIndex = tags.lastIndex;
       const end = endTag.exec(html), content = html.slice(tags.lastIndex, end ? end.index : html.length);

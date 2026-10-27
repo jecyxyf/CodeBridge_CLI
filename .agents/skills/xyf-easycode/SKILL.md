@@ -45,12 +45,14 @@ description: "XYF EasyCode 项目入口：从需求或源码建立软件架构�
 | 位置 | 用途 |
 |---|---|
 | docs/archfiy/archify.json | 目标项目当前的架构数据 |
-| docs/archfiy/index.html | 可编辑网站入口 |
-| docs/archfiy/html/ | 网页程序、本地服务和模板 |
+| docs/archfiy/index.html | 可双击打开的编辑器，脚本、样式和模板已内嵌 |
+| docs/archfiy/html/ | 仅可选服务模式部署；默认本地模式不需要 |
 
 用户指定路径和已有项目的实际 JSON 优先；旧目录 docs/archify/ 不自动迁移。工具自带的 archify.json 是空框架，已有项目使用自己的数据。xyf-code 把业务代码写到目标项目的代码位置，不写进技能工具目录。
 
 xyf-archify 的可编辑网站与原版 archify 绘图引擎使用不同的数据格式，不能混用。网页保存 JSON，技能由用户所在的 Agent 执行，网页不会自动启动 Agent。
+
+默认交付本地 HTML 和独立 JSON。用户通过桌面 Chrome 或 Edge 打开网页、手动选择 JSON，允许写入后保存回原文件；无需安装 Node 或启动服务。重新打开网页后重新选择文件。服务模式仅在明确需要时使用。
 
 ## 检查与交付
 

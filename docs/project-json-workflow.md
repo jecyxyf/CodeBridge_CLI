@@ -16,11 +16,13 @@
 
 现有项目已经有集中管理的项目数据结构，包括项目、层级、模块、功能需求、属性、方法、事件、测试和连线等内容。
 
-技能包的 `tools/` 是完整可部署工具，`tools/archify.json` 是最小空框架，`tools/index.html` 是服务入口，程序和模板位于 `tools/html/`。部署时复制到目标项目的 `docs/archfiy/`，启动 `docs/archfiy/html/server.mjs`，交付实际本机 HTTP 地址。
+技能包的 `tools/archify.json` 是最小空框架，`tools/index.html` 是已打包的本地 JSON 编辑器，程序源码和模板位于 `tools/html/`。默认部署到目标项目的 `docs/archfiy/`，交付 HTML、JSON 和使用说明。用户用桌面 Chrome 或 Edge 双击网页、选择 JSON，无需安装 Node 或启动服务。
 
 新项目默认放在 `docs/archfiy/`，JSON 文件名仍为 `archify.json`。用户指定位置和已有项目的实际数据优先；旧目录 `docs/archify/` 不自动迁移，部署时用 `--output-dir` 指定实际目录。
 
-目标项目的 `docs/archfiy/archify.json` 是统一数据来源。网页点击保存后写回 JSON；技能修改 JSON 后，网页约每 2 秒检查并刷新。网页有未保存编辑时先保留内容、提示处理，保存时核对文件版本以检测冲突。独立 HTML 导出仍是快照，由 xyf-archify 提取，不能拿服务入口提取内嵌数据。
+目标项目的 `docs/archfiy/archify.json` 是统一数据来源。网页需手动选择文件，点击保存并允许写入后才更新原 JSON。已打开文件约每 2 秒检查变化，后台页面可能延迟；有未保存编辑时先保留内容、提示处理，保存前后核对文件内容。另存为 JSON 后保存目标会切换，后续技能工作须确定实际数据文件。重新打开网页后重新选择 JSON。
+
+独立 HTML 导出仍是分享快照，不代表 JSON 已保存；本地和服务入口均无项目快照，不能从入口提取业务数据。Node 仅用于开发、校验、自动部署或可选服务模式。需要服务模式时使用 `--mode service --start`，默认本地部署不复制 `html/`。
 
 工具用途、部署和启动命令见 [工具说明](../.agents/skills/xyf-easycode/tools/README.md)。其中路径分别标明相对于工具根目录或目标项目根目录。
 
@@ -89,8 +91,8 @@ JSON 规范定义数据的内容和结构；修改操作定义怎样安全地改
 | 1 | 总入口调用 xyf-archify，读取当前 docs/archfiy/archify.json；只有从独立快照继续时才提取 HTML 数据 |
 | 2 | 根据模块和稳定 ID 定位“保存任务”方法，给出英文名变化清单 |
 | 3 | 在确认的范围内更新英文名，核对原文件版本，检查并保存 docs/archfiy/archify.json |
-| 4 | 已有网页自动检测变化；尚未部署时由 xyf-archify 完成部署启动和检查 |
-| 5 | 用户在实际服务地址查看结果；有未保存编辑时先处理冲突 |
+| 4 | 已选中该 JSON 的网页自动检测变化；尚未部署时由 xyf-archify 完成文件部署和检查 |
+| 5 | 用户双击 index.html、选择 JSON 查看结果；有未保存编辑时先处理冲突 |
 
 ## 接下来梳理的内容
 

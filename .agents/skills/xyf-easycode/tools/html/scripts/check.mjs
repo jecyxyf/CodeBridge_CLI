@@ -15,8 +15,9 @@ export async function check(file,expectedFile) {
     const html = await readFile(file,'utf8');
     try {project = globalThis.EasyCode.Serialization.readProject(html); mode = 'snapshot';}
     catch (error) {
-      if (error.code !== 'SERVICE_ENTRY') throw error;
-      ({project} = await readProjectFile(join(dirname(file),'archify.json'))); mode = 'service';
+      if (!['SERVICE_ENTRY','LOCAL_ENTRY'].includes(error.code)) throw error;
+      ({project} = await readProjectFile(join(dirname(file),'archify.json'))); mode = error.code === 'SERVICE_ENTRY' ? 'service' : 'local';
+      if (mode === 'local' && /<(?:script\b[^>]*\bsrc\s*=|link\b[^>]*\brel\s*=\s*["']stylesheet)/i.test(html)) throw new Error('本地入口须内嵌脚本和样式。');
     }
   }
   if (expectedFile && !isDeepStrictEqual(project,(await readProjectFile(expectedFile)).project)) throw new Error('输出与指定 JSON 不一致。');

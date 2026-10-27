@@ -18,8 +18,8 @@
   EC:STYLE：assets/editor.css，内嵌样式。
   EC:NODE：module-node.html，模块节点运行骨架。
   EC:GROUP：group-layer.html，分层运行骨架。
-  EC:DATA：ec-project 数据块，包含完整项目 JSON。
-  EC:BUNDLE：ec-bundle 源码包，保存时用于重新生成自带资源的 HTML。
+  EC:DATA：本地入口为 easycode-local 标记，服务入口为 easycode-service；只有 HTML 快照含 ec-project 完整 JSON。
+  EC:BUNDLE：ec-bundle 源码包，导出快照时用于生成自带资源的 HTML。
   EC:RUNTIME：assets/ 中的运行脚本，顺序由 scripts/build.mjs 指定。
 
   使用方式：填充项目 JSON 后运行 scripts/build.mjs；生成的 HTML 才是最终项目网页。
@@ -48,7 +48,8 @@
       toolbar-actions：画布操作按钮区；toolbar-separator：新增操作与文件操作之间的分隔符。
       data-action：app.js 中的动作名称；data-icon：icons.js 中的图标名称。
       add-module：新建模块；add-group：新建层级。
-      save：保存当前 HTML；import：读取另一个 HTML 的项目数据；export：另存为 HTML。
+      本地模式：save 保存当前 JSON；import 打开并绑定 JSON；export 另存为 JSON；export-html 导出 HTML 快照。
+      服务与旧快照模式沿用各自的导入和 HTML 导出行为，具体文字由 app.js 设置。
       type=button：避免按钮被当作表单提交；title：鼠标停留时的按钮说明。
     -->
     <nav class="toolbar-actions" aria-label="画布操作">
@@ -58,6 +59,7 @@
       <button type="button" data-action="save" data-icon="save" aria-label="保存" title="保存（Ctrl / ⌘ + S）"></button>
       <button type="button" data-action="import" data-icon="import" aria-label="导入" title="导入 HTML"></button>
       <button type="button" data-action="export" data-icon="export" aria-label="导出" title="导出 HTML（Ctrl / ⌘ + Shift + S）"></button>
+      <button id="ec-export-html" type="button" data-action="export-html" aria-label="导出 HTML 快照" title="导出 HTML 快照，不保存 JSON" hidden>HTML 快照</button>
     </nav>
   </header>
   <!--
@@ -72,9 +74,13 @@
     <div id="ec-connection-hint" class="connection-hint" role="status" aria-live="polite" hidden></div>
     <!-- ec-empty：项目没有模块和层级时显示的起始入口，由脚本决定是否隐藏。 -->
     <div id="ec-empty" hidden>从一个模块开始<button type="button" data-action="add-module" data-icon="module-add" aria-label="新建模块" title="新建模块"></button></div>
+    <!-- ec-open-project：本地模式打开文件前的入口，未选文件时禁止编辑空白占位项目。 -->
+    <section id="ec-open-project" class="open-project" aria-label="打开软件框架" hidden><h1>打开你的软件框架</h1><p>选择 archify.json，开始查看和编辑。<br>修改后点击保存，更新同一份 JSON。</p><button type="button" class="primary" data-action="import">打开 JSON</button><small>请使用新版桌面 Chrome 或 Edge，无需启动服务。</small></section>
   </main>
   <!-- zoom-out：缩小；ec-zoom：当前比例；zoom-in：放大；fit：让全部内容进入视野。 -->
   <footer class="statusbar">
+    <!-- 当前绑定的文件名和读写状态；不会把未保存内容显示成已保存。 -->
+    <output id="ec-file-status" role="status" aria-live="polite"></output>
     <div class="zoom-controls"><button type="button" data-action="zoom-out" data-icon="zoom-out" aria-label="缩小" title="缩小"></button><output id="ec-zoom">100%</output><button type="button" data-action="zoom-in" data-icon="zoom-in" aria-label="放大" title="放大"></button><button type="button" data-action="fit" data-icon="fit" aria-label="适应视野" title="适应视野"></button></div>
   </footer>
   <!--

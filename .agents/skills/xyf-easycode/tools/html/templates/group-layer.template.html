@@ -22,7 +22,7 @@
   scripts/build.mjs 读取运行骨架到 bundle.group。
   Serialization.buildDocument 通过 canvas.html 的 EC:GROUP 槽位内嵌此结构。
   app.js 将 ec-group-template 交给 Canvas.create 的 groupTemplate 参数。
-  保存 HTML 时 ec-bundle 也保留分层运行骨架，重新打开时无需外部模板文件。
+  网页入口与导出的 HTML 快照通过 ec-bundle 保留分层运行骨架，打开时无需外部模板文件；本地模式保存的是 JSON。
 -->
 <!-- ec-group-template：分层模板 ID，与 app.js 中的引用保持一致。 -->
 <template id="ec-group-template">

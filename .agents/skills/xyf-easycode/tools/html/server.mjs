@@ -13,7 +13,7 @@ export async function startServer({root = toolsRoot,port,firstPort = 4175} = {})
   const entry = await readFile(join(root,'index.html'),'utf8');
   let serviceEntry = false;
   try {globalThis.EasyCode.Serialization.readProject(entry);} catch (error) {serviceEntry = error.code === 'SERVICE_ENTRY';}
-  if (!serviceEntry) throw new Error('index.html 不是服务入口，请先运行 html/scripts/build.mjs --runtime。');
+  if (!serviceEntry) throw new Error('index.html 不是服务入口。直接双击可使用本地编辑器；需要服务时先运行 html/scripts/build.mjs --service。');
   if (port !== undefined && (!Number.isInteger(port) || port < 0 || port > 65535)) throw new Error('端口应为 0～65535 的整数。');
   let writes = Promise.resolve();
   const server = createServer(async (req,res) => {
