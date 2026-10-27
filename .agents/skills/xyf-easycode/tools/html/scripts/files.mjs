@@ -1,8 +1,9 @@
 import {readFile,open,rename,unlink,mkdir} from 'node:fs/promises';
-import {dirname,basename,join} from 'node:path';
+import {dirname,basename,join,extname} from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {isDeepStrictEqual} from 'node:util';
 import '../assets/model.js';
+import '../assets/project-file.js';
 
 export const versionOf = content => '"' + createHash('sha256').update(content).digest('hex') + '"';
 export function validateProject(project) {
@@ -11,13 +12,11 @@ export function validateProject(project) {
   return result;
 }
 export function parseProject(content) {
-  let project;
-  try {project = JSON.parse(content.replace(/^\uFEFF/,''));}
-  catch {throw Object.assign(new Error('archify.json 不是有效的 JSON，请修正后重试。'),{status:422});}
-  validateProject(project);
-  return project;
+  try {return globalThis.EasyCode.ProjectFile.parse(content);}
+  catch (error) {throw Object.assign(error,{status:422});}
 }
 export async function readProjectFile(file) {
+  if (extname(file).toLowerCase() !== '.js') throw new Error('项目数据文件必须使用 .js 扩展名。');
   const content = await readFile(file,'utf8');
   return {project:parseProject(content),version:versionOf(content),content};
 }
@@ -43,10 +42,11 @@ export async function writeAtomic(file,content,{expectedVersion,verify = () => {
   }
 }
 export async function writeProjectFile(file,project,{expectedVersion} = {}) {
+  if (extname(file).toLowerCase() !== '.js') throw new Error('项目数据文件必须使用 .js 扩展名。');
   validateProject(project);
-  const content = JSON.stringify(project,null,2) + '\n';
+  const content = globalThis.EasyCode.ProjectFile.stringify(project);
   const verify = text => {
-    if (!isDeepStrictEqual(parseProject(text),project)) throw new Error('JSON 写入核对失败。');
+    if (!isDeepStrictEqual(parseProject(text),project)) throw new Error('配置写入核对失败。');
   };
   await writeAtomic(file,content,{expectedVersion,verify});
   const saved = await readProjectFile(file);

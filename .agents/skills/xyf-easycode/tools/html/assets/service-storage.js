@@ -23,7 +23,7 @@
   }
   function chooseFile() {
     return new Promise((resolve,reject) => {
-      const input = document.createElement('input'); input.type = 'file'; input.accept = '.json,.html'; input.hidden = true;
+      const input = document.createElement('input'); input.type = 'file'; input.accept = '.js'; input.hidden = true;
       const cancel = () => {input.remove(); reject(Object.assign(new Error('已取消导入'),{name:'AbortError'}));};
       input.addEventListener('cancel',cancel,{once:true});
       input.addEventListener('change',() => {const file = input.files[0]; input.remove(); file ? resolve(file) : cancel();},{once:true});
@@ -35,7 +35,7 @@
     onState = () => {},onExternal = () => {}}) {
     let version = initialVersion, editVersion = 0, savedVersion = 0, inFlight = null, checking = false, timer, stopped = false;
     const isDirty = () => editVersion !== savedVersion;
-    const state = (status,message) => onState({status,message,dirty:isDirty(),fileName:'archify.json'});
+    const state = (status,message) => onState({status,message,dirty:isDirty(),fileName:'archify.js'});
     const check = project => {
       const result = validate(project);
       if (result.errors.length) throw new Error(result.errors.map(item => `${item.path}: ${item.message}`).join('\n'));
@@ -55,14 +55,14 @@
         check(snapshot); prepareSave(snapshot); check(snapshot); state('saving','正在保存');
         const response = await fetch(endpoint(),{method:'PUT',headers:{'Content-Type':'application/json','If-Match':version},body:JSON.stringify(snapshot),signal:AbortSignal.timeout(30000)});
         if (!response.ok) {
-          if (response.status === 409) onExternal('JSON 已被其他操作修改。当前编辑已保留，请先导出备份，再载入最新内容。',true);
+          if (response.status === 409) onExternal('配置已被其他操作修改。当前编辑已保留，请先导出备份，再载入最新内容。',true);
           throw await responseError(response);
         }
         const revision = response.headers.get('ETag');
         if (!revision) throw new Error('保存结果缺少文件版本，请重新载入核对。');
         version = revision; savedVersion = snapshotVersion;
         if (editVersion === snapshotVersion) onSaved(snapshot);
-        onExternal('',false); state(isDirty() ? 'unsaved' : 'saved','已保存到 archify.json');
+        onExternal('',false); state(isDirty() ? 'unsaved' : 'saved','已保存到 archify.js');
         return true;
       });
     }
@@ -76,9 +76,9 @@
         if (!latest) {onExternal('',false); return false;}
         // A save/import can begin while the GET request is in flight.
         if (inFlight) return false;
-        if (isBusy()) {onExternal('JSON 已更新。结束当前编辑后可载入最新内容。',true); return false;}
+        if (isBusy()) {onExternal('配置已更新。结束当前编辑后可载入最新内容。',true); return false;}
         if (isDirty() && (!force || !await confirmReload())) {
-          onExternal('JSON 已更新。当前编辑已保留，可先导出备份，再载入最新内容。',true); return false;
+          onExternal('配置已更新。当前编辑已保留，可先导出备份，再载入最新内容。',true); return false;
         }
         // Nothing else may replace the page while the confirmation is open.
         if (inFlight || isBusy()) return false;
@@ -106,12 +106,14 @@
         if (inFlight) return Promise.reject(new Error('正在保存或导入，请稍后再试。'));
         const selection = chooseFile();
         return operation(async () => {
-          const file = await selection, content = await file.text();
-          const next = /\.json$/i.test(file.name) ? JSON.parse(content.replace(/^\uFEFF/,'')) : readProject(content);
+          const file = await selection;
+          if (!/\.js$/i.test(file.name)) throw new Error('请选择 .js 格式的架构配置文件。');
+          const content = await file.text();
+          const next = EC.ProjectFile.parse(content);
           check(next);
           if (isBusy()) throw new Error('请先完成或取消当前编辑，再导入。');
           if (isDirty() && !await confirmImport()) return false;
-          replaceProject(next); editVersion++; state('unsaved','已导入；点击保存后写入 archify.json');
+          replaceProject(next); editVersion++; state('unsaved','已导入；点击保存后写入 archify.js');
           return true;
         });
       },
@@ -120,7 +122,7 @@
       destroy() {stopped = true; clearTimeout(timer);},
       markDirty() {editVersion++; state('unsaved','有修改尚未保存');},
       isDirty,
-      getFileName:() => 'archify.json'
+      getFileName:() => 'archify.js'
     };
   }
   EC.ServiceStorage = {load,createController};

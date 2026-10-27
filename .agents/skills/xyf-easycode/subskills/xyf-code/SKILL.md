@@ -1,6 +1,6 @@
 ---
 name: xyf-code
-description: "根据 EasyCode 架构 JSON 中指定模块的需求、参数、方法和事件，编写或修改目标项目代码并测试。用于按已有软件框架实现功能；架构设计与网站部署使用 xyf-archify。"
+description: "根据 EasyCode 架构配置中指定模块的需求、参数、方法和事件，编写或修改目标项目代码并测试。用于按已有软件框架实现功能；架构设计与网站部署使用 xyf-archify。"
 ---
 
 # XYF Code
@@ -9,11 +9,11 @@ description: "根据 EasyCode 架构 JSON 中指定模块的需求、参数、�
 
 ## 1. 理解
 
-确定目标项目、架构 JSON 和本次要实现的模块或方法。优先使用用户指定或 xyf-archify 交付的实际路径；新项目默认读取**目标项目根目录**下的 docs/archfiy/archify.json。旧项目仍使用 docs/archify/archify.json 时沿用其数据；两处都有数据且无法确定基准时先解决冲突，不自动迁移或覆盖。不能把技能 tools/archify.json 的空框架当作业务需求。
+确定目标项目、架构配置和本次要实现的模块或方法。优先使用用户指定或 xyf-archify 交付的实际路径；新项目默认读取**目标项目根目录**下的 docs/archfiy/archify.js。旧项目仍使用 docs/archify/archify.js 时沿用其数据；两处都有数据且无法确定基准时先解决冲突，不自动迁移或覆盖。不能把技能 tools/archify.js 的空框架当作业务需求。
 
 读取目标项目协作规则、现有代码和构建配置。已有源码作为实现基准，架构作为本次功能要求；两者不一致时辨明哪些是待实现的改动，不能直接覆盖用户代码。
 
-共享工具放在 xyf-easycode 根目录的 tools/，与 subskills/ 同级；本文件中的工具链接使用 ../../tools/。字段和校验规则见共享工具的 [model.js](../../tools/html/assets/model.js)，逐字段说明见 [完整模板](../../tools/html/templates/archifytemplate.jsonc)。先运行 EasyCode.Model.validate，检查错误及与本次实现相关的警告。
+共享工具放在 xyf-easycode 根目录的 tools/，与 subskills/ 同级；本文件中的工具链接使用 ../../tools/。字段和校验规则见共享工具的 [model.js](../../tools/html/assets/model.js)，逐字段说明见 [完整模板](../../tools/html/templates/archifytemplate.template.js)。先运行 EasyCode.Model.validate，检查错误及与本次实现相关的警告。
 
 架构为空或关键设计尚未确定时，使用 [xyf-archify](../xyf-archify/SKILL.md) 补齐所需范围；需求本身不清楚时可用 [brainstorming](../brainstorming/SKILL.md)。已明确的选择无需重复讨论。
 
@@ -39,10 +39,10 @@ description: "根据 EasyCode 架构 JSON 中指定模块的需求、参数、�
 
 1. 列出本次要修改的代码位置与对应架构对象，按项目规则处理写入确认。沿用已获授权的范围，不顺带重写整个项目。
 2. 在现有实现上按依赖顺序增量修改。复用项目已有库、错误处理、消息机制和命名习惯；不为架构中的事件另建一套消息服务。
-3. 用 englishName 对应代码标识，中文名称和说明帮助理解需求。类型及 defaultValue 要按目标语言解释，不能把 JSON 中的字符串默认值一律当成代码字符串。缺失或冲突的英文名先按架构技能定位处理，不任意重命名现有公共接口。
+3. 用 englishName 对应代码标识，中文名称和说明帮助理解需求。类型及 defaultValue 要按目标语言解释，不能把配置中的字符串默认值一律当成代码字符串。缺失或冲突的英文名先按架构技能定位处理，不任意重命名现有公共接口。
 4. 实现明确的功能需求、方法输入输出、流程、错误处理和事件发送/接收。保留范围外功能和用户修改，不用空实现、固定返回值或伪造测试结果冒充完成。
 5. 根据改动选择必要的构建、类型检查或测试。架构 tests 是待验证的要求，不代表测试已经通过；优先复用项目测试工具，必要时补能验证实际行为的测试。
-6. 实现与检查完成后，只回写本次范围内实际核对过的代码位置、来源和状态。功能行为发生超出原设计的变化时先处理设计差异，不能悄悄改 JSON 迁就实现。
+6. 实现与检查完成后，只回写本次范围内实际核对过的代码位置、来源和状态。功能行为发生超出原设计的变化时先处理设计差异，不能悄悄改配置迁就实现。
 
 ### 回写架构
 
@@ -50,14 +50,16 @@ description: "根据 EasyCode 架构 JSON 中指定模块的需求、参数、�
 
 sources 记录实际文件的仓库相对路径、从 1 开始的行号及必要的符号；codeLocation 记录相对代码位置。repository.revision 来自实际 Git 版本，dirty 按整个仓库工作区判断；非 Git 项目不编造版本。只核对部分内容时，不用新版本号暗示全部来源都已重新验证。
 
-使用 [files.mjs](../../tools/html/scripts/files.mjs) 的 readProjectFile 记录 project 和 version。使用期间 JSON 发生变化时重新读取并处理冲突。保存采用 writeProjectFile(path, project, {expectedVersion: version})，校验后写入并读回核对，不能用旧对象直接覆盖。
+架构文件统一使用 archify.js，固定包装为 `window.ARCHIFY_DATA = { ... };`，其中对象遵循严格 JSON 格式。使用 [project-file.js](../../tools/html/assets/project-file.js) 的 EasyCode.ProjectFile.parse / stringify，或同样的固定包装解析规则读取和生成数据；不要执行文件、使用 eval 或动态 import。只支持新 .js 格式，不兼容或迁移旧 JSON。
 
-已有网页会检测 JSON 变化，不需要重新生成入口。未部署网站且用户需要查看时再交给 xyf-archify 部署。
+使用现有文件工具记录原文件内容或哈希，写入前再核对；配置有变化时重新读取并处理冲突。只回写本次已核实范围，保存后解析并深度比较。有现成 Node 环境时可选用 [files.mjs](../../tools/html/scripts/files.mjs) 的 readProjectFile / writeProjectFile 和 expectedVersion；不能要求用户为架构文件安装 Node。
+
+网页刷新或重开后自动读取同目录的 archify.js；当前页面已绑定文件时会检查外部变化，有未保存内容时保留并提示。不需要重新生成入口。未部署网站且用户需要查看时再交给 xyf-archify 部署。
 
 ## 3. 检查
 
 核对实现是否满足本次架构要求，检查修改范围、调用关系、类型、默认值、消息参数及错误处理。运行适合改动的实际命令，记录结果。代码检查或行为测试失败时修复本次引入的问题；环境缺失或原有问题需具体说明，不写成通过。
 
-有 JSON 回写时再做模型校验、差异检查和保存后读回比较。网页数据有效、代码能构建和业务测试通过是不同结果，分别报告。
+有配置回写时再做模型校验、差异检查和保存后读回比较。网页数据有效、代码能构建和业务测试通过是不同结果，分别报告。
 
 用简短表格交付已实现的模块或方法、改动文件、执行的检查和仍未完成的范围。提交、推送和合并遵循用户要求，不随编码自动发布。

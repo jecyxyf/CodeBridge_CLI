@@ -1,101 +1,63 @@
 # Archify 本地架构编辑工具
 
-用浏览器查看和编辑软件框架。项目数据保存在 `archify.json`，网页程序保存在 `index.html`。
+双击 index.html，自动读取同目录的 archify.js，显示软件框架。查看、编辑、保存和默认部署不需要安装 Node、编译或启动服务。保存请使用新版桌面 Chrome 或 Edge。
 
-## 直接打开与保存
+## 使用
 
-用户只需新版桌面 Chrome 或 Edge，**不需要安装 Node、不需要启动服务**。
-
-1. 双击 `index.html`，点击“打开 JSON”，选择项目的 `archify.json`。
-2. 编辑模块、分层、参数、方法、事件或连线。
-3. 点击“保存”或按 `Ctrl+S`，允许浏览器写入；网页会更新刚才选择的原文件，并读回核对。
-
-| 操作或情况 | 结果 |
+| 操作 | 结果 |
 |---|---|
-| 刚打开网页 | 显示文件选择入口；不会自动读取旁边的 JSON |
-| 编辑但未保存 | 页面标记未保存；关闭或刷新时提示 |
-| 保存 JSON | 写回当前选择的文件；取消授权或保存失败时保留页面编辑 |
-| 另存为 JSON / Ctrl+Shift+S | 保存到新位置，此后保存使用新文件 |
-| HTML 快照 | 下载当前框架的独立 HTML，供分享；不写 JSON，也不清除未保存标记 |
-| 技能修改 JSON | 已选中文件且页面打开时，约每 2 秒检查；回到窗口时也检查。后台页面可能延迟 |
-| 外部文件改变且页面没有编辑 | 重新读取并显示最新内容 |
-| 页面有编辑或编辑框未关闭 | 保留当前内容，提示处理；可以另存为备份，再重新打开原文件 |
-| 外部 JSON 暂时损坏、权限失效或文件被移走 | 保留当前内容，提示重试或重新打开 |
-| 重新打开网页 | 再选择一次 JSON，读取实际文件；不从浏览器缓存恢复旧数据 |
+| 双击网页 | 自动加载同目录的 archify.js，无需选择文件 |
+| 配置缺失或损坏 | 显示错误，可点击“加载配置”手动选择有效的 .js 文件 |
+| 首次保存 / Ctrl+S | 选择当前页面对应的 archify.js 并允许写入；文件不匹配或被外部修改时停止保存 |
+| 后续保存 | 授权有效时写回已选择的文件，保存后读回核对 |
+| 取消或拒绝授权、保存失败 | 保留网页中的编辑，不显示保存成功 |
+| 另存为配置 / Ctrl+Shift+S | 保存到新位置，当前页面后续保存使用新文件 |
+| 刷新或重新打开 | 仍默认读取 index.html 同目录的 archify.js；保存可能需要重新选择或授权 |
+| HTML 快照 | 下载当前框架的独立网页，供分享；不代表配置已经保存 |
 
-浏览器必须由用户选择文件，并获得写入授权。当前版本不支持其他浏览器直接回写文件；请使用桌面 Chrome 或 Edge。网页查看、编辑和文件保存不需要联网，在线翻译按钮需要联网。
+另存到其他目录或使用其他文件名后，下次打开 index.html 不会自动追踪那个文件；需要手动加载，或将对应配置放到网页旁并命名为 archify.js。选文件窗口首次位置由浏览器决定，之后通过固定选择器 ID 优先记住上次目录；清理浏览器记录后可能需要重新定位。
 
-保存前比较文件内容，检测到外部修改就停止；写入完成后再读回核对。检查与写入之间仍存在很短的时间窗口，不能把它当作多个程序同时写文件的锁。请避免多个程序同时保存同一文件。
+尚未选择或绑定文件时，外部修改通过刷新或重开网页读取。手动加载或首次保存绑定文件后，约每 2 秒检查一次外部变化，回到窗口时也检查。页面有未保存编辑或编辑窗口未关闭时保留内容并提示，不直接替换。后台页面的检查可能延迟。
 
-## 目录与部署
+请避免多个程序同时保存同一文件：保存前检查文件、保存后读回核对仍不等于跨程序的文件锁。查看、编辑和保存无需联网；在线翻译按钮需要联网。
 
-新项目默认交付到目标项目根目录下的 `docs/archfiy/`：
+## 文件与部署
 
 ```text
 docs/archfiy/
-├── index.html       包含脚本、样式和模板；没有项目快照
-├── archify.json     当前项目的唯一数据
+├── index.html       网页程序，脚本、样式和模板已内嵌
+├── archify.js       当前项目唯一的架构配置
 └── README.md        使用说明
 ```
 
-网页使用时不依赖技能目录。修改 JSON 无需重新生成 HTML。工具源码和打包脚本位于技能包的 `tools/html/`，仅开发、校验和自动部署使用 Node.js 22+，无第三方 npm 依赖。
+默认部署直接复制已打包的 index.html 和本说明，配上已核实的项目 archify.js。无需复制 html/ 开发目录，也无需运行构建命令。用户指定的位置优先；已有配置和网页定制先核对，不用工具自带空框架覆盖项目。只改架构数据时不用重新生成网页。
 
-以下命令在**技能工具根目录 tools/** 执行：
+配置的固定形式为 `window.ARCHIFY_DATA = { ... };`。右侧必须是严格 JSON 对象，不能带注释、函数、额外语句或 __proto__ 字段。数据字段、ID 和布局沿用现有模型。只支持这种 .js 配置，不处理旧 JSON 文件。
 
-```sh
-node html/scripts/deploy.mjs "<目标项目根目录>" --output-dir docs/archfiy
-# 已有输入 JSON 时：
-node html/scripts/deploy.mjs "<目标项目根目录>" --output-dir docs/archfiy --source-json "<输入JSON路径>"
-```
+html/assets/project-file.js 的 EasyCode.ProjectFile.parse 和 stringify 用于解析、校验和生成配置；解析器只读取固定包装内的数据，不执行文件。model.js 负责字段和模型校验。Agent 写入前检查原内容或哈希，写入后解析并比较。
 
-| 情况 | 处理方式 |
-|---|---|
-| 新项目，指定 JSON | 校验后写入，保留字段和 ID |
-| 新项目，没有指定 JSON | 创建独立 ID 的空框架 |
-| 目标已有 JSON | 原样保留；输入与目标不同时停止 |
-| 再次部署 | 更新网页和说明，保留目标 JSON |
-| 旧项目使用 docs/archify/ 或其他目录 | 通过 --output-dir 指定实际位置，不自动迁移 |
-| 原有服务部署改为本地方式 | 更新网页入口，保留 JSON；不删除已有 html/ 文件 |
+## 可选维护工具
 
-`--output-dir` 必须是项目内的相对目录，不能使用项目根目录、项目外目录或与工具源目录重叠的目录。也可手动复制已打包的 `index.html` 和本说明到目标位置，配上已校验的项目 JSON；不要用工具空框架覆盖已有数据。
-
-## 可选服务模式
-
-需要原有 HTTP 服务方式时，显式选择服务模式：
+以下工具供已有 Node.js 22+ 的维护环境使用，无 npm 依赖；用户使用和默认复制部署不需要它们。命令在 tools/ 目录运行：
 
 ```sh
-node html/scripts/deploy.mjs "<目标项目根目录>" --output-dir docs/archfiy --mode service --start
-```
-
-此方式另外复制 `html/` 源码与服务程序，需要 Node.js 22+。默认从端口 4175 起寻找可用端口，以输出地址为准。旧命令单独传 `--start` 时仍按服务模式处理；`--mode local --start` 会报错。
-
-在**目标项目根目录**重新启动已部署服务：
-
-```sh
-node docs/archfiy/html/server.mjs
-```
-
-打开输出的 HTTP 地址；按 `Ctrl+C` 停止。服务只监听本机。网页直接读取并保存该部署的 `archify.json`，约每 2 秒检查外部修改；保存时检查版本，冲突则拒绝覆盖。新生成的服务版入口也可以双击：此时自动进入本地模式，需要手动选择 JSON。旧版入口仍提示启动服务时，重新部署更新网页即可。
-
-## 开发与检查
-
-以下命令在**技能工具根目录 tools/** 执行：
-
-```sh
-# 网页源码或运行模板修改后，更新默认入口
+# 只有编辑器源码或模板改动后才重新打包
 node html/scripts/build.mjs --runtime
-# 检查项目 JSON 与相邻网页
-node html/scripts/check.mjs archify.json
+# 检查配置及网页
+node html/scripts/check.mjs archify.js
 node html/scripts/check.mjs index.html
-# 生成可分享的 HTML 快照；不能覆盖 index.html
-node html/scripts/build.mjs archify.json archify-export.html
-node html/scripts/check.mjs archify-export.html archify.json
+# 可选的自动部署，保留目标已有配置
+node html/scripts/deploy.mjs "<目标项目根目录>" --output-dir docs/archfiy --source-file "<archify.js路径>"
+# 生成独立分享快照，不能覆盖 index.html
+node html/scripts/build.mjs archify.js archify-export.html
 ```
 
-`build.mjs --service <输出HTML路径>` 可生成服务入口；服务部署后用 `check.mjs --url <实际HTTP地址>` 核对接口与磁盘 JSON。文件检查不能代替浏览器检查：本地模式要用 `file://` 打开，验证实际选择、编辑、写入、重开、外部更新和未保存冲突。
+只有明确需要 HTTP 服务时才使用 `deploy.mjs ... --mode service --start`；它额外部署 html/，需要保持 Node 服务运行。服务与本地方式使用同一 archify.js，不保留另一份 JSON。服务只监听本机，按 Ctrl+C 停止；通过 `check.mjs --url <实际HTTP地址>` 检查接口与磁盘数据一致。
 
-技能写 JSON 时继续使用 `html/scripts/files.mjs` 的 `readProjectFile` / `writeProjectFile`，传入读取时的 `expectedVersion`，并读回核对。网页入口没有 `ec-project` 快照；提取项目数据应读取用户实际选择的 JSON。只有导出的独立 HTML 才用 `Serialization.readProject` 提取内嵌数据。
+html/scripts/files.mjs 提供可选的 readProjectFile / writeProjectFile：读取时记录 version，保存时传入 expectedVersion，检测冲突并读回核对。不依赖 Node 的 Agent 可使用现有文件工具和网页模型做相同核对。
 
-## 模板
+## 模板与检查
 
-`html/templates/` 保留画布、模块、分层、项目数据四对模板。`*.template.html` 和 `archifytemplate.jsonc` 是完整指导书；对应文件是最小运行骨架。示例不属于实际项目，不能充当真实数据。
+html/templates/ 保留画布、模块、分层、项目数据四对模板。*.template.html 和 archifytemplate.template.js 是带说明的指导书；对应的 .html、archifytemplate.js 是运行骨架。指导书中的注释和示例不复制到正式配置，也不代表项目事实。
+
+本地网页仅引用同目录的普通 archify.js 脚本，其余资源内嵌；不使用模块脚本或 fetch 读取本地配置。页面检查需覆盖自动加载、配置缺失或损坏、手动加载、首次保存、取消授权、保存后重开及外部修改冲突。使用临时文件验证，不往技能包加入测试目录。

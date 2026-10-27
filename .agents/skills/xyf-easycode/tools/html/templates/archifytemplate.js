@@ -1,0 +1,22 @@
+window.ARCHIFY_DATA = {
+  "formatVersion": 1,
+  "id": "project-template",
+  "name": "软件框架图",
+  "englishName": "new-project",
+  "description": "项目功能说明",
+  "repository": {
+    "path": "",
+    "revision": "",
+    "dirty": false
+  },
+  "groups": [],
+  "modules": [],
+  "relations": [],
+  "view": {
+    "x": 0,
+    "y": 0,
+    "scale": 1,
+    "expanded": [],
+    "expandedInterfaces": []
+  }
+};

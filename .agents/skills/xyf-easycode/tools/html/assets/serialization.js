@@ -24,7 +24,7 @@
       STYLE: `<style>${bundle.css.replace(/<\/style/gi, '<\\/style')}</style>`,
       NODE: bundle.node,
       GROUP: bundle.group,
-      DATA: service ? '<meta name="easycode-service" content="archify">' : local ? '<meta name="easycode-local" content="archify">' : `<script id="ec-project" type="application/json">${safeJSON(project)}</script>`,
+      DATA: service || local ? `<meta name="easycode-${service ? 'service' : 'local'}" content="archify"><script src="./archify.js"></script>` : `<script id="ec-project" type="application/json">${safeJSON(project)}</script>`,
       BUNDLE: `<script id="ec-bundle" type="application/json">${safeJSON(bundle)}</script>`,
       RUNTIME: `<script>${bundle.runtime.replace(/<\/script/gi, '<\\/script')}</script>`
     };
@@ -60,8 +60,8 @@
       const name = match[1].toLowerCase(), closing = match[0][1] === '/';
       if (name === 'template') {templateDepth += closing ? -Math.min(templateDepth,1) : 1; continue;}
       if (closing) continue;
-      if (name === 'meta' && templateDepth === 0 && attributes(match[2]).name === 'easycode-service') throw Object.assign(new Error('这是服务入口，项目数据位于同目录的 archify.json。'),{code:'SERVICE_ENTRY'});
-      if (name === 'meta' && templateDepth === 0 && attributes(match[2]).name === 'easycode-local') throw Object.assign(new Error('这是本地 JSON 编辑器入口，请读取实际打开的 archify.json。'),{code:'LOCAL_ENTRY'});
+      if (name === 'meta' && templateDepth === 0 && attributes(match[2]).name === 'easycode-service') throw Object.assign(new Error('这是服务入口，项目数据位于同目录的 archify.js。'),{code:'SERVICE_ENTRY'});
+      if (name === 'meta' && templateDepth === 0 && attributes(match[2]).name === 'easycode-local') throw Object.assign(new Error('这是本地配置编辑器入口，请读取实际使用的 archify.js。'),{code:'LOCAL_ENTRY'});
       if (!['script','style','textarea','title','xmp','iframe','noembed','noframes'].includes(name)) continue;
       const endTag = new RegExp(`<\\/${name}\\s*>`,'gi'); endTag.lastIndex = tags.lastIndex;
       const end = endTag.exec(html), content = html.slice(tags.lastIndex, end ? end.index : html.length);
@@ -79,5 +79,19 @@
     if (!project || typeof project !== 'object' || Array.isArray(project) || project.formatVersion !== 1) throw new Error('仅支持项目格式版本 1');
     return project;
   }
-  namespace.Serialization = {buildDocument,readProject};
+  function entryResources(html) {
+    const resources = [], tags = /<!--[\s\S]*?(?:-->|$)|<([a-z][a-z0-9:-]*)\b((?:"[^"]*"|'[^']*'|[^'">])*)>/gi;
+    let match;
+    while ((match = tags.exec(html))) {
+      if (!match[1]) continue;
+      const name = match[1].toLowerCase(), attrs = attributes(match[2]);
+      if (name === 'script' && Object.hasOwn(attrs,'src') || name === 'link' && attrs.rel?.toLowerCase() === 'stylesheet') resources.push({tag:name,...attrs});
+      if (['script','style','textarea','title','xmp','iframe','noembed','noframes'].includes(name)) {
+        const endTag = new RegExp(`<\\/${name}\\s*>`,'gi'); endTag.lastIndex = tags.lastIndex;
+        const end = endTag.exec(html); tags.lastIndex = end ? endTag.lastIndex : html.length;
+      }
+    }
+    return resources;
+  }
+  namespace.Serialization = {buildDocument,readProject,entryResources};
 })(globalThis);

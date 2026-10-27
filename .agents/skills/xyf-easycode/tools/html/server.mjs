@@ -2,13 +2,13 @@ import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {resolve,join} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
-import {readProjectFile,writeProjectFile,parseProject} from './scripts/files.mjs';
+import {readProjectFile,writeProjectFile,validateProject} from './scripts/files.mjs';
 import './assets/serialization.js';
 
 export const toolsRoot = fileURLToPath(new URL('../',import.meta.url));
 export async function startServer({root = toolsRoot,port,firstPort = 4175} = {}) {
   root = resolve(root);
-  const projectFile = join(root,'archify.json');
+  const projectFile = join(root,'archify.js');
   await readProjectFile(projectFile);
   const entry = await readFile(join(root,'index.html'),'utf8');
   let serviceEntry = false;
@@ -35,7 +35,11 @@ export async function startServer({root = toolsRoot,port,firstPort = 4175} = {})
       if (req.method === 'GET' && (path === '/' || path === '/index.html')) {
         return send(200,'text/html; charset=utf-8',await readFile(join(root,'index.html'),'utf8'));
       }
-      if (req.method === 'GET' && (path === '/api/project' || path === '/archify.json')) {
+      if (req.method === 'GET' && path === '/archify.js') {
+        const current = await readProjectFile(projectFile);
+        return send(200,'text/javascript; charset=utf-8',current.content,{ETag:current.version});
+      }
+      if (req.method === 'GET' && path === '/api/project') {
         const current = await readProjectFile(projectFile);
         if (req.headers['if-none-match'] === current.version) return send(304,'application/json','',{ETag:current.version});
         return json(200,current.project,{ETag:current.version});
@@ -50,7 +54,10 @@ export async function startServer({root = toolsRoot,port,firstPort = 4175} = {})
           if (length > 32 * 1024 * 1024) return json(413,{error:'项目文件超过 32 MB。'});
           chunks.push(chunk);
         }
-        const project = parseProject(Buffer.concat(chunks).toString('utf8'));
+        let project;
+        try {project = JSON.parse(Buffer.concat(chunks).toString('utf8'));}
+        catch {return json(422,{error:'请求内容不是有效的 JSON。'});}
+        validateProject(project);
         // Serialize browser saves; the expected file hash also detects edits made by skills.
         const operation = writes.then(() => writeProjectFile(projectFile,project,{expectedVersion}));
         writes = operation.catch(() => {});

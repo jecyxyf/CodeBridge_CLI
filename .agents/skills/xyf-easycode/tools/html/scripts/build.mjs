@@ -10,7 +10,7 @@ export function assemble(project, bundle) {
 }
 
 export async function loadBundle(base = new URL('../',import.meta.url)) {
-  const scripts = ['model','serialization','storage','json-storage','service-storage','feedback','icons','translation','nodes','annotations','canvas','module-editor','dialogs','app'];
+  const scripts = ['model','project-file','serialization','storage','project-storage','service-storage','feedback','icons','translation','nodes','annotations','canvas','module-editor','dialogs','app'];
   const [canvas,node,group,css,...runtime] = await Promise.all([
     readFile(new URL('templates/canvas.html',base),'utf8'),
     readFile(new URL('templates/module-node.html',base),'utf8'),
@@ -54,7 +54,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
     catch (error) {console.error(error.message); process.exitCode = 1;}
   } else if (!projectPath || !outputPath) {
-    console.error('用法: node html/scripts/build.mjs --runtime [index.html]\n或: node html/scripts/build.mjs --service [index.html]\n或: node html/scripts/build.mjs <project.json> <export.html>'); process.exitCode = 1;
+    console.error('用法: node html/scripts/build.mjs --runtime [index.html]\n或: node html/scripts/build.mjs --service [index.html]\n或: node html/scripts/build.mjs <archify.js> <export.html>'); process.exitCode = 1;
   } else {
     try {console.log(JSON.stringify(await build(projectPath,outputPath),null,2));}
     catch (error) {console.error(error.message); process.exitCode = 1;}
