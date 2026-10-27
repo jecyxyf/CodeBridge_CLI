@@ -62,6 +62,8 @@ export function makeProject(spec) {
       module.requirements = full || text ? ['输入后保存内容。','删除前确认选定对象。',text ? hostile[i % hostile.length] : '刷新后保持数据一致。'] : ['显示模块的中文名称。'];
       module.events = Array.from({length:full ? 2 : 1},(_,j) => {
         const event=own(M.createEvent(),'event');event.name=`事件${j+1}`;event.englishName=`event${j+1}`;event.direction=(i+j)%2 ? 'receive' : 'emit';
+        // Keep the fixed 100-case baseline without optional flow; event-flow checks cover that field separately.
+        delete event.flow;
         event.description=text ? hostile[(i+j+1)%hostile.length] : '在数据变化后通知其他模块。';event.parameters=[parameter('消息内容')];return event;
       });
     }

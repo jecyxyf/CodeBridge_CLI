@@ -127,7 +127,8 @@
           "name": "任务已保存", // 事件中文名。
           "englishName": "taskSaved", // 事件英文名，通常采用 lowerCamelCase。
           "description": "通知其他模块更新任务内容。", // 事件用途；使用 description 字段，不使用 purpose。
-          "direction": "emit", // 必填：emit 表示发出，receive 表示接收。
+          "direction": "emit", // 必填：事件类型；emit 表示发送消息，receive 表示接受消息。
+          "flow": "整理消息参数\n发送任务已保存消息", // 可选字符串：实现流程，默认空；界面逐行增删，多行用 \n，不改为数组。
           "trigger": "", // 必填字符串：内部保留字段，事件编辑界面已移除此项，新内容保持空字符串。
           "parameters": [ // 必填数组：随消息发送或接收的参数。
             {

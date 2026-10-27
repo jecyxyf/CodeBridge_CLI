@@ -137,13 +137,13 @@
       const isInput = direction === 'inputs', title = isInput ? '输入参数' : '返回结果';
       return parameterGroup({title,key:direction,getItems:() => entry[direction],setItems:items => update(module,entry,{[direction]:items}),required:isInput}).section;
     }
-    function methodSteps(entry,key) {
+    function stepGroup(entry,key,setValue) {
       const flow = key === 'flow', title = flow ? '实现流程' : '错误处理', item = flow ? '步骤' : '错误处理', label = flow ? '实现步骤' : '错误处理';
       const group = fold(title,{key}), list = element('div','flow-step-list');
       const empty = element('p','empty-note',`点击右上角“＋”添加${label}。`);
       const values = entry[key] ? entry[key].split(/\r\n|\r|\n/) : [];
       const separator = entry[key]?.match(/\r\n|\r|\n/)?.[0] || '\n';
-      const save = () => update(module,entry,{[key]:values.join(separator)});
+      const save = () => setValue(values.join(separator));
       function sync() {
         group.setCount(values.length); empty.hidden = !!values.length; list.hidden = !values.length;
         [...list.children].forEach((row,index) => {
@@ -177,7 +177,7 @@
     function methodFields(entry,body,rename) {
       body.append(names('方法',entry,(key,value) => {update(module,entry,{[key]:value}); rename();}),field('方法用途',entry.purpose,value => update(module,entry,{purpose:value}),'textarea'));
       body.append(methodParameters(entry,'inputs'),methodParameters(entry,'outputs'));
-      body.append(methodSteps(entry,'flow'),methodSteps(entry,'errors'));
+      body.append(stepGroup(entry,'flow',value => update(module,entry,{flow:value})),stepGroup(entry,'errors',value => update(module,entry,{errors:value})));
     }
     function structureFields(entry,patch) {
       const section = element('section','structure-fields'), heading = element('div','structure-fields-heading');
@@ -285,8 +285,9 @@
     const events = collection({title:'消息事件',key:'events',kind:'事件',getItems:() => module.events || [],setItems:items => update(module,null,{events:items}),createItem:EC.Model.createEvent,confirmDelete:true,
       build(entry,body,rename) {
         const patch = (key,value) => {EC.Model.updateMember(project,module.id,'events',entry.id,{[key]:value});};
-        body.append(names('事件',entry,(key,value) => {patch(key,value); rename();}),field('事件说明',entry.description,value => patch('description',value),'textarea'),select('事件方向',entry.direction,[['emit','发出'],['receive','接收']],value => patch('direction',value)));
-        body.append(parameterGroup({title:'携带的数据',key:'payload',getItems:() => entry.parameters,setItems:items => patch('parameters',items)}).section);
+        body.append(names('事件',entry,(key,value) => {patch(key,value); rename();}),field('事件说明',entry.description,value => patch('description',value),'textarea'),select('事件类型',entry.direction,[['emit','发送消息'],['receive','接受消息']],value => patch('direction',value)));
+        body.append(parameterGroup({title:'消息参数',key:'payload',getItems:() => entry.parameters,setItems:items => patch('parameters',items)}).section);
+        body.append(stepGroup(entry,'flow',value => patch('flow',value)));
       }});
     const tests = collection({title:'测试项',key:'tests',kind:'测试项',getItems:() => module.tests || [],setItems:items => update(module,null,{tests:items}),createItem:EC.Model.createTest,confirmDelete:true,
       build(entry,body,rename) {

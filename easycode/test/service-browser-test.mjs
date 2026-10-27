@@ -7,6 +7,7 @@ import {deploy} from '../subskills/easycode-archify/tools/html/scripts/deploy.mj
 import {startServer} from '../subskills/easycode-archify/tools/html/server.mjs';
 import {readProjectFile,writeProjectFile} from '../subskills/easycode-archify/tools/html/scripts/files.mjs';
 import {readCase} from './fixtures.mjs';
+import {checkEventFlows} from './event-flow-checks.mjs';
 
 const temporary = await mkdtemp(join(tmpdir(),'archify-browser-'));
 const deployment = await deploy(join(temporary,'project'));
@@ -75,6 +76,7 @@ try {
   assert.equal(disk.project.modules.length,1); assert.equal(disk.project.groups.length,1);
   assert.equal(await evaluate('document.querySelectorAll(".module-node").length'),1);
   checks.push('按钮新增模块和分层，保存直接写回 JSON');
+  checks.push(await checkEventFlows({evaluate,click,edit,save,projectFile:deployment.projectFile}));
 
   await changeFile(project => {project.name='技能修改自动显示';project.modules[0].purpose='外部 JSON 修改的模块功能';});
   await until('document.getElementById("ec-project-name").textContent === "技能修改自动显示"','外部修改未刷新');

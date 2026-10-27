@@ -53,7 +53,7 @@
   }
   function createStructure(items = []) {return {id:id('structure'),...contentDefaults('structure',items),fields:[]};}
   function createStructureField(items = []) {return {id:id('field'),...contentDefaults('field',items)};}
-  function createEvent(items = []) {return {id:id('event'),...contentDefaults('event',items),direction:'emit',trigger:'',parameters:[]};}
+  function createEvent(items = []) {return {id:id('event'),...contentDefaults('event',items),direction:'emit',flow:'',trigger:'',parameters:[]};}
   function createTest(items = []) {return {id:id('test'),...contentDefaults('test',items)};}
   function fillContentDefaults(item,kind,siblings = []) {
     if (!object(item)) return false;
@@ -154,7 +154,7 @@
     const fields = {
       parameters:['name','englishName','type','description','defaultValue','required'],
       structures:['name','englishName','fields'],
-      events:['name','englishName','description','direction','trigger','parameters'],
+      events:['name','englishName','description','direction','flow','trigger','parameters'],
       tests:['name','englishName','steps','expected']
     };
     if (!Object.hasOwn(fields,collection)) throw new Error('不支持的模块内容分组。');
@@ -301,6 +301,7 @@
       if (!record(value,path)) return;
       identity(value.id,at(path,'id')); bilingualName(value,path); string(value.description,at(path,'description'),true);
       enumeration(value.direction,['emit','receive'],at(path,'direction')); string(value.trigger,at(path,'trigger'));
+      optionalText(value,['flow'],path);
       array(value.parameters,at(path,'parameters')).forEach((entry,index) => parameter(entry,`${path}.parameters[${index}]`,false));
     }
     function structureItem(value,path) {

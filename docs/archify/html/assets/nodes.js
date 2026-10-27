@@ -63,7 +63,7 @@
     const content = element('div','module-preview-content'), heading = element('h4','module-preview-title',title);
     heading.id = 'ec-module-preview-title';
     if (event) {
-      const header = element('div','module-preview-heading'), badge = element('span','module-preview-direction',event.direction === 'receive' ? '接收' : '发出');
+      const header = element('div','module-preview-heading'), badge = element('span','module-preview-direction',event.direction === 'receive' ? '接受消息' : '发送消息');
       badge.dataset.direction = event.direction; header.append(heading,badge); content.append(header);
     } else content.append(heading);
     if (hasText(description)) content.append(element('p','module-preview-description',description));
@@ -165,7 +165,7 @@
       const title = named(item,isMethod ? '方法' : '事件'), description = isMethod ? item.purpose : item.description;
       row.dataset[isMethod ? 'methodId' : 'eventId'] = item.id;
       row.dataset.valueKind = isMethod ? 'method' : item.direction === 'receive' ? 'receive' : 'emit';
-      if (!isMethod) row.setAttribute('aria-label',`${item.direction === 'receive' ? '接收' : '发出'}事件：${title}`);
+      if (!isMethod) row.setAttribute('aria-label',`${item.direction === 'receive' ? '接受消息' : '发送消息'}：${title}`);
       if (isMethod) {
         const symbol = element('span','module-method-symbol'); symbol.setAttribute('aria-hidden','true'); symbol.append(EC.Icons.create('function')); row.append(symbol);
       } else {const dot = element('span','module-event-dot'); dot.setAttribute('aria-hidden','true'); row.append(dot);}
