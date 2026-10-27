@@ -28,7 +28,6 @@ export async function deploy(projectRoot,{sourceFile,outputDir = 'docs/archfiy',
   }
   await mkdir(targetRoot,{recursive:true});
   if (mode === 'service') await cp(join(sourceRoot,'html'),join(targetRoot,'html'),{recursive:true,filter:path => !path.endsWith('.tmp')});
-  await cp(join(sourceRoot,'README.md'),join(targetRoot,'README.md'));
   if (mode === 'local') await cp(join(sourceRoot,'index.html'),join(targetRoot,'index.html'));
   else await buildRuntime(join(targetRoot,'index.html'),undefined,{mode});
   if (previousVersion === null) await writeProjectFile(targetFile,project,{expectedVersion:null});
