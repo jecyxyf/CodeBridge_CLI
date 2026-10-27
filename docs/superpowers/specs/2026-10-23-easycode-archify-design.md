@@ -1,6 +1,6 @@
 # EasyCode Archify 初版设计
 
-> 2026-10-27 技能封装：整个技能项目位于 .agents/skills/xyf-easycode/，全部 EasyCode 技能名使用 xyf- 前缀。网页工程位于 .agents/skills/xyf-easycode/subskills/xyf-archify/tools/html/，原 tests/、examples/ 内容已删除，references/ 中的必要规则已合并进技能说明。本文保留初版设计和实施历史；历史文件清单不作为当前依赖，当前技能分工、数据位置与生成命令以[现行技能入口](../../../.agents/skills/xyf-easycode/subskills/xyf-archify/SKILL.md)为准。
+> 2026-10-27 技能封装：整个技能项目位于 .agents/skills/xyf-easycode/，全部 EasyCode 技能名使用 xyf- 前缀。网页工程位于 .agents/skills/xyf-easycode/tools/html/，原 tests/、examples/ 内容已删除，references/ 中的必要规则已合并进技能说明。本文保留初版设计和实施历史；历史文件清单不作为当前依赖，当前技能分工、数据位置与生成命令以[现行技能入口](../../../.agents/skills/xyf-easycode/subskills/xyf-archify/SKILL.md)为准。
 
 日期：2026-10-23
 

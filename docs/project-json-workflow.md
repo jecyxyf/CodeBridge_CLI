@@ -2,7 +2,7 @@
 
 更新日期：2026-10-27
 
-本文记录项目 JSON、网页和技能的协作方式。字段以当前模型为准；未来代码等其他产物的生成范围仍需单独确定。
+本文记录项目 JSON、网页和技能的协作方式。字段以当前模型为准；架构由 xyf-archify 维护，代码由 xyf-code 按用户指定范围实现和检查。
 
 ## 目标
 
@@ -18,9 +18,9 @@
 
 技能包的 `tools/` 是完整可部署工具，`tools/archify.json` 是最小空框架，`tools/index.html` 是服务入口，程序和模板位于 `tools/html/`。部署时复制到目标项目的 `docs/archify/`，启动 `docs/archify/html/server.mjs`，交付实际本机 HTTP 地址。
 
-目标项目的 `docs/archify/archify.json` 是统一数据来源。网页点击保存后写回 JSON；技能修改 JSON 后，网页约每 2 秒检查并刷新。网页有未保存编辑时先保留内容、提示处理，保存时核对文件版本以检测冲突。独立 HTML 导出仍是快照，通过 html2archify 提取，不能拿服务入口提取内嵌数据。
+目标项目的 `docs/archify/archify.json` 是统一数据来源。网页点击保存后写回 JSON；技能修改 JSON 后，网页约每 2 秒检查并刷新。网页有未保存编辑时先保留内容、提示处理，保存时核对文件版本以检测冲突。独立 HTML 导出仍是快照，由 xyf-archify 提取，不能拿服务入口提取内嵌数据。
 
-工具用途、部署和启动命令见 [工具说明](../.agents/skills/xyf-easycode/subskills/xyf-archify/tools/README.md)。其中路径分别标明相对于工具根目录或目标项目根目录。
+工具用途、部署和启动命令见 [工具说明](../.agents/skills/xyf-easycode/tools/README.md)。其中路径分别标明相对于工具根目录或目标项目根目录。
 
 ## 推进顺序
 
@@ -40,7 +40,7 @@ flowchart LR
 | 3. 确定修改操作 | 新增、修改、删除如何定位对象，修改范围如何限制，关联数据如何处理 | 前端和技能共同遵守的修改规则 |
 | 4. 定义技能 | 按任务划分技能，明确输入、可修改范围、执行步骤和返回结果 | 若干职责清楚的技能及调用示例 |
 | 5. 接通前端 | 打开、编辑、保存同一份 JSON，重新读取外部修改，处理尚未保存的编辑 | 网页与技能修改的数据可以一致显示和保存 |
-| 6. 生成产物 | 明确输出种类、生成方式、更新范围和检查方法 | 由同一份 JSON 生成的网页、设计文档及后续确定的其他产物 |
+| 6. 生成产物 | 明确输出种类、生成方式、更新范围和检查方法 | 由架构 JSON 部署的网页，以及按指定框架实现并检查的代码 |
 
 JSON 规范定义数据的内容和结构；修改操作定义怎样安全地改变这些数据；技能组织这些操作完成用户的任务。
 
@@ -54,7 +54,16 @@ JSON 规范定义数据的内容和结构；修改操作定义怎样安全地改
 | 网页 | 展示、编辑和保存项目数据，重新读取技能保存的变化 |
 | 产物生成工具 | 根据同一份数据生成指定产物，并检查结果 |
 
-已确定一个总入口和四个子技能：总入口 xyf-archify 规划任务，按顺序调用 xyf-easycode-archify-code2archify、xyf-easycode-archify-archify2html、xyf-easycode-archify-html2archify、xyf-easycode-archify-translate。分别负责源码转架构数据、架构数据转网页、网页取回架构数据、指定对象的英文命名。
+总入口 [xyf-easycode](../.agents/skills/xyf-easycode/SKILL.md) 根据目标选择下列四个同级子技能，都放在其 subskills/ 下：
+
+| 子技能 | 职责 |
+|---|---|
+| [xyf-archify](../.agents/skills/xyf-easycode/subskills/xyf-archify/SKILL.md) | 从需求或源码生成架构、部署网站、取回已保存数据、翻译指定名称 |
+| [xyf-code](../.agents/skills/xyf-easycode/subskills/xyf-code/SKILL.md) | 根据指定架构编写代码、测试，并回写实际核对的来源 |
+| [brainstorming](../.agents/skills/xyf-easycode/subskills/brainstorming/SKILL.md) | 梳理尚未明确的需求和设计 |
+| [archify](../.agents/skills/xyf-easycode/subskills/archify/SKILL.md) | 保留原版独立绘图能力，使用自己的数据格式 |
+
+原先四个架构子技能的能力已合入 xyf-archify，不再嵌套子技能。共享工具位于技能项目根目录的 tools/，与 subskills/ 同级；技能项目根目录下的 test/ 已删除。技能在当前 Agent 中执行，不要求额外启动 Agent。
 
 ## 数据与修改规则
 
@@ -75,10 +84,10 @@ JSON 规范定义数据的内容和结构；修改操作定义怎样安全地改
 
 | 步骤 | 行为 |
 |---|---|
-| 1 | 总技能读取当前 docs/archify/archify.json；只有从独立快照继续时才调用 html2archify |
-| 2 | translate 根据模块和稳定 ID 定位“保存任务”方法，给出英文名变化清单 |
+| 1 | 总入口调用 xyf-archify，读取当前 docs/archify/archify.json；只有从独立快照继续时才提取 HTML 数据 |
+| 2 | 根据模块和稳定 ID 定位“保存任务”方法，给出英文名变化清单 |
 | 3 | 在确认的范围内更新英文名，核对原文件版本，检查并保存 docs/archify/archify.json |
-| 4 | 已有网页自动检测变化；尚未部署时由 archify2html 完成理解、部署启动和检查 |
+| 4 | 已有网页自动检测变化；尚未部署时由 xyf-archify 完成部署启动和检查 |
 | 5 | 用户在实际服务地址查看结果；有未保存编辑时先处理冲突 |
 
 ## 接下来梳理的内容
@@ -91,6 +100,6 @@ JSON 规范定义数据的内容和结构；修改操作定义怎样安全地改
 | 4 | 连线、布局、源码出处及待确认内容 |
 | 5 | JSON 示例、校验规则、修改操作与技能边界 |
 
-项目路径、网页自动更新和同时修改时的处理方式已经确定。代码文件是否生成、如何生成，以及其他最终产物的范围，留到后续讨论时确定。
+项目路径、网页自动更新和同时修改时的处理方式已经确定。用户要求编码时，由 xyf-code 依据指定模块和目标项目约定实现、检查并回写已核对的来源；仅维护架构时不自动修改业务代码。
 
 每轮先确认字段与规则，再进行对应实现。既有设计背景见 [EasyCode Archify 设计文档](superpowers/specs/2026-10-23-easycode-archify-design.md)。
