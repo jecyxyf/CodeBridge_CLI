@@ -15,6 +15,7 @@
   sources：源码出处，包含 path、line、endLine、symbol；不能把示例当作真实依据。
   unknowns：模型保留的未核实内容列表；没有内容时保留空数组，不添加待确认方案。
   requirements：功能需求字符串列表，每条对应一行。
+  dependencies：必填的依赖项字符串列表，每条对应一行；没有依赖时为 []。
   parameters：模块参数，含 id、name、englishName、type、description、defaultValue、required。
   structures：数据结构，含 id、name、englishName、fields；字段含 id、name、englishName、type、description。
   interfaces：方法，含名称、用途、流程、错误处理、来源状态、输入输出及核对标记。

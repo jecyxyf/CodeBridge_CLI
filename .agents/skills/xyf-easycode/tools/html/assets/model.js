@@ -39,7 +39,7 @@
   function createModule(options = {}) {
     return {
       id: id('module'), ...contentDefaults('module',options.items), ...(options.name !== undefined ? {name:options.name} : {}), ...(options.purpose !== undefined ? {purpose:options.purpose} : {}), language: '', codeLocation: '', groupId: options.groupId ?? '',
-      x: options.x ?? 0, y: options.y ?? 0, appearance:moduleAppearance(), status: 'planned', sources: [], unknowns: [], requirements: [], interfaces: [], parameters: [], structures: [], events: [], tests: []
+      x: options.x ?? 0, y: options.y ?? 0, appearance:moduleAppearance(), status: 'planned', sources: [], unknowns: [], requirements: [], dependencies: [], interfaces: [], parameters: [], structures: [], events: [], tests: []
     };
   }
   function createInterface(items = []) {
@@ -136,7 +136,7 @@
   function updateModule(project, moduleId, patch) {
     const module = project.modules.find(item => item.id === moduleId);
     if (!module) return null;
-    applyPatch(module, patch, ['name','englishName','language','purpose','codeLocation','groupId','x','y','appearance','status','sources','unknowns','requirements','interfaces','parameters','structures','events','tests'], ['groupId','x','y','appearance']);
+    applyPatch(module, patch, ['name','englishName','language','purpose','codeLocation','groupId','x','y','appearance','status','sources','unknowns','requirements','dependencies','interfaces','parameters','structures','events','tests'], ['groupId','x','y','appearance']);
     if (Array.isArray(patch?.interfaces)) {
       const interfaceIds = new Set(project.modules.flatMap(item => item.interfaces.map(entry => entry.id)));
       project.view.expandedInterfaces = project.view.expandedInterfaces.filter(value => interfaceIds.has(value));
@@ -348,6 +348,11 @@
       if (module.groupId !== '' && !groupIds.has(module.groupId)) error(at(path,'groupId'), '分组不存在');
       number(module.x,at(path,'x')); number(module.y,at(path,'y')); evidence(module,path);
       if (module.requirements !== undefined) array(module.requirements,at(path,'requirements')).forEach((value,index) => string(value,`${path}.requirements[${index}]`));
+      array(module.dependencies,at(path,'dependencies')).forEach((value,index) => {
+        const dependencyPath = `${path}.dependencies[${index}]`;
+        string(value,dependencyPath,true);
+        if (typeof value === 'string' && /[\r\n]/.test(value)) error(dependencyPath,'每个依赖项只能占一行');
+      });
       array(module.interfaces,at(path,'interfaces')).forEach((item,index) => {
         interfaceItem(item,`${path}.interfaces[${index}]`); if (object(item)) interfaceIds.add(item.id);
       });

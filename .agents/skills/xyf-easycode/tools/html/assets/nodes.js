@@ -179,7 +179,7 @@
     function group(key,title,body,count) {
       if (!body) return;
       const section = element('section','module-group'); section.dataset.moduleGroup = key; section.dataset.itemCount = count;
-      const icons = {basics:'info',requirements:'list',parameters:'parameters',methods:'code',events:'event'};
+      const icons = {basics:'info',requirements:'list',dependencies:'list',parameters:'parameters',methods:'code',events:'event'};
       const heading = element('div','module-group-heading'), name = element('h3','module-group-title');
       const symbol = element('span','module-group-symbol'); symbol.append(EC.Icons.create(icons[key])); name.append(symbol,element('span','',title));
       name.setAttribute('aria-label',`${title}，${count} 项`);
@@ -197,6 +197,12 @@
       const list = element('ul','module-requirements');
       for (const value of requirements) {const row = element('li','',value); preview.bind(row,module,'功能需求',value); list.append(row);}
       group('requirements','功能需求',list,requirements.length);
+    }
+    const dependencies = module.dependencies.filter(hasText);
+    if (dependencies.length) {
+      const list = element('ul','module-requirements');
+      for (const value of dependencies) {const row = element('li','',value); preview.bind(row,module,'依赖项',value); list.append(row);}
+      group('dependencies','依赖项',list,dependencies.length);
     }
     const parameters = items(module.parameters,hasParameter), methods = items(module.interfaces,hasMethod), events = items(module.events,hasEvent);
     if (parameters.length) group('parameters','参数',parameterList(parameters,module,preview),parameters.length);

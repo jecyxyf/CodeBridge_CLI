@@ -248,6 +248,36 @@
       for (const value of items()) append(value);
       sync(); return group;
     }
+    function dependencyGroup() {
+      const group = fold('依赖项',{key:'dependencies'}), list = element('div','flow-step-list');
+      const empty = element('p','empty-note','点击右上角“＋”添加依赖项。');
+      const items = () => module.dependencies;
+      function sync() {
+        group.setCount(items().length); empty.hidden = !!items().length; list.hidden = !items().length;
+        [...list.children].forEach((row,index) => {
+          row.querySelector('.flow-step-index').textContent = String(index + 1);
+          row.querySelector('input').setAttribute('aria-label',`依赖项 ${index + 1}`);
+          const remove = row.querySelector('button'), label = `删除依赖项 ${index + 1}`;
+          remove.setAttribute('aria-label',label); remove.title = label;
+        });
+      }
+      function append(value) {
+        const row = element('div','flow-step-row'), index = element('span','flow-step-index'), input = element('input');
+        index.setAttribute('aria-hidden','true'); input.value = value; input.placeholder = '填写一个依赖项';
+        const position = () => [...list.children].indexOf(row);
+        input.addEventListener('input',() => {const i = position(); if (i >= 0) update(module,null,{dependencies:items().map((item,n) => n === i ? input.value : item)});});
+        row.append(index,input,button('trash','删除依赖项',() => {
+          const i = position(); if (i < 0) return;
+          update(module,null,{dependencies:items().filter((_,n) => n !== i)}); row.remove(); sync();
+          (list.children[i]?.querySelector('input') || list.lastElementChild?.querySelector('input') || add).focus({preventScroll:true});
+        },'member-delete'));
+        list.append(row);
+      }
+      const add = button('add','新增依赖项',() => addInPlace(add,() => {update(module,null,{dependencies:[...items(),'']}); append(''); sync();}),'group-add');
+      group.header.append(add); group.body.append(empty,list);
+      for (const value of items()) append(value);
+      sync(); return group;
+    }
     const appearance = fold('外观',{key:'appearance'});
     appearance.body.classList.add('module-appearance-fields');
     for (const [key,label] of [['textColor','字体颜色'],['backgroundColor','背景颜色'],['headerColor','标题栏颜色']]) {
@@ -274,7 +304,7 @@
     }
     language.append(languages);
     basics.body.append(names('模块',module,(key,value) => update(module,null,{[key]:value})),field('模块功能',module.purpose,value => update(module,null,{purpose:value}),'textarea'),language,location,select('所属层级',module.groupId,[['','无'],...project.groups.map(group => [group.id,group.name || '未命名层级'])],value => update(module,null,{groupId:value})));
-    const requirements = requirementGroup();
+    const requirements = requirementGroup(), dependencies = dependencyGroup();
     const parameters = parameterGroup({title:'参数',key:'parameters',getItems:() => module.parameters || [],setItems:items => update(module,null,{parameters:items})});
     const structures = collection({title:'数据结构',key:'structures',kind:'数据结构',getItems:() => module.structures || [],setItems:items => update(module,null,{structures:items}),createItem:EC.Model.createStructure,confirmDelete:true,
       build(entry,body,rename) {
@@ -294,7 +324,7 @@
         const patch = (key,value) => {EC.Model.updateMember(project,module.id,'tests',entry.id,{[key]:value});};
         body.append(names('测试项',entry,(key,value) => {patch(key,value); rename();}),field('测试步骤',entry.steps,value => patch('steps',value),'textarea'),field('预期结果',entry.expected,value => patch('expected',value),'textarea'));
       }});
-    editor.append(element('p','dialog-note','点击组标题展开或收起。修改后点“确定”，再用顶部“保存”保存项目。'),appearance.section,basics.section,requirements.section,parameters.section,structures.section,methods.section,events.section,tests.section);
+    editor.append(element('p','dialog-note','点击组标题展开或收起。修改后点“确定”，再用顶部“保存”保存项目。'),appearance.section,basics.section,requirements.section,dependencies.section,parameters.section,structures.section,methods.section,events.section,tests.section);
     return editor;
   }
   EC.ModuleEditor = {begin,hasChanges,commit,create};
