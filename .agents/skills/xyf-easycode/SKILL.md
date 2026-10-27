@@ -1,6 +1,6 @@
 ---
 name: xyf-easycode
-description: "XYF EasyCode 项目入口：从需求或源码建立软件架构，部署可编辑架构网站，按架构编写和测试代码，或检查代码是否符合文档。用户要求用 EasyCode 规划、维护、实现或核对项目时使用。"
+description: "XYF EasyCode 项目入口：从需求或源码建立软件架构，部署可编辑架构网站，按架构编写和测试代码，检查代码是否符合文档，或审查代码改动引入的缺陷。用户要求用 EasyCode 规划、维护、实现或审查项目时使用。"
 ---
 
 # XYF EasyCode
@@ -15,13 +15,14 @@ description: "XYF EasyCode 项目入口：从需求或源码建立软件架构�
 
 ## 执行
 
-本包包含下面四个子技能，均直接放在 subskills/：
+本包包含下面五个子技能，均直接放在 subskills/：
 
 | 子技能 | 用途 |
 |---|---|
 | [xyf-archify](subskills/xyf-archify/SKILL.md) | 从需求或源码生成架构配置，维护设计、部署网页、取回已保存数据、翻译指定名称 |
 | [xyf-code](subskills/xyf-code/SKILL.md) | 根据架构配置编写或修改代码，并运行对应检查 |
 | [xyf-archifycheck](subskills/xyf-archifycheck/SKILL.md) | 只读检查代码是否符合架构配置或指定文档，报告差异、证据和修改建议 |
+| [review-agent](subskills/review-agent/SKILL.md) | 只读审查代码改动新引入的真实缺陷，按 P0～P3 分级报告 |
 | [brainstorming](subskills/brainstorming/SKILL.md) | 梳理尚未确定的需求与设计 |
 
 只读取当前任务需要的说明。调用子技能是读取相应 SKILL.md 并执行，不要求启动额外 Agent。
@@ -33,6 +34,7 @@ description: "XYF EasyCode 项目入口：从需求或源码建立软件架构�
 | 从需求完成框架和代码 | xyf-archify（先通过 brainstorming 确定设计）→ xyf-code |
 | 修改架构数据、翻译名称、取回网页设计 | xyf-archify |
 | 检查代码是否符合架构或指定文档，按文档审查实现 | xyf-archifycheck |
+| 明确要求审查代码缺陷、未提交改动、分支差异或指定提交 | review-agent |
 | 按框架实现代码，并独立核对实现与文档是否一致 | xyf-code → xyf-archifycheck |
 
 把目标项目路径、当前数据文件、修改范围和已有授权带入所选技能。串联时使用上一步核对后的产物，不把源码分析成功当作实现已经完成。
@@ -69,3 +71,5 @@ description: "XYF EasyCode 项目入口：从需求或源码建立软件架构�
 - `$xyf-easycode 把任务模块中“保存任务”方法的英文名翻译好，保留其他内容。`
 - `$xyf-easycode 检查当前项目代码是否符合 docs/archfiy/archify.json，只报告问题。`
 - `$xyf-easycode 对照指定接口文档，检查任务模块的输入输出、默认值和错误处理。`
+- `$xyf-easycode 使用 review-agent 审查当前未提交改动，只报告缺陷。`
+- `$xyf-easycode 使用 review-agent 审查相对 main 分支的改动。`
