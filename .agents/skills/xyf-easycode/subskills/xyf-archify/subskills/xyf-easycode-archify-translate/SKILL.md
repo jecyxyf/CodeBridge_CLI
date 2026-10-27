@@ -1,5 +1,5 @@
 ---
-name: easycode-archify-translate
+name: xyf-easycode-archify-translate
 description: "根据指定中文名称，为 EasyCode 架构 JSON 中选定的变量、参数、结构字段或方法填写英文名，并遵循相应命名格式。用于限定范围的命名翻译，不默认翻译整个项目或重命名源码。"
 ---
 

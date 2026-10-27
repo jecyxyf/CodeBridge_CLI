@@ -2,7 +2,7 @@ import {createServer} from 'node:http';
 import {readFile,writeFile} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
 import {cases,readCase,root} from './fixtures.mjs';
-import {assemble,loadBundle} from '../subskills/easycode-archify/tools/html/scripts/build.mjs';
+import {assemble,loadBundle} from '../subskills/xyf-archify/tools/html/scripts/build.mjs';
 
 export const instrument = html => html.replace('<head>','<head><script src="/probe.js"></script>');
 export async function startServer({port=4174}={}) {

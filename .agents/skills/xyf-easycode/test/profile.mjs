@@ -1,6 +1,6 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import {readCase,root} from './fixtures.mjs';
-import {assemble,loadBundle} from '../subskills/easycode-archify/tools/html/scripts/build.mjs';
+import {assemble,loadBundle} from '../subskills/xyf-archify/tools/html/scripts/build.mjs';
 
 const M=globalThis.EasyCode.Model,S=globalThis.EasyCode.Serialization;
 const project=await readCase('case-100'),bundle=await loadBundle(),timings={};

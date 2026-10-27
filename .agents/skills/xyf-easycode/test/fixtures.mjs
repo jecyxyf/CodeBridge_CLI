@@ -1,7 +1,7 @@
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
-import '../subskills/easycode-archify/tools/html/assets/model.js';
-import {assemble,loadBundle} from '../subskills/easycode-archify/tools/html/scripts/build.mjs';
+import '../subskills/xyf-archify/tools/html/assets/model.js';
+import {assemble,loadBundle} from '../subskills/xyf-archify/tools/html/scripts/build.mjs';
 
 const M = globalThis.EasyCode.Model;
 export const root = new URL('./',import.meta.url);

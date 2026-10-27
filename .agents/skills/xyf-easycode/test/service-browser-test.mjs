@@ -3,9 +3,9 @@ import {mkdtemp,readFile,writeFile,access,readdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawn} from 'node:child_process';
-import {deploy} from '../subskills/easycode-archify/tools/html/scripts/deploy.mjs';
-import {startServer} from '../subskills/easycode-archify/tools/html/server.mjs';
-import {readProjectFile,writeProjectFile} from '../subskills/easycode-archify/tools/html/scripts/files.mjs';
+import {deploy} from '../subskills/xyf-archify/tools/html/scripts/deploy.mjs';
+import {startServer} from '../subskills/xyf-archify/tools/html/server.mjs';
+import {readProjectFile,writeProjectFile} from '../subskills/xyf-archify/tools/html/scripts/files.mjs';
 import {readCase} from './fixtures.mjs';
 import {checkEventFlows} from './event-flow-checks.mjs';
 

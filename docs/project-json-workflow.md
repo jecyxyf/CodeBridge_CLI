@@ -1,6 +1,6 @@
 # 项目 JSON 与技能协作流程
 
-更新日期：2026-10-26
+更新日期：2026-10-27
 
 本文记录项目 JSON、网页和技能的协作方式。字段以当前模型为准；未来代码等其他产物的生成范围仍需单独确定。
 
@@ -20,7 +20,7 @@
 
 目标项目的 `docs/archify/archify.json` 是统一数据来源。网页点击保存后写回 JSON；技能修改 JSON 后，网页约每 2 秒检查并刷新。网页有未保存编辑时先保留内容、提示处理，保存时核对文件版本以检测冲突。独立 HTML 导出仍是快照，通过 html2archify 提取，不能拿服务入口提取内嵌数据。
 
-工具用途、部署和启动命令见 [工具说明](../easycode/subskills/easycode-archify/tools/README.md)。其中路径分别标明相对于工具根目录或目标项目根目录。
+工具用途、部署和启动命令见 [工具说明](../.agents/skills/xyf-easycode/subskills/xyf-archify/tools/README.md)。其中路径分别标明相对于工具根目录或目标项目根目录。
 
 ## 推进顺序
 
@@ -54,7 +54,7 @@ JSON 规范定义数据的内容和结构；修改操作定义怎样安全地改
 | 网页 | 展示、编辑和保存项目数据，重新读取技能保存的变化 |
 | 产物生成工具 | 根据同一份数据生成指定产物，并检查结果 |
 
-已确定一个总入口和四个子技能：总入口 easycode-archify 规划任务，按顺序调用 easycode-archify-code2archify、easycode-archify-archify2html、easycode-archify-html2archify、easycode-archify-translate。分别负责源码转架构数据、架构数据转网页、网页取回架构数据、指定对象的英文命名。
+已确定一个总入口和四个子技能：总入口 xyf-archify 规划任务，按顺序调用 xyf-easycode-archify-code2archify、xyf-easycode-archify-archify2html、xyf-easycode-archify-html2archify、xyf-easycode-archify-translate。分别负责源码转架构数据、架构数据转网页、网页取回架构数据、指定对象的英文命名。
 
 ## 数据与修改规则
 

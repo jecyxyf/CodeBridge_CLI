@@ -1,5 +1,5 @@
 ---
-name: easycode-archify-code2archify
+name: xyf-easycode-archify-code2archify
 description: "读取指定源代码，提取或核对软件模块、分层、参数、方法、事件和关系，生成或更新 EasyCode 架构 JSON。用于从代码建立架构数据，不负责生成网页。"
 ---
 

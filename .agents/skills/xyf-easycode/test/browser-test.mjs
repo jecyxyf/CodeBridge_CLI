@@ -5,7 +5,7 @@ import {join} from 'node:path';
 import {spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {cases,makeProject,readCase,root} from './fixtures.mjs';
-import {assemble,loadBundle} from '../subskills/easycode-archify/tools/html/scripts/build.mjs';
+import {assemble,loadBundle} from '../subskills/xyf-archify/tools/html/scripts/build.mjs';
 import {checkViewport} from './viewport-checks.mjs';
 
 const base=process.argv[2] || 'http://127.0.0.1:4174';

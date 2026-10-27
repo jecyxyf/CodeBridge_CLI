@@ -1,5 +1,5 @@
 ---
-name: easycode-archify-archify2html
+name: xyf-easycode-archify-archify2html
 description: "把 EasyCode 架构 JSON 部署为本地可编辑网站，启动服务并核对数据；也可按需导出独立 HTML。用于架构数据转网页，不负责分析源码或自动翻译名称。"
 ---
 

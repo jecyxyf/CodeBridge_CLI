@@ -1,9 +1,9 @@
 ---
-name: easycode-archify
+name: xyf-archify
 description: "根据用户需求规划并依次执行 EasyCode 架构任务：源代码转架构 JSON、架构 JSON 转 HTML、从已保存 HTML 提取架构 JSON，以及指定中文名称的英文命名。用于选择或串联这些操作。"
 ---
 
-# EasyCode Archify
+# XYF Archify
 
 作为面向用户的总入口，确定任务的输入、输出和执行顺序，然后执行所需子技能。用户可以用自然语言提出要求，也可以直接指定某个子技能。
 
@@ -37,10 +37,10 @@ tools/html/templates/ 的四类文件各有两份：完整模板是参数指导�
 
 | 子技能 | 何时使用 | 输入 → 输出 |
 |---|---|---|
-| [easycode-archify-code2archify](subskills/easycode-archify-code2archify/SKILL.md) | 从实际代码建立或更新架构 | 源代码 → 架构 JSON |
-| [easycode-archify-archify2html](subskills/easycode-archify-archify2html/SKILL.md) | 部署、启动、检查可编辑网站；按需导出快照 | 架构 JSON → 网站与访问地址 |
-| [easycode-archify-html2archify](subskills/easycode-archify-html2archify/SKILL.md) | 取回已保存网页里的设计数据 | EasyCode HTML → 架构 JSON |
-| [easycode-archify-translate](subskills/easycode-archify-translate/SKILL.md) | 翻译指定变量、参数、字段或方法的中文名称 | 架构 JSON + 目标范围 → 更新英文名的架构 JSON |
+| [xyf-easycode-archify-code2archify](subskills/xyf-easycode-archify-code2archify/SKILL.md) | 从实际代码建立或更新架构 | 源代码 → 架构 JSON |
+| [xyf-easycode-archify-archify2html](subskills/xyf-easycode-archify-archify2html/SKILL.md) | 部署、启动、检查可编辑网站；按需导出快照 | 架构 JSON → 网站与访问地址 |
+| [xyf-easycode-archify-html2archify](subskills/xyf-easycode-archify-html2archify/SKILL.md) | 取回已保存网页里的设计数据 | EasyCode HTML → 架构 JSON |
+| [xyf-easycode-archify-translate](subskills/xyf-easycode-archify-translate/SKILL.md) | 翻译指定变量、参数、字段或方法的中文名称 | 架构 JSON + 目标范围 → 更新英文名的架构 JSON |
 
 只读取当次需要的子技能说明。调用指在当前 Agent 中读取相应 SKILL.md 并执行；环境支持正式技能调用时可以使用该能力，不要求额外创建 Agent。
 

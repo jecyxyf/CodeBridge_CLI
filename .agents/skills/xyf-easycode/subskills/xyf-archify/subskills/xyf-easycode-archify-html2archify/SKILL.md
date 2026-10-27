@@ -1,5 +1,5 @@
 ---
-name: easycode-archify-html2archify
+name: xyf-easycode-archify-html2archify
 description: "取回 EasyCode 网页已保存的架构数据：服务版读取相邻 JSON，独立 HTML 提取 ec-project。用于取回编辑结果，不分析任意网站或根据截图猜测架构。"
 ---
 

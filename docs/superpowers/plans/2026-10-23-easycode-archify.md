@@ -1,6 +1,6 @@
 # EasyCode Archify Implementation Plan
 
-> 2026-10-26 目录整理：网页工程已迁入 easycode/subskills/easycode-archify/tools/html/，原 tests/、examples/ 内容已删除，references/ 中的必要规则已合并进技能说明。本文保留初版设计和实施历史；历史文件清单不作为当前依赖，当前技能分工、数据位置与生成命令以[现行技能入口](../../../easycode/subskills/easycode-archify/SKILL.md)为准。
+> 2026-10-27 技能封装：整个技能项目位于 .agents/skills/xyf-easycode/，全部 EasyCode 技能名使用 xyf- 前缀。网页工程位于 .agents/skills/xyf-easycode/subskills/xyf-archify/tools/html/，原 tests/、examples/ 内容已删除，references/ 中的必要规则已合并进技能说明。本文保留初版设计和实施历史；历史文件清单不作为当前依赖，当前技能分工、数据位置与生成命令以[现行技能入口](../../../.agents/skills/xyf-easycode/subskills/xyf-archify/SKILL.md)为准。
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -20,8 +20,8 @@
 - 模块之间先用带方向的连线表示调用或依赖，不做接口插口之间的连线。
 - 节点内部按区块展开详情，使用同一份节点模板；不强制跳到另一个页面。
 - 一个项目对应一个可编辑 HTML；编辑的数据内嵌在 HTML 中，不要求用户维护额外 JSON 文件。
-- 本阶段不修改已引入的 `easycode/subskills/archify/` 引擎，不删除其已有文件。
-- 所有实现位于 `easycode/subskills/easycode-archify/`；设计和本计划记录进度；`.superpowers/` 仅存放忽略的执行记录。
+- 本阶段不修改已引入的 `.agents/skills/xyf-easycode/subskills/archify/` 引擎，不删除其已有文件。
+- 所有实现位于 `.agents/skills/xyf-easycode/subskills/xyf-archify/`；设计和本计划记录进度；`.superpowers/` 仅存放忽略的执行记录。
 
 ---
 
@@ -61,7 +61,7 @@
 
 ## 文件结构与统一接口
 
-所有下列相对路径均基于 `easycode/subskills/easycode-archify/`。
+所有下列相对路径均基于 `.agents/skills/xyf-easycode/subskills/xyf-archify/`。
 
 ```text
 SKILL.md
@@ -299,7 +299,7 @@ assert.equal(result.groupMovePreservedOffsets,true);
 | 自动检查 | 最终代码 42 项通过、0 失败、1 项浏览器跳过；16 个 JavaScript 文件语法检查通过 |
 | HTML | 示例结构检查无错误或警告；数据回读一致、重复组装字节一致、无外部脚本或样式依赖 |
 | 技能与源码分析 | 技能元数据验证通过；本包源码分析及独立三模块样例均记录实际出处，未把推断冒充事实 |
-| 交付 | `easycode/subskills/easycode-archify/examples/task-board.html`；首次保存选择原 HTML，之后覆盖该文件 |
+| 交付 | `.agents/skills/xyf-easycode/subskills/xyf-archify/examples/task-board.html`；首次保存选择原 HTML，之后覆盖该文件 |
 | 后续范围 | 模块 Markdown 文档模板及一键更新按钮按约定留到下一阶段 |
 
 本轮浏览器安全审批拒绝本地 `file://` 导航；未绕行执行。真实页面布局、交互、截图、文件选择、授权、覆盖、另存为和重新打开均不能记作本轮实测通过。保存控制器检查使用内存文件句柄，不代表原生弹窗验收。

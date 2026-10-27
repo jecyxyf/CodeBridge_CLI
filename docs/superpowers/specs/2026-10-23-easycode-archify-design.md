@@ -1,6 +1,6 @@
 # EasyCode Archify 初版设计
 
-> 2026-10-26 目录整理：网页工程已迁入 easycode/subskills/easycode-archify/tools/html/，原 tests/、examples/ 内容已删除，references/ 中的必要规则已合并进技能说明。本文保留初版设计和实施历史；历史文件清单不作为当前依赖，当前技能分工、数据位置与生成命令以[现行技能入口](../../../easycode/subskills/easycode-archify/SKILL.md)为准。
+> 2026-10-27 技能封装：整个技能项目位于 .agents/skills/xyf-easycode/，全部 EasyCode 技能名使用 xyf- 前缀。网页工程位于 .agents/skills/xyf-easycode/subskills/xyf-archify/tools/html/，原 tests/、examples/ 内容已删除，references/ 中的必要规则已合并进技能说明。本文保留初版设计和实施历史；历史文件清单不作为当前依赖，当前技能分工、数据位置与生成命令以[现行技能入口](../../../.agents/skills/xyf-easycode/subskills/xyf-archify/SKILL.md)为准。
 
 日期：2026-10-23
 
@@ -10,7 +10,7 @@
 
 做一个可以编辑的软件模块画布。Agent 负责讨论方案、阅读代码和整理模块；用户在网页中查看、修改并保存。最终交付一个自带样式、脚本和项目数据的 HTML，使用时无需安装 Python、Node.js，无需启动服务。画布、编辑和保存离线可用；用户点击英文名翻译按钮时才联网。
 
-这不是直接复制 archify。沿用它依据实际代码查证模块和关系的做法，在现有 `easycode/subskills/easycode-archify/` 中建设专用编辑器。继续使用仓库现有目录名，不在本次工作中重命名整个项目。
+这不是直接复制 archify。沿用它依据实际代码查证模块和关系的做法，在现有 `.agents/skills/xyf-easycode/subskills/xyf-archify/` 中建设专用编辑器。继续使用仓库现有目录名，不在本次工作中重命名整个项目。
 
 ### 用户已经明确的需求
 
@@ -215,7 +215,7 @@ HTML 保存项目数据、画布模板、节点模板、样式和全部交互代
 
 ## 7. 技能包结构与改动范围
 
-实现主要集中在 `easycode/subskills/easycode-archify/`。以下是职责划分，不要求每个表格条目只用一个源文件。
+实现主要集中在 `.agents/skills/xyf-easycode/subskills/xyf-archify/`。以下是职责划分，不要求每个表格条目只用一个源文件。
 
 | 位置 | 职责 |
 |---|---|
@@ -230,9 +230,9 @@ HTML 保存项目数据、画布模板、节点模板、样式和全部交互代
 
 Agent 侧组装和开发验证可以使用执行环境已有的工具；用户使用生成的 HTML 时不需要这些工具。实施计划需要明确实际采用的工具和文件清单，不要求用户安装服务来使用网页。
 
-本阶段不修改已引入的 `easycode/subskills/archify/` 引擎，不删除其已有文件。可以在技能说明中引用其中有用的代码查证规则；编辑器使用自己的模块数据格式，避免把原图形格式硬扩展成接口手册。
+本阶段不修改已引入的 `.agents/skills/xyf-easycode/subskills/archify/` 引擎，不删除其已有文件。可以在技能说明中引用其中有用的代码查证规则；编辑器使用自己的模块数据格式，避免把原图形格式硬扩展成接口手册。
 
-父级 `easycode/SKILL.md` 的完整工作流不在这次编辑器初版中扩展。独立技能先可用，后续结合文档阶段接入父级流程。
+父级 `.agents/skills/xyf-easycode/SKILL.md` 的完整工作流不在这次编辑器初版中扩展。独立技能先可用，后续结合文档阶段接入父级流程。
 
 ## 8. 错误处理
 

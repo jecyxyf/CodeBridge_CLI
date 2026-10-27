@@ -3,10 +3,10 @@ import {mkdtemp,readFile,writeFile,readdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {deploy} from '../subskills/easycode-archify/tools/html/scripts/deploy.mjs';
-import {readProjectFile,writeProjectFile} from '../subskills/easycode-archify/tools/html/scripts/files.mjs';
-import {checkService,check} from '../subskills/easycode-archify/tools/html/scripts/check.mjs';
-import {build} from '../subskills/easycode-archify/tools/html/scripts/build.mjs';
+import {deploy} from '../subskills/xyf-archify/tools/html/scripts/deploy.mjs';
+import {readProjectFile,writeProjectFile} from '../subskills/xyf-archify/tools/html/scripts/files.mjs';
+import {checkService,check} from '../subskills/xyf-archify/tools/html/scripts/check.mjs';
+import {build} from '../subskills/xyf-archify/tools/html/scripts/build.mjs';
 import {readCase} from './fixtures.mjs';
 
 const temporary = await mkdtemp(join(tmpdir(),'archify-service-'));

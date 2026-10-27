@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readProjectFile} from '../subskills/easycode-archify/tools/html/scripts/files.mjs';
+import {readProjectFile} from '../subskills/xyf-archify/tools/html/scripts/files.mjs';
 
 export async function checkEventFlows({evaluate,click,edit,save,projectFile}) {
   const events = '[data-editor-group="events"]', methods = '[data-editor-group="methods"]';
