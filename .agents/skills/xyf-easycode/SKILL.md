@@ -11,7 +11,7 @@ description: "XYF EasyCode 项目入口：从需求或源码建立软件架构�
 
 确定目标项目、已有需求、源码或架构 JSON，以及本次交付范围。用户指定的项目优先；未指定时使用当前工作项目。读取目标项目的协作规则，沿用已确认的方案和授权。
 
-尚未明确的需求先用 brainstorming 梳理；已确定的任务直接执行。只有架构任务时不顺带编写业务代码，只有编码任务时不重新设计整个架构。
+空白项目生成框架时，由 xyf-archify 先使用 brainstorming 对话梳理并确认设计；已有头脑风暴结论可直接沿用。已有代码时按真实实现梳理框架。只有架构任务时不顺带编写业务代码，只有编码任务时不重新设计整个架构。
 
 ## 执行
 
@@ -30,7 +30,7 @@ description: "XYF EasyCode 项目入口：从需求或源码建立软件架构�
 |---|---|
 | 从需求或源码生成软件框架，或初始化架构网站 | xyf-archify |
 | 按已有框架编码、修改实现或测试 | xyf-code |
-| 从需求完成框架和代码 | 需求未定时 brainstorming → xyf-archify → xyf-code |
+| 从需求完成框架和代码 | xyf-archify（先通过 brainstorming 确定设计）→ xyf-code |
 | 修改架构数据、翻译名称、取回网页设计 | xyf-archify |
 | 单独绘制说明图 | archify |
 
@@ -44,11 +44,11 @@ description: "XYF EasyCode 项目入口：从需求或源码建立软件架构�
 
 | 位置 | 用途 |
 |---|---|
-| docs/archify/archify.json | 目标项目当前的架构数据 |
-| docs/archify/index.html | 可编辑网站入口 |
-| docs/archify/html/ | 网页程序、本地服务和模板 |
+| docs/archfiy/archify.json | 目标项目当前的架构数据 |
+| docs/archfiy/index.html | 可编辑网站入口 |
+| docs/archfiy/html/ | 网页程序、本地服务和模板 |
 
-工具自带的 archify.json 是空框架，已有项目使用自己的数据。xyf-code 把业务代码写到目标项目的代码位置，不写进技能工具目录。
+用户指定路径和已有项目的实际 JSON 优先；旧目录 docs/archify/ 不自动迁移。工具自带的 archify.json 是空框架，已有项目使用自己的数据。xyf-code 把业务代码写到目标项目的代码位置，不写进技能工具目录。
 
 xyf-archify 的可编辑网站与原版 archify 绘图引擎使用不同的数据格式，不能混用。网页保存 JSON，技能由用户所在的 Agent 执行，网页不会自动启动 Agent。
 

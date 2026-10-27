@@ -7,10 +7,12 @@ import {fileVersion,readProjectFile,writeProjectFile} from './files.mjs';
 import {check} from './check.mjs';
 
 const sourceRoot = fileURLToPath(new URL('../../',import.meta.url));
-export async function deploy(projectRoot,{sourceJSON} = {}) {
+export async function deploy(projectRoot,{sourceJSON,outputDir = 'docs/archfiy'} = {}) {
   projectRoot = resolve(projectRoot);
-  const targetRoot = join(projectRoot,'docs','archify'), targetJSON = join(targetRoot,'archify.json');
   const inside = (parent,child) => {const path = relative(parent,child); return path === '' || path !== '..' && !path.startsWith('..' + sep) && !isAbsolute(path);};
+  if (typeof outputDir !== 'string' || !outputDir.trim() || isAbsolute(outputDir)) throw new Error('部署目录须为项目内的相对目录。');
+  const targetRoot = resolve(projectRoot,outputDir), targetJSON = join(targetRoot,'archify.json');
+  if (targetRoot === projectRoot || !inside(projectRoot,targetRoot)) throw new Error('部署目录须位于目标项目内，且不能是项目根目录。');
   if (inside(sourceRoot,targetRoot) || inside(targetRoot,sourceRoot)) throw new Error('部署目录不能与工具源目录重叠。');
   const previousVersion = await fileVersion(targetJSON);
   let project;
@@ -45,9 +47,10 @@ async function runningService(targetRoot,port) {
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
     const [projectRoot,...args] = process.argv.slice(2), options = {}; let start = false, port;
-    if (!projectRoot) throw new Error('用法：node html/scripts/deploy.mjs <目标项目根目录> [--source-json <JSON路径>] [--start] [--port <端口>]');
+    if (!projectRoot) throw new Error('用法：node html/scripts/deploy.mjs <目标项目根目录> [--output-dir <项目内相对目录>] [--source-json <JSON路径>] [--start] [--port <端口>]');
     for (let i = 0; i < args.length; i++) {
       if (args[i] === '--start') start = true;
+      else if (args[i] === '--output-dir' && args[i + 1] && !args[i + 1].startsWith('--')) options.outputDir = args[++i];
       else if (args[i] === '--source-json' && args[i + 1]) options.sourceJSON = args[++i];
       else if (args[i] === '--port' && args[i + 1]) port = Number(args[++i]);
       else throw new Error(`不支持的参数：${args[i]}`);

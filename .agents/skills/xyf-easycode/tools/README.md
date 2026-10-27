@@ -4,7 +4,7 @@
 
 ## 目录
 
-本文未特别说明的路径，都相对于**工具根目录**：开发时是技能包的 `tools/`，部署后是目标项目的 `docs/archify/`。
+本文未特别说明的路径，都相对于**工具根目录**：开发时是技能包的 `tools/`，新项目部署后是目标项目的 `docs/archfiy/`。JSON 文件名仍为 `archify.json`；已有项目沿用其实际目录。
 
 ```text
 ./
@@ -28,18 +28,20 @@
 
 ## 部署到项目
 
-在**本工具根目录**执行，`<目标项目根目录>` 是项目的根目录，不是 `docs/archify`：
+在**本工具根目录**执行，`<目标项目根目录>` 是项目的根目录，不是 `docs/archfiy`：
 
 ```sh
-node html/scripts/deploy.mjs "<目标项目根目录>" --start
+node html/scripts/deploy.mjs "<目标项目根目录>" --output-dir docs/archfiy --start
 ```
 
-脚本把整套程序放到 `<目标项目根目录>/docs/archify/`，启动服务并打印访问地址。默认从 `http://127.0.0.1:4175/` 开始寻找可用端口；以实际输出为准。保持这个进程运行，按 `Ctrl+C` 停止。Agent 执行时可使用自己的后台进程能力，并向用户交付实际地址。
+脚本把整套程序放到 `<目标项目根目录>/docs/archfiy/`，启动服务并打印访问地址。`--output-dir` 省略时默认 `docs/archfiy`；指定值必须是目标项目内的相对目录，不能使用项目根目录、项目外路径或与工具源目录重叠的目录。默认从 `http://127.0.0.1:4175/` 开始寻找可用端口；以实际输出为准。保持这个进程运行，按 `Ctrl+C` 停止。Agent 执行时可使用自己的后台进程能力，并向用户交付实际地址。
+
+旧项目若已使用 `docs/archify/`，先确定当前 JSON，部署时传 `--output-dir docs/archify`。指定其他目录同理；脚本不会迁移旧目录中的数据。不要省略已有项目的实际目录而另建空框架。
 
 已有架构 JSON 时可以指定输入：
 
 ```sh
-node html/scripts/deploy.mjs "<目标项目根目录>" --source-json "<输入JSON路径>" --start
+node html/scripts/deploy.mjs "<目标项目根目录>" --output-dir docs/archfiy --source-json "<输入JSON路径>" --start
 ```
 
 | 情况 | 处理方式 |
@@ -50,17 +52,17 @@ node html/scripts/deploy.mjs "<目标项目根目录>" --source-json "<输入JSO
 | 再次部署 | 更新程序和模板，保留目标 JSON；重新打开网页以使用新版程序 |
 | 只想复制，暂不启动 | 去掉 `--start` |
 
-也可以手动复制本目录的全部内容到目标项目的 `docs/archify/`，已有 JSON 时跳过该文件。启动命令只读取自己相邻的 JSON，不依赖终端的当前目录。
+也可以手动复制本目录的全部内容到目标项目的 `docs/archfiy/`，已有 JSON 时跳过该文件。启动命令只读取自己相邻的 JSON，不依赖终端的当前目录。
 
 ## 启动与停止
 
 在**目标项目根目录**执行：
 
 ```sh
-node docs/archify/html/server.mjs
+node docs/archfiy/html/server.mjs
 ```
 
-在**工具根目录**开发时执行：
+使用旧目录或其他部署位置时，将上述目录替换为实际位置。在**工具根目录**开发时执行：
 
 ```sh
 node html/server.mjs

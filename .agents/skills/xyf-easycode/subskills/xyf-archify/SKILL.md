@@ -1,148 +1,161 @@
 ---
 name: xyf-archify
-description: "从需求或源码生成、维护 EasyCode 软件架构 JSON，部署可编辑网站，取回网页保存的数据，或翻译指定方法和参数的英文名。用于软件框架设计与维护；根据框架编码交给 xyf-code。"
+description: "通过头脑风暴对话或真实源码生成、维护 EasyCode 软件框架 JSON，并部署可编辑网页。用于框架设计、源码梳理及指定 JSON 内容的修改；业务代码实现与测试由 xyf-code 负责。"
 ---
 
 # XYF Archify
 
-按“理解 → 执行 → 检查”完成架构工作。原有源码分析、网页部署、数据提取和名称翻译都在本技能内执行，不再分设子技能。
+按“理解 → 执行 → 检查”完成软件框架工作。主线为：确定生成方式 → 梳理框架内容 → 自上而下布局 → 校验 JSON → 部署网页。
 
 ## 1. 理解
 
-确定目标项目、需求或源码范围、当前架构文件，以及本次结果。读取目标项目协作规则，沿用已有授权。未明确的设计可用同级 [brainstorming](../brainstorming/SKILL.md) 梳理；已有清楚方案时直接处理。
+### 职责与数据基准
 
-以目标项目当前 JSON 为数据基准。服务网页的设计在独立 JSON 中；只有从独立 HTML 快照继续工作时才提取内嵌数据。已知网页有未保存内容时先处理，不能用旧快照或工具空框架覆盖设计。
+架构设计统一保存在一份项目 JSON 中，网页围绕这份 JSON 展示和编辑。可以读取源码作为依据，不编写、修改或测试业务代码；业务实现由同级 [xyf-code](../xyf-code/SKILL.md) 负责。任务在当前 Agent 内完成，不启动额外 Agent。
 
-| 输入与目标 | 选用的执行方式 |
+确定目标项目、本次功能范围、当前架构文件和修改范围。读取项目协作规则，沿用已有授权；优先从上下文判断，只询问确实缺少的关键信息。
+
+已有项目使用当前 JSON，保留稳定 ID、用户编辑、布局及范围外内容。已知网页有未保存编辑时先处理。不能用旧快照或工具自带空框架覆盖用户内容，也不能把新目录下的空文件当作已有项目的数据基准。
+
+### 两种生成方式
+
+| 项目情况 | 必须采用的方式 |
 |---|---|
-| 需求 → 软件框架 | 根据需求设计架构 |
-| 源码 → 软件框架 | 从源码提取或核对架构 |
-| 空项目或 JSON → 可编辑网站 | 部署与启动网站 |
-| 已保存网页 → JSON | 取回已保存数据 |
-| 指定中文名称 → 英文标识 | 翻译指定名称 |
+| 空白项目，通过需求生成框架 | 先使用同级 [brainstorming](../brainstorming/SKILL.md) 技能，通过对话梳理并确认设计，再生成 JSON |
+| 已有代码，通过实现生成框架 | 先理解真实关系，再决定分层、模块和位置；内容严格以实际代码为依据 |
 
-可以串联必要步骤，例如“源码 → JSON → 网站”；不要求每次全部执行。实际编码读取同级 [xyf-code](../xyf-code/SKILL.md)。
+空白项目必须经过头脑风暴，不能跳过对话直接凭猜测填写。按本任务只生成框架 JSON 的范围使用 brainstorming：梳理项目目标、功能、分层、模块及内部内容，结论写入 JSON；不另行编写业务代码、规格文件或实现计划，不自动提交 Git。已完成并确认的头脑风暴结论可直接沿用，不重复询问。
 
-### 路径
+已有代码时，从入口、注册和配置开始，沿实际调用、数据流和读写操作追踪到执行与输出位置。区分调用者、实际执行者、数据接收或保存位置，以及可选能力和正常路径。不能根据文件名、同名符号或文档描述猜测实现，也不能把建议、理想行为或间接调用写成现有事实。
 
-共享工具位于 **xyf-easycode 根目录**的 tools/，与 subskills/ 同级。xyf-easycode 根目录是本文件所在目录的上两级。文档链接相对于本文件；下面 tools/ 路径和工具命令均相对于 xyf-easycode 根目录，命令参数中的相对路径则相对于当前终端目录。
+### 路径与模板
+
+共享工具位于 **xyf-easycode 根目录**的 tools/，与 subskills/ 同级；该根目录是本文件所在目录的上两级。下面 tools/ 命令从该根目录执行，参数中的相对路径相对于终端当前目录。
 
 | 位置 | 用途 |
 |---|---|
-| [tools/README.md](../../tools/README.md) | 整套工具的部署与使用说明 |
-| [tools/archify.json](../../tools/archify.json) | 随工具提供的最小空框架，无示例模块 |
-| [tools/index.html](../../tools/index.html) | 服务版网页入口 |
-| 目标项目 docs/archify/archify.json | 项目当前架构数据 |
-| 目标项目 docs/archify/index.html | 部署后的网站入口 |
-| 目标项目 docs/archify/html/ | 网页程序、本地服务、脚本和模板 |
+| 目标项目 docs/archfiy/archify.json | 项目当前架构数据 |
+| 目标项目 docs/archfiy/index.html | 可编辑网页入口 |
+| 目标项目 docs/archfiy/html/ | 网页程序、本地服务和模板 |
+| [tools/README.md](../../tools/README.md) | 工具部署、同步和检查说明 |
+| [tools/archify.json](../../tools/archify.json) | 工具自带空框架，不能代替项目内容 |
 
-默认输出路径相对于**目标项目根目录**。用户另有指定时采用指定位置。部署目标参数传项目根目录，避免拼成 docs/archify/docs/archify。
+默认目录按约定使用 **docs/archfiy/**，JSON 文件名仍为 **archify.json**。用户明确指定的位置或已有项目的实际数据位置优先。旧项目若使用 docs/archify/，继续使用其当前 JSON 和部署位置，不自动迁移；两个目录都有数据且无法确定基准时，先解决冲突。
 
-[model.js](../../tools/html/assets/model.js) 是字段、创建函数、更新函数和校验规则的依据，当前 formatVersion 为 1。不使用旁边原版 archify 引擎的数据格式。
-
-### 模板
-
-完整模板是参数指导书；运行模板是待填充的最小骨架。指导书的演示对象与来源不能作为真实项目数据。
+[model.js](../../tools/html/assets/model.js) 是字段、创建函数、更新函数和校验规则的依据，当前 formatVersion 为 1。完整模板用于理解字段和显示能力，运行骨架用于生成网页。示例不代表项目事实，不使用原版 archify 引擎的数据格式或命令。
 
 | 类型 | 完整指导书 | 运行骨架 |
 |---|---|---|
+| 项目数据 | [archifytemplate.jsonc](../../tools/html/templates/archifytemplate.jsonc) | [archifytemplate.json](../../tools/html/templates/archifytemplate.json) |
 | 画布 | [canvas.template.html](../../tools/html/templates/canvas.template.html) | [canvas.html](../../tools/html/templates/canvas.html) |
 | 模块 | [module-node.template.html](../../tools/html/templates/module-node.template.html) | [module-node.html](../../tools/html/templates/module-node.html) |
 | 分层 | [group-layer.template.html](../../tools/html/templates/group-layer.template.html) | [group-layer.html](../../tools/html/templates/group-layer.html) |
-| 项目数据 | [archifytemplate.jsonc](../../tools/html/templates/archifytemplate.jsonc) | [archifytemplate.json](../../tools/html/templates/archifytemplate.json) |
 
 ## 2. 执行
 
-只读取所选方式需要的工具源码或模板。任务在当前 Agent 内完成，工具不安装或管理 Agent。
+### 先核实，再写入
 
-### 根据需求设计架构
+正式 JSON 中每一项都必须核实清楚、实事求是，不允许包含未核实、待确认、猜测或占位内容。
 
-1. 从已确定的需求整理模块功能、功能需求、编程语言、相对代码位置、分层和模块关系。按本次范围填写参数、数据结构、方法输入输出、实现流程、错误处理、消息参数及测试要求。
-2. 已有 JSON 时在原设计上修改，保留稳定 ID、用户名称、布局、外观和范围外内容。新项目用 Model.createProject 创建独立 ID，并参考运行骨架填充项目内容。
-3. 新模块及成员使用 Model.createModule、createInterface、createParameter、createStructure、createStructureField、createEvent、createTest 等创建函数，再填入实际名称和说明。默认示例文字不能代替已完成的设计。
-4. 需求设计用 planned 状态；没有源码依据时不填写虚构 sources 或 Git 版本。只有已经明确的输入、输出才能设置对应 Confirmed 标记。影响实现的关键缺口需明确处理，普通选择依据项目约定完成。
-5. 按“保存与数据约定”校验、保存。用户要求网站时继续部署；用户要求编码时把已检查的 JSON 交给 xyf-code。
+- 空白项目的依据是头脑风暴中已经确定的需求与设计；已有代码的依据是实际定义、调用、默认值、分支、返回结果和副作用。
+- 发现疑点，先继续查源码或与用户讨论；解决前不生成或替换正式 JSON，也不部署不完整框架。不能省略疑点涉及的内容，再宣称框架完整。
+- 确认不存在或不适用的内容，才使用模型规定的空数组、空字符串或省略可选字段。不能把没查过写成没有，也不能为填满字段编造内容。
+- 模型要求保留的 unknowns 统一为 []。这表示内容已核实；不能通过清空 unknowns 掩盖既有疑点。
+- 每个方法的输入输出都必须核对完整，正式 JSON 的 inputsConfirmed、outputsConfirmed 均为 true。确认无输入或无输出时，对应数组才可为空。
+- planned 表示已确定、尚待实现的设计，不能含糊；verified 表示与实际源码相符，不代表业务测试通过。modified 是语义修改后的过程状态，交付前须重新核对为 verified，或确认其为待实现设计后使用 planned；不能仅改状态代替核实。
 
-### 从源码提取或核对架构
+### 划分模块和分层
 
-1. 搜索定义、调用和引用，再读取实现。文件名或同名符号不足以证明功能与关系，不自动把每个文件或函数都建成模块。
-2. 根据实际代码填写模块、成员和连线。方法保存在 interfaces；源码已有标识记录在 englishName，不随意翻译或改名。中文名称和说明解释其用途。
-3. 方法需核对定义、默认值、分支和返回位置，输入输出确实核对后才设置 inputsConfirmed / outputsConfirmed。空列表且未确认表示未知。
-4. sources 记录实际读过的仓库相对路径、从 1 开始的行号及必要的 endLine、symbol；codeLocation 单独保存相对代码位置。有向关系须有实际调用或导入依据。
-5. Git 项目记录实际 revision，repository.dirty 根据整个仓库判断。修改过、未跟踪或被忽略的源码在交付中说明必要的差异或内容哈希，提交号不能证明这些文件的实际内容。非 Git 项目不编造提交号。
-6. 只有核对过的内容才标为 verified。更新既有语义通过模型更新函数处理状态；重新核对时检查来源与版本，不把范围外内容一并标为已验证。
-7. 校验并保存。此方式不修改被分析的业务代码；源码事实核对也不代表实现测试已经通过。
+先把本次范围内的职责、真实关系和边界梳理清楚，再划分模块与分层，最后安排位置。模块按职责划分，不机械地把每个文件或函数建成模块；不预设层数、模块数、方法数或连线数。
 
-### 部署与启动网站
+源码模式下，不能把不存在的服务、消息机制、数据保存操作或依赖加入框架。分组不能隐藏实际执行者、读写归属或影响行为的条件。每个模块和有向关系都要有实际读取过的源码依据。
 
-先校验 JSON，核对模块、分层、连线数量及已有网页定制。需要 Node.js 22+，无 npm 依赖；缺少环境时说明，不擅自安装。
+### 逐项填写模块
 
-新部署或更新网站程序，从 **xyf-easycode 根目录**运行：
+先核对项目名称、说明、代码目录和版本，再逐个模块检查下表。纳入本次范围的模块必须完整梳理，不能只抽取几个代表方法，也不能遗漏模板中不直接显示在画布上的内容。
 
-```sh
-node tools/html/scripts/deploy.mjs "<目标项目根目录>" --start
-```
-
-指定输入时加 `--source-json "<JSON路径>"`。[deploy.mjs](../../tools/html/scripts/deploy.mjs) 复制整套工具并生成入口；已有目标 JSON 保留，输入与目标不同时停止，先确定数据基准。只部署时不修改业务字段、英文名、ID 或布局。
-
-默认从 4175 起选择可用端口，同一目标已有服务时复用，以实际输出地址为准。保持服务进程运行；Windows 后台启动隐藏窗口，不关闭其他项目服务。停止该进程可用 Ctrl+C。
-
-仅启动已有部署时，从**目标项目根目录**运行：
-
-```sh
-node docs/archify/html/server.mjs
-```
-
-只修改 JSON 时不重建入口或重新复制工具。网页约每 2 秒检测变化，有未保存编辑时保留并提示；网页保存写回同一 JSON。
-
-只有工具源码或模板发生修改时，才从 xyf-easycode 根目录运行 `node tools/html/scripts/build.mjs --runtime` 再部署。生成器读取运行模板，不打包完整指导书。用户只要独立快照时用 `node tools/html/scripts/build.mjs <JSON路径> <HTML输出路径>`，不能覆盖服务入口 index.html。
-
-### 取回已保存数据
-
-服务入口 docs/archify/index.html 没有 ec-project 快照，读取相邻 archify.json 并校验；若它就是输出目标，无需重复写入。浏览器未保存内容需先完成保存。
-
-对于明确指定的独立 HTML，导入 [model.js](../../tools/html/assets/model.js) 和 [serialization.js](../../tools/html/assets/serialization.js)，调用 EasyCode.Serialization.readProject(html)。此接口只解析数据块，不执行页面脚本。缺少、重复或损坏的数据块应报提取错误，不从页面外观猜测项目。
-
-保存提取对象时保留所有字段、ID、内容和布局，不补默认值、不翻译、不改原 HTML。记录目标文件版本后安全写入，读回与提取结果深度比较。不能用旧快照自动覆盖当前设计。
-
-### 翻译指定名称
-
-用模块、对象种类与稳定 ID 定位目标；中文名重复且无法消除歧义时让用户选择，不批量修改所有同名对象。
-
-| 对象 | 数据位置 |
+| 内容 | 必须梳理的事项 |
 |---|---|
-| 模块参数 | modules[].parameters[] |
-| 数据结构字段 | modules[].structures[].fields[] |
-| 方法 | modules[].interfaces[] |
-| 方法输入、输出 | modules[].interfaces[].inputs[] / outputs[] |
-| 消息参数 | modules[].events[].parameters[] |
+| 基本信息 | 中文名、英文名、功能、语言、代码位置、所属层级 |
+| 功能需求 | 具体功能及成立条件；源码模式说明代码实际完成的行为 |
+| 模块参数 | 名称、类型、用途、默认值和必需标记 |
+| 数据结构 | 结构名称，以及每个字段的名称、类型和用途 |
+| 方法 interfaces | 名称、用途、全部输入输出、必需标记、默认值、处理流程和错误处理 |
+| 消息事件 events | 名称、发送或接收方向、用途、消息参数和处理流程 |
+| 测试项 tests | 测试步骤和预期结果；不表示测试已执行通过 |
+| 来源与状态 | 实际源码位置、符号、核对状态；需求设计不虚构来源 |
 
-由当前 Agent 结合用途、类型和项目术语翻译，不启动额外 Agent 或要求翻译服务。沿用目标项目命名约定；没有约定时，变量和方法用 camelCase。可复用 [translation.js](../../tools/html/assets/translation.js) 的纯函数 EasyCode.Translation.formatName(englishText, 'parameter') 整理 camelCase，该函数不负责语义翻译。
+源码模式保留实际 englishName，中文名和说明解释用途，不任意翻译或改名。测试项只记录已有测试的实际含义；需求模式记录确定的测试要求。不生成和运行业务测试代码。
 
-结果必须是目标语言可用的英文标识，不包含中文、空格或括号签名。检查作用域内重名与合法重载；例如“保存任务”可为 saveTask，“任务编号”可为 taskId，不做随机同义词抽取。
+sources 记录实际读过的仓库相对路径、从 1 开始的 line，以及必要的 endLine、symbol。codeLocation 单独保存相对代码目录的路径，多处位置用换行分隔。Git 项目记录实际 revision，dirty 按整个仓库判断；修改过、未跟踪或被忽略的来源文件须说明差异或内容哈希，不能仅用提交号证明当前内容。非 Git 项目不编造提交号。
 
-只更新指定 englishName 及模型要求的相关来源状态，保留其他字段。通过模型更新函数修改，并检查差异范围。不要顺带修改源码、翻译整个项目或调用网页在线翻译按钮。保存后已有服务自动检测变化。
+### 建立关系并自上而下布局
 
-### 保存与数据约定
+1. 先核对模块之间真实的调用、依赖或消息传递，确定方向与含义，再建立 relations。源码关系须有调用、导入、事件接线或实际读写依据；不能把间接调用画成直接读写。
+2. 分层统一从上到下排列，同层模块按主要交互顺序摆放；联系紧密的模块靠近，为箭头与文字留出空间。层级含义来自项目，不硬套固定层数。
+3. 按模块实际内容估计节点高度，再安排 x、y 和四边连接点。层级包围框由工具计算，不添加模型没有的宽高或路由字段。
+4. 真实存在的反向调用、回调和消息关系保留原方向；不能为外观改关系、删必要内容或编造依赖。
+5. 新建框架按此布局；维护已有 JSON 时保留范围外位置。只有用户要求调整布局时才重排已有整体画布。
 
-- 使用 globalThis.EasyCode.Model；Node 可通过 `import './tools/html/assets/model.js'` 加载模型。对象 ID 全局唯一，重命名不换 ID；引用通过 ID 关联，删除对象时清理失效引用。
-- codeLocation 是相对项目代码目录的路径，可逐行记录多个位置。方法在 interfaces 中；方法 flow、errors 与事件 flow 是逐行文本，不因为网页逐行编辑就改成数组。参数 defaultValue 按模型保存字符串。
-- planned 是设计，verified 是有源码依据的事实，modified 是已核对内容发生了语义变化。使用 Model.updateModule、updateInterface、updateMember 等函数更新现有语义及状态。
-- Model.validate(project) 返回 errors 和 warnings。结构错误处理后才能替换文件；警告按实际内容核查，不填假数据消除提示。
-- 使用 [files.mjs](../../tools/html/scripts/files.mjs) 的 readProjectFile 读取 project、version，再用 writeProjectFile(path, project, {expectedVersion: version}) 保存并读回核对。新文件 expectedVersion 为 null；提取到另一目标时用 fileVersion 记录其版本。输入或目标已变化时先处理冲突，不盲目覆盖或重试。
-- 保存保留范围外字段、默认值、来源、布局与关系。服务版以 JSON 为准，独立导出 HTML 才含数据快照。
+### 校验并保存 JSON
 
-## 3. 检查
+| 检查 | 完成标准 |
+|---|---|
+| 内容正确性 | 每项符合已经确定的设计或实际源码，状态与依据一致 |
+| 内容完整性 | 本次范围内的模块、成员、重要条件和必要关系无遗漏；无疑点或占位内容 |
+| 源码双向核对 | 从源码查 JSON 是否遗漏；从 JSON 查每项说明是否有依据 |
+| 数据结构 | Model.validate 无 errors；warnings 逐项处理，不填假数据消除提示 |
+| 修改范围 | 稳定 ID、用户编辑、范围外字段和关系得到保留 |
 
-所有数据修改都做模型校验、范围差异检查及保存后读回比较。部署后从**目标项目根目录**运行：
+使用 globalThis.EasyCode.Model；Node 可通过 import 加载 tools/html/assets/model.js。新项目用 createProject，模块和成员用对应 createModule、createInterface、createParameter、createStructure、createStructureField、createEvent、createTest 创建，再填入真实内容。不能保留创建函数的默认示例文字。
+
+更新已有语义使用 Model.updateModule、updateInterface、updateMember、updateRelation 等函数。对象 ID 全局唯一，改名不换 ID；删除时清理失效引用。方法 flow、errors 和事件 flow 是逐行字符串，参数 defaultValue 保存字符串，不能改变字段类型。
+
+使用 [files.mjs](../../tools/html/scripts/files.mjs) 的 readProjectFile 读取 project、version，再用 writeProjectFile(path, project, {expectedVersion: version}) 保存并读回深度比较。新文件 expectedVersion 为 null；保存到另一目标时先用 fileVersion 记录目标版本。输入或目标变化时先处理冲突，不盲目覆盖或重试。
+
+### 围绕 JSON 部署网页
+
+框架 JSON 完成并通过上述检查后，继续部署网页供用户阅读和修改；用户明确只要 JSON 时按其范围交付。只修改已有 JSON 时不重新部署程序，也不重新生成入口。
+
+需要 Node.js 22+，无 npm 依赖；缺少环境时说明，不擅自安装。从 **xyf-easycode 根目录**执行：
 
 ```sh
-node docs/archify/html/scripts/check.mjs docs/archify/index.html
-node docs/archify/html/scripts/check.mjs --url <实际访问地址>
+node tools/html/scripts/deploy.mjs "<目标项目根目录>" --output-dir docs/archfiy --start
 ```
 
-核对接口与磁盘 JSON 深度一致。独立快照用 check.mjs <HTML路径> <输入JSON路径> 比较。健康检查不能代替浏览器检查：打开实际 HTTP 地址核对模块、分层和连线是否显示、是否在视野内。
+部署目标参数传项目根目录，--output-dir 为项目内的相对部署目录。旧项目或用户指定其他位置时传入其实际目录；需要输入文件时加 --source-json "<JSON路径>"。部署前检查已有网页定制。[deploy.mjs](../../tools/html/scripts/deploy.mjs) 保留已有目标 JSON，遇到不同输入会停止；不以部署之名修改业务字段、ID 或布局。
 
-需要验证保存、外部更新、未保存冲突或服务恢复时使用独立临时项目，避免向正式架构加入测试数据。检查失败先处理，不能拿旧产物当作新结果。
+默认从 4175 起选择可用端口，同一目标已有服务时复用，以实际输出地址为准。保持服务运行；Windows 后台启动隐藏窗口，不关闭其他项目服务。仅启动已有部署时，从**目标项目根目录**执行：
 
-简短表格交付实际修改、JSON 路径、源码分析范围与版本（如适用）、访问地址与启动/停止方法、实际执行的检查。分别说明数据校验、源码核对、服务和页面检查，未做的检查不写成通过。
+```sh
+node docs/archfiy/html/server.mjs
+```
+
+服务网页读取并保存相邻 archify.json，约每 2 秒检查外部修改；有未保存编辑时保留并提示。用户在网页保存后的 JSON 是后续工作的最新基准。
+
+只有网页源码或运行模板修改时，才运行 node tools/html/scripts/build.mjs --runtime 再部署。独立快照用 node tools/html/scripts/build.mjs <JSON路径> <HTML输出路径> 生成，不能覆盖服务入口 index.html。
+
+### 已有 JSON 的指定修改与数据取回
+
+按稳定 ID、所属模块和对象种类定位修改范围；不能因为中文同名而批量修改无关对象。新语义同样必须核实清楚，保留范围外字段、来源与布局。读取已有内容发现疑点时先解决，不清空标记冒充已核实，也不擅自扩大修改范围。
+
+名称翻译仅更新指定 englishName 及相应状态。结合已确定的用途、类型和项目命名习惯处理，检查标识合法性和重名；已有源码标识按代码保留。用户明确要改变已有代码名称时，将确认的新名称作为 planned 设计，不把它标成现有源码事实，也不在本技能中改业务代码。可以使用 [translation.js](../../tools/html/assets/translation.js) 的 formatName 整理格式，该函数不负责语义翻译。
+
+服务入口没有 ec-project 快照，取回数据读取相邻 JSON；若已是当前文件则不重复写入。明确指定独立 HTML 时，使用 [serialization.js](../../tools/html/assets/serialization.js) 的 EasyCode.Serialization.readProject 解析数据块，不执行页面脚本、不从外观猜测内容。提取结果先检查完整性与事实依据，发现疑点先处理；通过后保留字段和 ID，检查目标版本再保存并读回比较，不拿旧快照自动覆盖当前设计。
+
+## 3. 检查与交付
+
+数据修改均做内容核实、模型校验、范围差异检查和保存后读回比较。部署后从**目标项目根目录**运行：
+
+```sh
+node docs/archfiy/html/scripts/check.mjs docs/archfiy/index.html
+node docs/archfiy/html/scripts/check.mjs --url <实际访问地址>
+```
+
+实际部署目录不同则替换命令中的目录。接口返回项目与磁盘 JSON 必须深度一致。独立快照用 check.mjs <HTML路径> <输入JSON路径> 比较。
+
+打开实际 HTTP 地址检查页面：模块、层级和连线显示完整；分层自上而下；节点无重叠；箭头方向和文字清楚；默认视角可读。全部缩进视野不等于看得清楚，数据校验和健康检查不能替代页面检查。布局有问题时调整本次范围内的位置和连接点，不通过删减内容掩盖问题。
+
+需要验证保存、外部更新、未保存冲突或服务恢复时使用独立临时项目，不向正式框架加入测试数据。检查失败先处理，不能用旧产物当新结果。
+
+用简短表格交付 JSON 路径、网页地址、生成依据、完整覆盖的范围、实际修改和执行的检查；部署时说明启动与停止方法。源码模式附真实版本及必要的工作区差异。数据校验、源码核对、服务和页面检查分别报告，未做的检查不写成通过。关键内容无法核实则说明具体阻碍，保留原文件，不交付不完整 JSON。

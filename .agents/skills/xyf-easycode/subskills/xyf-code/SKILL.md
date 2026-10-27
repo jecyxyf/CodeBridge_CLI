@@ -9,7 +9,7 @@ description: "根据 EasyCode 架构 JSON 中指定模块的需求、参数、�
 
 ## 1. 理解
 
-确定目标项目、架构 JSON 和本次要实现的模块或方法。默认读取**目标项目根目录**下的 docs/archify/archify.json，不能把技能 tools/archify.json 的空框架当作业务需求。
+确定目标项目、架构 JSON 和本次要实现的模块或方法。优先使用用户指定或 xyf-archify 交付的实际路径；新项目默认读取**目标项目根目录**下的 docs/archfiy/archify.json。旧项目仍使用 docs/archify/archify.json 时沿用其数据；两处都有数据且无法确定基准时先解决冲突，不自动迁移或覆盖。不能把技能 tools/archify.json 的空框架当作业务需求。
 
 读取目标项目协作规则、现有代码和构建配置。已有源码作为实现基准，架构作为本次功能要求；两者不一致时辨明哪些是待实现的改动，不能直接覆盖用户代码。
 
