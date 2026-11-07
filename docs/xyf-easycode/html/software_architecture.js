@@ -3,7 +3,7 @@ globalThis.softwareArchitecture = {
   "id": "project-template",
   "name": "CodeBridge CLI",
   "englishName": "codebridge-cli",
-  "description": "项目使用 Rust 实现。为 Windows、Linux、macOS 设计主程序与 Agent Skill。主程序以后台服务运行，同一套可执行程序提供 local/vps 两种角色及命令入口。Local 主动通过 SSH 连接 VPS；一台 VPS 管理多个 Local，每台 Local 管理多个项目；Local 与项目共同确定操作范围。项目目录双向同步，本机项目服务由用户自行启动，将本机端口转发到 VPS 供远端 Agent 调试。两端 Agent 经配套 Skill 调用主程序，控制 CodeBridge 服务、连接、同步、映射并读取 JSON 状态与日志。VPS 目录独占，拒绝相同或重叠根目录；项目资源分别管理。该图基于已确认需求记录计划中的软件架构；业务代码尚未实现，接口入参与出参细节尚未逐项确认。",
+  "description": "CodeBridge 是为远程开发与硬件联调设计的轻量命令行与 AI Skill 外壳，主程序采用 Rust 实现，底层零改动复用 Mutagen 的 Go 核心总入口。Local 与 VPS 之间严格保持唯一单连接通道，多项目多端口复用传输。业务全面支持 AI Agent（Skill）与人类零参数调用：执行 start_codebridge 自动将当前目录同步到云端同名目录，本地网页端口（默认 3000）自动映射至云端 10000+ 随机空闲端口，并统一通过 ConfigManager::set_result 输出包含 web_url 的标准 JSON 并落盘日志。",
   "repository": {
     "path": "/home/xyf/orca/CodeBridge_CLI/0.0.1",
     "revision": "8321944aeda2d85aa9a94ff4230bcf63b98a952e",
@@ -25,8 +25,8 @@ globalThis.softwareArchitecture = {
       "englishName": "Local",
       "color": "#ffffff",
       "backgroundColor": "#559c80",
-      "x": 2410,
-      "y": 710
+      "x": 2690,
+      "y": 880
     },
     {
       "id": "group-0c1d02ac-36eb-4750-b3fc-0f51ae7cc54d",
@@ -34,8 +34,8 @@ globalThis.softwareArchitecture = {
       "englishName": "VPS",
       "color": "#ffffff",
       "backgroundColor": "#ad884f",
-      "x": 2400,
-      "y": 80
+      "x": 2390,
+      "y": -210
     },
     {
       "id": "group-0cb11cc3-b58d-4551-90c7-2ac347d32ba7",
@@ -766,8 +766,8 @@ globalThis.softwareArchitecture = {
       "language": "Rust",
       "codeLocation": "src/local/main.rs",
       "groupId": "group-679f7997-02f7-419d-b8a9-50719242faa9",
-      "x": 2430,
-      "y": 770,
+      "x": 2710,
+      "y": 940,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -777,11 +777,12 @@ globalThis.softwareArchitecture = {
       "sources": [],
       "unknowns": [],
       "requirements": [
-        "命令行参数解析：使用 clap 解析子命令（project、sync、forward、status）与独立参数。",
-        "项目配置管理：读取与保存项目目录映射与端口转发规则（通过 ConfigManager）。",
-        "驱动底层 Mutagen：作为父进程调用 MutagenCli，捕获 stdout（JSON 结果）并管道重定向 stderr 日志到 Logger。",
-        "统一返回值收口：操作完成后调用 ConfigManager::set_result，控制是否打印屏幕，自动记入文件日志。",
-        "启动进程命名：支持传入 --name 参数自定义后台进程名称；若未指定，自动随机生成 5 到 10 位纯英文字母作为后台进程名称。"
+        "命令行参数解析：使用 clap 解析子命令（start_codebridge、stop_bridge、query_status、add_forward）与独立参数。",
+        "极致零参数体验：启动、停止、查状态默认全支持零参数运行，自动以当前目录为基准推导项目并联动 VPS。",
+        "单连接通道铁律：Local 到目标 VPS 有且仅保持 1 条连接通道，所有同步与端口映射均复用该通道，不建立重复物理连接。",
+        "驱动底层 Mutagen：作为父进程调用 MutagenCli，stdout 捕获 JSON，stderr 管道重定向至 Logger。",
+        "极简端口自适应：网页端口 web_port 默认 3000，云端 VPS 端口自动在 10000+ 随机分配空闲端口，返回包含 web_url (如 http://127.0.0.1:10086) 供 AI Agent 直接调试。",
+        "统一返回值收口：操作完成后统一调用 ConfigManager::set_result，控制是否打印屏幕，自动记入文件日志。"
       ],
       "dependencies": [
         "ConfigManager::set_result / ConfigManager::get_result",
@@ -792,12 +793,12 @@ globalThis.softwareArchitecture = {
       "structures": [],
       "interfaces": [
         {
-          "id": "method-local-run-command",
-          "name": "调度执行命令",
-          "englishName": "run_command",
-          "purpose": "接收独立参数切片，调度业务逻辑，最终调用 set_result 统一输出。",
-          "flow": "解析 args -> 分发至具体业务操作 -> 调用 set_result 打印 JSON 并记日志。",
-          "errors": "未知子命令或参数不全时设置错误码并输出。",
+          "id": "method-local-dispatch",
+          "name": "命令总调度",
+          "englishName": "dispatch",
+          "purpose": "命令行总调度入口。接收并解析命令行独立参数，分发调用启动、停止、查状态、加端口等具体业务方法，并调用 set_result 统一收口输出。",
+          "flow": "解析输入命令行参数 -> 匹配子命令 -> 路由调用对应具体业务方法 -> 统一通过 set_result 打印屏幕与记日志。",
+          "errors": "未知命令或参数不全时设置错误码并输出。",
           "status": "planned",
           "sources": [],
           "unknowns": [],
@@ -805,7 +806,7 @@ globalThis.softwareArchitecture = {
           "outputsConfirmed": true,
           "inputs": [
             {
-              "id": "p-local-args",
+              "id": "p-dispatch-args",
               "name": "参数列表",
               "englishName": "args",
               "type": "&[String]",
@@ -816,23 +817,23 @@ globalThis.softwareArchitecture = {
           ],
           "outputs": [
             {
-              "id": "p-local-run-res",
-              "name": "执行结果",
+              "id": "p-dispatch-res",
+              "name": "调度结果",
               "englishName": "result",
               "type": "Result<(), String>",
-              "description": "Ok(()) 表示调度完成。",
+              "description": "Ok(()) 表示调度并收口完成。",
               "required": true,
               "defaultValue": ""
             }
           ]
         },
         {
-          "id": "method-local-start-bridge",
-          "name": "一键启动桥接",
-          "englishName": "start_bridge",
-          "purpose": "根据项目配置，发起目录双向同步与端口反向映射，支持指定进程名称或使用随机名称。",
-          "flow": "检查并生成/应用进程名称 -> 读取项目配置 -> 启动 Mutagen 同步与端口映射 -> 返回汇总状态。",
-          "errors": "配置缺失、SSH 失败或端口冲突返回错误。",
+          "id": "method-local-start-codebridge",
+          "name": "启动 CodeBridge 桥接",
+          "englishName": "start_codebridge",
+          "purpose": "极简一键发起双向文件同步与端口反向映射：自动读取当前目录并映射至 VPS 目录 ~/codebridge/<目录名>，网页端口默认 3000，云端 VPS 端口自动在 10000+ 分配并在返回值中提供 web_url。",
+          "flow": "推导本地目录与项目名称 -> 计算 VPS 远程路径 -> 网页端口默认 3000 -> 从 10000+ 随机分配可用 VPS 端口 -> 驱动 Mutagen 同步与端口映射 -> 返回包含 web_url 的标准 CommandResult 对象。",
+          "errors": "本地路径不存在、SSH 无法连通、或端口已被占用时返回错误。",
           "status": "planned",
           "sources": [],
           "unknowns": [],
@@ -840,31 +841,40 @@ globalThis.softwareArchitecture = {
           "outputsConfirmed": true,
           "inputs": [
             {
-              "id": "p-local-start-id",
-              "name": "项目标识",
-              "englishName": "project_id",
-              "type": "&str",
-              "description": "待启动的目标项目唯一标识。",
-              "required": true,
+              "id": "p-start-web-port",
+              "name": "网页端口",
+              "englishName": "web_port",
+              "type": "Option<u16>",
+              "description": "Local 电脑上正在运行的网页服务端口，默认 3000。",
+              "required": false,
+              "defaultValue": "3000"
+            },
+            {
+              "id": "p-start-vps-ip",
+              "name": "VPS IP",
+              "englishName": "vps_ip",
+              "type": "Option<&str>",
+              "description": "云端 VPS 服务器的 IP 地址，默认取已配置的 IP。",
+              "required": false,
               "defaultValue": ""
             },
             {
-              "id": "p-local-start-name",
-              "name": "进程名称",
-              "englishName": "name",
-              "type": "Option<String>",
-              "description": "可选的自定义后台进程名称；未指定时传入 None 触发随机生成。",
+              "id": "p-start-local-path",
+              "name": "本地目录",
+              "englishName": "local_path",
+              "type": "Option<&Path>",
+              "description": "Local 电脑上的代码目录，默认当前目录。",
               "required": false,
-              "defaultValue": ""
+              "defaultValue": "."
             }
           ],
           "outputs": [
             {
-              "id": "p-local-start-res",
-              "name": "启动状态",
+              "id": "p-start-codebridge-res",
+              "name": "启动结果",
               "englishName": "result",
               "type": "Result<CommandResult, String>",
-              "description": "包含会话信息的标准响应对象。",
+              "description": "包含 web_url (如 http://127.0.0.1:10086)、web_port、vps_port 与同步状态的 CommandResult 对象。",
               "required": true,
               "defaultValue": ""
             }
@@ -872,11 +882,11 @@ globalThis.softwareArchitecture = {
         },
         {
           "id": "method-local-stop-bridge",
-          "name": "停止项目桥接",
+          "name": "停止桥接",
           "englishName": "stop_bridge",
-          "purpose": "停止指定项目的同步与映射任务，保持两端文件完整不被误删。",
-          "flow": "终止对应会话 -> 验证会话关闭 -> 返回成功状态。",
-          "errors": "会话不存在返回错误。",
+          "purpose": "默认零参数安全停止当前目录对应项目的同步与端口映射任务，释放云端端口，保留两端磁盘文件。",
+          "flow": "读取当前工作目录推导项目 -> 终止对应同步与端口会话 -> 释放云端端口 -> 返回成功结果。",
+          "errors": "项目不存在或未在运行返回错误。",
           "status": "planned",
           "sources": [],
           "unknowns": [],
@@ -884,22 +894,31 @@ globalThis.softwareArchitecture = {
           "outputsConfirmed": true,
           "inputs": [
             {
-              "id": "p-local-stop-id",
-              "name": "项目标识",
-              "englishName": "project_id",
-              "type": "&str",
-              "description": "待停止的目标项目唯一标识。",
-              "required": true,
-              "defaultValue": ""
+              "id": "p-stop-path",
+              "name": "项目路径",
+              "englishName": "project_path",
+              "type": "Option<&Path>",
+              "description": "可选的目标项目目录路径，默认值为当前工作目录。",
+              "required": false,
+              "defaultValue": "."
+            },
+            {
+              "id": "p-stop-all",
+              "name": "停止全部",
+              "englishName": "all",
+              "type": "Option<bool>",
+              "description": "是否一键停止当前全部活跃项目，默认 false。",
+              "required": false,
+              "defaultValue": "false"
             }
           ],
           "outputs": [
             {
-              "id": "p-local-stop-res",
+              "id": "p-stop-res",
               "name": "停止结果",
               "englishName": "result",
               "type": "Result<CommandResult, String>",
-              "description": "标准停止响应对象。",
+              "description": "包含停止确认与已释放端口的标准响应对象。",
               "required": true,
               "defaultValue": ""
             }
@@ -907,11 +926,11 @@ globalThis.softwareArchitecture = {
         },
         {
           "id": "method-local-query-status",
-          "name": "查询项目状态",
+          "name": "查询状态",
           "englishName": "query_status",
-          "purpose": "汇总指定项目的连接、文件同步进度与端口连通性。",
-          "flow": "调 MutagenCli 查询 -> 整合状态 -> 格式化输出。",
-          "errors": "未找到项目返回错误。",
+          "purpose": "默认零参数检查当前目录对应项目的连接状态、文件同步进度（watching/syncing/conflicted）以及端口映射清单。",
+          "flow": "读取当前工作目录推导项目 -> 向底层查询会话状态 -> 解析连接、同步进度与端口清单 -> 组装状态对象并返回。",
+          "errors": "未找到指定项目返回错误。",
           "status": "planned",
           "sources": [],
           "unknowns": [],
@@ -919,18 +938,18 @@ globalThis.softwareArchitecture = {
           "outputsConfirmed": true,
           "inputs": [
             {
-              "id": "p-local-query-id",
-              "name": "项目标识",
-              "englishName": "project_id",
-              "type": "&str",
-              "description": "项目唯一标识。",
-              "required": true,
-              "defaultValue": ""
+              "id": "p-query-path",
+              "name": "项目路径",
+              "englishName": "project_path",
+              "type": "Option<&Path>",
+              "description": "可选的项目目录路径，默认值为当前工作目录。",
+              "required": false,
+              "defaultValue": "."
             }
           ],
           "outputs": [
             {
-              "id": "p-local-query-res",
+              "id": "p-query-res",
               "name": "状态快照",
               "englishName": "result",
               "type": "Result<CommandResult, String>",
@@ -941,25 +960,44 @@ globalThis.softwareArchitecture = {
           ]
         },
         {
-          "id": "method-local-generate-random-name",
-          "name": "生成随机进程名",
-          "englishName": "generate_random_name",
-          "purpose": "未指定 --name 参数时，随机生成长度在 5 到 10 位的纯英文字母名称。",
-          "flow": "随机选取 5 到 10 之间的整数长度 -> 从 a-z 字母表中抽取字符拼装 -> 返回名称字符串。",
-          "errors": "无异常。",
+          "id": "method-local-add-forward",
+          "name": "动态增补端口",
+          "englishName": "add_forward",
+          "purpose": "为当前目录项目动态追加映射端口：只需输入本地网页端口，云端端口自动在 10000+ 随机分配，不中断现有任务。",
+          "flow": "校验本地网页端口 -> 云端自动在 10000+ 随机分配可用端口 -> 动态调用底层发起端口映射 -> 返回新端口 web_url。",
+          "errors": "本地端口未启动或云端端口被占用返回错误。",
           "status": "planned",
           "sources": [],
           "unknowns": [],
           "inputsConfirmed": true,
           "outputsConfirmed": true,
-          "inputs": [],
+          "inputs": [
+            {
+              "id": "p-fwd-web-port",
+              "name": "网页端口",
+              "englishName": "web_port",
+              "type": "u16",
+              "description": "Local 正在运行的新网页或硬件服务端口号（如 8080）。",
+              "required": true,
+              "defaultValue": ""
+            },
+            {
+              "id": "p-fwd-path",
+              "name": "项目路径",
+              "englishName": "project_path",
+              "type": "Option<&Path>",
+              "description": "可选的目标项目路径，默认当前工作目录。",
+              "required": false,
+              "defaultValue": "."
+            }
+          ],
           "outputs": [
             {
-              "id": "p-gen-name-res",
-              "name": "随机名称",
+              "id": "p-fwd-res",
+              "name": "增补结果",
               "englishName": "result",
-              "type": "String",
-              "description": "5 到 10 位的纯英文字母字符串。",
+              "type": "Result<CommandResult, String>",
+              "description": "包含新增映射会话与云端访问地址的标准响应对象。",
               "required": true,
               "defaultValue": ""
             }
@@ -969,25 +1007,25 @@ globalThis.softwareArchitecture = {
       "events": [],
       "tests": [
         {
+          "id": "test-local-zero-param-lifecycle",
+          "name": "零参数完整生命周期测试",
+          "englishName": "ZeroParamBridgeLifecycle",
+          "steps": "在测试目录下依次执行 start_codebridge（零参数）、query_status（零参数）、stop_bridge（零参数）。",
+          "expected": "全流程无需任何参数，自动识别目录并完成启动、状态查询与安全停止。"
+        },
+        {
+          "id": "test-local-dynamic-forward-single-param",
+          "name": "单参数动态加端口测试",
+          "englishName": "SingleParamDynamicForward",
+          "steps": "在运行项目中仅传入 --web-port 8080 执行 add_forward。",
+          "expected": "自动在云端 10000+ 开出新端口并返回 web_url，原同步完全不中断。"
+        },
+        {
           "id": "test-local-dispatch",
-          "name": "本地命令分发与收口测试",
-          "englishName": "LocalCommandDispatch",
-          "steps": "传入 status 子命令参数并执行 run_command。",
-          "expected": "正确分发至 query_status 并调用 set_result 打印标准 JSON。"
-        },
-        {
-          "id": "test-local-random-name",
-          "name": "随机进程名生成测试",
-          "englishName": "RandomProcessNameGeneration",
-          "steps": "多次调用 generate_random_name 并检查生成结果。",
-          "expected": "每次生成的长度均在 5 到 10 之间，且均为纯英文字母，不含数字与特殊符号。"
-        },
-        {
-          "id": "test-local-custom-name",
-          "name": "指定进程名启动测试",
-          "englishName": "CustomProcessNameStart",
-          "steps": "传入 --name MyBridge 启动任务。",
-          "expected": "后台进程以 MyBridge 名称启动运行。"
+          "name": "命令总调度与收口测试",
+          "englishName": "CommandDispatchTest",
+          "steps": "传入命令行参数执行 dispatch。",
+          "expected": "正确路由到对应业务方法并调用 set_result 输出统一 JSON。"
         }
       ]
     },
@@ -999,8 +1037,8 @@ globalThis.softwareArchitecture = {
       "language": "Rust",
       "codeLocation": "src/vps/main.rs",
       "groupId": "group-0c1d02ac-36eb-4750-b3fc-0f51ae7cc54d",
-      "x": 2420,
-      "y": 140,
+      "x": 2410,
+      "y": -150,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -1010,8 +1048,10 @@ globalThis.softwareArchitecture = {
       "sources": [],
       "unknowns": [],
       "requirements": [
-        "资源独占登记：记录各 Local 客户端已绑定的云端项目目录与端口，拒绝相同或重叠目录冲突。",
-        "项目状态就绪检查：探测 VPS 本地回路端口连通性，向 Agent 或查询命令返回结构化状态。",
+        "命令行参数解析：使用 clap 解析子命令（start_vps、stop_vps、inspect_status 等）与独立参数。",
+        "极致零参数体验：start_vps、stop_vps、inspect_status 默认全部支持零参数运行，开箱即用。",
+        "多主机单通道承载：同时对接多台 Local，但与每台 Local 间严格保持 1 条连接通道，按主机身份隔离资源。",
+        "资源独占登记：记录各 Local 绑定的云端项目目录与端口，校验并拒绝相同或重叠目录冲突。",
         "统一配置与日志：复用公共层 ConfigManager 与 Logger，记录云端操作日志与资源台账。"
       ],
       "dependencies": [
@@ -1020,13 +1060,179 @@ globalThis.softwareArchitecture = {
         "MutagenAgent"
       ],
       "parameters": [],
-      "structures": [],
+      "structures": [
+        {
+          "id": "struct-vps-resource-record",
+          "name": "资源台账记录",
+          "englishName": "ResourceRecord",
+          "fields": [
+            {
+              "id": "f-rec-lid",
+              "name": "主机标识",
+              "englishName": "local_id",
+              "type": "String",
+              "description": "所属 Local 电脑的主机标识符。"
+            },
+            {
+              "id": "f-rec-root",
+              "name": "云端根目录",
+              "englishName": "remote_root",
+              "type": "String",
+              "description": "VPS 上独占的工作区绝对路径。"
+            },
+            {
+              "id": "f-rec-port",
+              "name": "VPS 端口",
+              "englishName": "vps_port",
+              "type": "u16",
+              "description": "VPS 上分配的监听端口号。"
+            },
+            {
+              "id": "f-rec-url",
+              "name": "访问网址",
+              "englishName": "web_url",
+              "type": "String",
+              "description": "供 AI Agent 调试访问的完整网址，如 http://127.0.0.1:10086。"
+            }
+          ]
+        }
+      ],
       "interfaces": [
         {
+          "id": "method-vps-dispatch",
+          "name": "命令总调度",
+          "englishName": "dispatch",
+          "purpose": "VPS 命令行总调度入口。接收并解析命令行参数，路由分发至启动、停止、巡检等具体方法，统一调用 set_result 输出标准 JSON。",
+          "flow": "解析命令行参数 -> 分发到对应业务方法 -> 统一通过 set_result 打印屏幕与记日志。",
+          "errors": "未知命令或参数不全时输出错误。",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": true,
+          "outputsConfirmed": true,
+          "inputs": [
+            {
+              "id": "p-vps-dispatch-args",
+              "name": "参数列表",
+              "englishName": "args",
+              "type": "&[String]",
+              "description": "命令行传入的参数切片。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "p-vps-dispatch-res",
+              "name": "调度结果",
+              "englishName": "result",
+              "type": "Result<(), String>",
+              "description": "Ok(()) 表示调度完成。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "id": "method-vps-start",
+          "name": "启动 VPS 服务",
+          "englishName": "start_vps",
+          "purpose": "默认零参数启动云端服务：初始化云端资源总台账，检查 ~/codebridge/ 根目录环境，进入就绪待命状态。",
+          "flow": "初始化资源台账 -> 检查并创建根工作区环境 -> 进入后台监听待命 -> 返回成功状态。",
+          "errors": "环境异常或初始化失败返回错误。",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": true,
+          "outputsConfirmed": true,
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "p-vps-start-res",
+              "name": "启动状态",
+              "englishName": "result",
+              "type": "Result<CommandResult, String>",
+              "description": "包含服务就绪标识的标准响应对象。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "id": "method-vps-stop",
+          "name": "停止 VPS 服务",
+          "englishName": "stop_vps",
+          "purpose": "默认零参数停止云端服务：释放全部占用的 10000+ 端口，清退临时台账记录，安全退出，保持文件完好。",
+          "flow": "扫描当前所有活跃台账 -> 逐一释放占用的云端端口 -> 清空台账缓存 -> 退出服务。",
+          "errors": "停止异常返回错误。",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": true,
+          "outputsConfirmed": true,
+          "inputs": [
+            {
+              "id": "p-vps-stop-all",
+              "name": "停止全部",
+              "englishName": "all",
+              "type": "Option<bool>",
+              "description": "是否清退全部台账与端口，默认 true。",
+              "required": false,
+              "defaultValue": "true"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "p-vps-stop-res",
+              "name": "停止结果",
+              "englishName": "result",
+              "type": "Result<CommandResult, String>",
+              "description": "包含已释放端口与退出确认的标准响应对象。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "id": "method-vps-inspect-status",
+          "name": "巡检当前状态",
+          "englishName": "inspect_status",
+          "purpose": "默认零参数检查当前目录的工作区代码与本地回路端口连通性，并在 CommandResult.data 中返回 web_url 供 AI Agent 直接调试。",
+          "flow": "读取当前工作区路径 -> 探测本地回路端口建立连接 -> 汇总并返回包含 web_url 的健康结果。",
+          "errors": "目录不存在或端口不可达返回状态说明。",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": true,
+          "outputsConfirmed": true,
+          "inputs": [
+            {
+              "id": "p-vps-ins-path",
+              "name": "工作区路径",
+              "englishName": "workspace_path",
+              "type": "Option<&Path>",
+              "description": "可选的项目目录路径，默认当前工作目录。",
+              "required": false,
+              "defaultValue": "."
+            }
+          ],
+          "outputs": [
+            {
+              "id": "p-vps-ins-result",
+              "name": "巡检状态",
+              "englishName": "result",
+              "type": "Result<CommandResult, String>",
+              "description": "包含 web_url、端口连通性与目录状态的 CommandResult 快照。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "id": "method-vps-reserve-resource",
-          "name": "登记独占资源",
+          "name": "原子独占登记",
           "englishName": "reserve_resource",
-          "purpose": "原子校验并登记指定项目的云端同步目录和监听端口，重叠冲突时拒绝。",
+          "purpose": "原子校验并登记指定 Local 主机的云端同步目录和监听端口，重叠冲突时拒绝。",
           "flow": "校验路径重叠与端口占用 -> 登记台账 -> 保存并返回确认信息。",
           "errors": "路径已被其他项目占用或端口冲突时返回错误。",
           "status": "planned",
@@ -1036,11 +1242,11 @@ globalThis.softwareArchitecture = {
           "outputsConfirmed": true,
           "inputs": [
             {
-              "id": "p-vps-res-pid",
-              "name": "项目标识",
-              "englishName": "project_id",
+              "id": "p-vps-res-lid",
+              "name": "Local 标识",
+              "englishName": "local_id",
               "type": "&str",
-              "description": "申请资源的项目编号。",
+              "description": "申请资源的 Local 电脑标识。",
               "required": true,
               "defaultValue": ""
             },
@@ -1054,12 +1260,12 @@ globalThis.softwareArchitecture = {
               "defaultValue": ""
             },
             {
-              "id": "p-vps-res-ports",
-              "name": "申请端口列表",
-              "englishName": "ports",
-              "type": "&[u16]",
-              "description": "申请独占的端口切片。",
-              "required": true,
+              "id": "p-vps-res-port",
+              "name": "VPS 端口",
+              "englishName": "vps_port",
+              "type": "Option<u16>",
+              "description": "可选的指定端口号；未指定时自动在 10000+ 随机分配。",
+              "required": false,
               "defaultValue": ""
             }
           ],
@@ -1069,7 +1275,7 @@ globalThis.softwareArchitecture = {
               "name": "登记结果",
               "englishName": "result",
               "type": "Result<CommandResult, String>",
-              "description": "包含登记凭证的结构化结果。",
+              "description": "包含 ResourceRecord 台账凭据与 web_url 的结构化结果。",
               "required": true,
               "defaultValue": ""
             }
@@ -1077,11 +1283,11 @@ globalThis.softwareArchitecture = {
         },
         {
           "id": "method-vps-release-resource",
-          "name": "释放独占资源",
+          "name": "释放独占登记",
           "englishName": "release_resource",
-          "purpose": "确认项目任务停止后，显式解除对应目录与端口的独占登记，保持文件完好。",
-          "flow": "核对项目身份 -> 撤销台账独占记录 -> 保留实际磁盘文件。",
-          "errors": "项目未曾登记或身份不符返回错误。",
+          "purpose": "默认零参数解除当前目录的独占绑定，释放对应云端端口，保持文件完好。",
+          "flow": "核对当前目录身份 -> 撤销台账独占记录 -> 保留实际磁盘文件。",
+          "errors": "未曾登记或身份不符返回错误。",
           "status": "planned",
           "sources": [],
           "unknowns": [],
@@ -1089,13 +1295,13 @@ globalThis.softwareArchitecture = {
           "outputsConfirmed": true,
           "inputs": [
             {
-              "id": "p-vps-rel-pid",
-              "name": "项目标识",
-              "englishName": "project_id",
-              "type": "&str",
-              "description": "拟释放资源的项目编号。",
-              "required": true,
-              "defaultValue": ""
+              "id": "p-vps-rel-path",
+              "name": "工作区路径",
+              "englishName": "workspace_path",
+              "type": "Option<&Path>",
+              "description": "可选的目标工作区路径，默认当前工作目录。",
+              "required": false,
+              "defaultValue": "."
             }
           ],
           "outputs": [
@@ -1103,43 +1309,8 @@ globalThis.softwareArchitecture = {
               "id": "p-vps-rel-result",
               "name": "释放结果",
               "englishName": "result",
-              "type": "Result<(), String>",
-              "description": "Ok(()) 表示释放完成。",
-              "required": true,
-              "defaultValue": ""
-            }
-          ]
-        },
-        {
-          "id": "method-vps-inspect-status",
-          "name": "巡检工作区状态",
-          "englishName": "inspect_status",
-          "purpose": "检查云端工作区目录是否存在以及已登记端口的 TCP 可达性。",
-          "flow": "检查文件路径 -> 探测本地端口建立连接 -> 汇总并返回健康结果。",
-          "errors": "目录不存在或端口不可达返回状态说明。",
-          "status": "planned",
-          "sources": [],
-          "unknowns": [],
-          "inputsConfirmed": true,
-          "outputsConfirmed": true,
-          "inputs": [
-            {
-              "id": "p-vps-ins-pid",
-              "name": "项目标识",
-              "englishName": "project_id",
-              "type": "&str",
-              "description": "被巡检的项目标识。",
-              "required": true,
-              "defaultValue": ""
-            }
-          ],
-          "outputs": [
-            {
-              "id": "p-vps-ins-result",
-              "name": "巡检状态",
-              "englishName": "result",
               "type": "Result<CommandResult, String>",
-              "description": "云端工作区与端口可达性快照。",
+              "description": "包含释放确认信息的标准响应对象。",
               "required": true,
               "defaultValue": ""
             }
@@ -1149,20 +1320,34 @@ globalThis.softwareArchitecture = {
       "events": [],
       "tests": [
         {
-          "id": "test-vps-conflict",
-          "name": "云端目录冲突校验测试",
-          "englishName": "VpsDirectoryConflict",
-          "steps": "两个不同项目先后申请同一 VPS 目录。",
-          "expected": "第二个申请被明确拒绝，原项目登记完好保持。"
+          "id": "test-vps-service-lifecycle",
+          "name": "VPS 服务生命周期测试",
+          "englishName": "VpsServiceLifecycleTest",
+          "steps": "在 VPS 依次调用 start_vps（启动服务）与 stop_vps（停止服务）。",
+          "expected": "成功完成台账就绪、端口全额释放与安全退出闭环。"
+        },
+        {
+          "id": "test-vps-zero-param-inspect",
+          "name": "零参数巡检测试",
+          "englishName": "ZeroParamInspectStatusTest",
+          "steps": "在 VPS 目标目录下直接调用 inspect_status（零参数）。",
+          "expected": "成功返回当前工作区状态与可直接访问的 web_url。"
+        },
+        {
+          "id": "test-vps-conflict-protection",
+          "name": "云端目录与端口冲突校验测试",
+          "englishName": "VpsDirectoryAndPortConflictTest",
+          "steps": "两个不同 Local 主机先后申请同一目录或相同端口。",
+          "expected": "第二个申请被明确拒绝，原主机登记与文件完好保持。"
         }
       ]
     }
   ],
   "relations": [],
   "view": {
-    "x": -600.9380907435668,
-    "y": 145.35062094864568,
-    "scale": 0.4137394175659745,
+    "x": -2562.088879152668,
+    "y": -839.8840463339318,
+    "scale": 1.0176347586535353,
     "expanded": [],
     "expandedInterfaces": []
   }
