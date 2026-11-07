@@ -16,8 +16,8 @@ globalThis.softwareArchitecture = {
       "englishName": "Common",
       "color": "#ffffff",
       "backgroundColor": "#8d80b8",
-      "x": 2100,
-      "y": 2160
+      "x": 2750,
+      "y": 2280
     },
     {
       "id": "group-679f7997-02f7-419d-b8a9-50719242faa9",
@@ -25,8 +25,8 @@ globalThis.softwareArchitecture = {
       "englishName": "Local",
       "color": "#ffffff",
       "backgroundColor": "#559c80",
-      "x": 2690,
-      "y": 880
+      "x": 2750,
+      "y": 1180
     },
     {
       "id": "group-0c1d02ac-36eb-4750-b3fc-0f51ae7cc54d",
@@ -34,8 +34,8 @@ globalThis.softwareArchitecture = {
       "englishName": "VPS",
       "color": "#ffffff",
       "backgroundColor": "#ad884f",
-      "x": 2390,
-      "y": -210
+      "x": 2750,
+      "y": 80
     },
     {
       "id": "group-0cb11cc3-b58d-4551-90c7-2ac347d32ba7",
@@ -43,8 +43,8 @@ globalThis.softwareArchitecture = {
       "englishName": "MutagenLocal",
       "color": "#ffffff",
       "backgroundColor": "#559c80",
-      "x": 3380,
-      "y": 890
+      "x": 3340,
+      "y": 1180
     },
     {
       "id": "group-mutagen-vps",
@@ -65,8 +65,8 @@ globalThis.softwareArchitecture = {
       "language": "Rust",
       "codeLocation": "",
       "groupId": "group-e4af7b0a-c2f1-48a1-a84e-5a98653a56c0",
-      "x": 2120,
-      "y": 2220,
+      "x": 2770,
+      "y": 2340,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -467,8 +467,8 @@ globalThis.softwareArchitecture = {
       "language": "Rust",
       "codeLocation": "src/common/logger.rs",
       "groupId": "group-e4af7b0a-c2f1-48a1-a84e-5a98653a56c0",
-      "x": 2620,
-      "y": 2220,
+      "x": 3350,
+      "y": 2340,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -625,8 +625,8 @@ globalThis.softwareArchitecture = {
       "language": "Go",
       "codeLocation": "depends/mutagen/cmd/mutagen/main.go",
       "groupId": "group-0cb11cc3-b58d-4551-90c7-2ac347d32ba7",
-      "x": 3400,
-      "y": 950,
+      "x": 3360,
+      "y": 1240,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -766,8 +766,8 @@ globalThis.softwareArchitecture = {
       "language": "Rust",
       "codeLocation": "src/local/main.rs",
       "groupId": "group-679f7997-02f7-419d-b8a9-50719242faa9",
-      "x": 2710,
-      "y": 940,
+      "x": 2770,
+      "y": 1240,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -1037,8 +1037,8 @@ globalThis.softwareArchitecture = {
       "language": "Rust",
       "codeLocation": "src/vps/main.rs",
       "groupId": "group-0c1d02ac-36eb-4750-b3fc-0f51ae7cc54d",
-      "x": 2410,
-      "y": -150,
+      "x": 2770,
+      "y": 140,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -1343,11 +1343,34 @@ globalThis.softwareArchitecture = {
       ]
     }
   ],
-  "relations": [],
+  "relations": [
+    {
+      "id": "relation-024d2e97-0259-4243-aeb8-2e0591a3fa0f",
+      "from": "module-codebridge-vps",
+      "to": "module-mutagen-agent",
+      "label": "",
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "fromPort": "right",
+      "toPort": "left"
+    },
+    {
+      "id": "relation-69dd4812-0f81-4f36-904c-e08d5780c0d4",
+      "from": "module-codebridge-local",
+      "to": "module-mutagen-cli",
+      "label": "",
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "fromPort": "right",
+      "toPort": "left"
+    }
+  ],
   "view": {
-    "x": -2562.088879152668,
-    "y": -839.8840463339318,
-    "scale": 1.0176347586535353,
+    "x": -252.3094400858257,
+    "y": 63.38807981571438,
+    "scale": 0.2886561967981973,
     "expanded": [],
     "expandedInterfaces": []
   }
