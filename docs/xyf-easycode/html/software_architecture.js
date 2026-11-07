@@ -3,7 +3,7 @@ globalThis.softwareArchitecture = {
   "id": "project-template",
   "name": "CodeBridge CLI",
   "englishName": "codebridge-cli",
-  "description": "CodeBridge 是为远程开发与硬件联调设计的轻量命令行与 AI Skill 外壳，主程序采用 Rust 实现，底层零改动复用 Mutagen 的 Go 核心总入口。Local 与 VPS 之间严格保持唯一单连接通道，多项目多端口复用传输。业务全面支持 AI Agent（Skill）与人类零参数调用：执行 start_codebridge 自动将当前目录同步到云端同名目录，本地网页端口（默认 3000）自动映射至云端 10000+ 随机空闲端口，并统一通过 ConfigManager::set_result 输出包含 web_url 的标准 JSON 并落盘日志。",
+  "description": "CodeBridge 是为远程开发与硬件联调设计的轻量命令行与 AI Skill 外壳，主程序采用 Rust 实现，底层零改动复用 Mutagen 的 Go 核心总入口。Local 与 VPS 之间严格保持唯一单连接通道，多项目多端口复用传输。业务全面支持 AI Agent（Skill）与人类零参数调用：执行 start_codebridge 自动将当前目录同步到 VPS 同名目录，网页端口（默认 3000）自动映射至 VPS 10000+ 随机空闲端口，并统一通过 ConfigManager::set_result 输出包含 web_url 的标准 JSON 并落盘日志。",
   "repository": {
     "path": "/home/xyf/orca/CodeBridge_CLI/0.0.1",
     "revision": "8321944aeda2d85aa9a94ff4230bcf63b98a952e",
@@ -63,7 +63,7 @@ globalThis.softwareArchitecture = {
       "englishName": "ConfigManager",
       "purpose": "提供 JSON 保存、JSON 加载、参数结构体序列化和反序列化四个静态关联函数。配置目录固定为主程序所在目录/config/；业务参数结构体由各模块自行定义和持有。保留每个主程序进程一个实例的单例约束，对外无需先获取实例。",
       "language": "Rust",
-      "codeLocation": "",
+      "codeLocation": "src/common/config.rs",
       "groupId": "group-e4af7b0a-c2f1-48a1-a84e-5a98653a56c0",
       "x": 2800,
       "y": 2490,
@@ -621,7 +621,7 @@ globalThis.softwareArchitecture = {
       "id": "module-mutagen-cli",
       "name": "Mutagen 命令行总入口",
       "englishName": "MutagenCli",
-      "purpose": "Mutagen 本地主程序总入口（Cobra 根命令），提供 daemon、sync、forward、project 等子命令，输出标准 JSON 状态供外部调用。",
+      "purpose": "Mutagen Local 主程序总入口（Cobra 根命令），提供 daemon、sync、forward、project 等子命令，输出标准 JSON 状态供外部调用。",
       "language": "Go",
       "codeLocation": "depends/mutagen/cmd/mutagen/main.go",
       "groupId": "group-0cb11cc3-b58d-4551-90c7-2ac347d32ba7",
@@ -636,7 +636,7 @@ globalThis.softwareArchitecture = {
       "sources": [],
       "unknowns": [],
       "requirements": [
-        "提供 daemon 子命令：管理本地后台守护管家启停与状态查询。",
+        "提供 daemon 子命令：管理Local后台守护管家启停与状态查询。",
         "提供 sync 子命令：管理项目双向文件同步生命周期（create/list/flush/pause/resume/terminate）。",
         "提供 forward 子命令：管理反向端口映射生命周期（create/list/pause/resume/terminate）。",
         "提供 project 子命令：基于 mutagen.yml 一键编排并启停全部同步与端口会话。",
@@ -695,9 +695,9 @@ globalThis.softwareArchitecture = {
     },
     {
       "id": "module-mutagen-agent",
-      "name": "Mutagen 远端代理总入口",
+      "name": "Mutagen VPS 代理总入口",
       "englishName": "MutagenAgent",
-      "purpose": "Mutagen 跑在 VPS 上的轻量临时小助手总入口，随 SSH 管道在云端内存中自动自驱动，全自动处理文件落盘与本地回路端口监听。",
+      "purpose": "Mutagen 跑在 VPS 上的轻量临时小助手总入口，随 SSH 管道在VPS内存中自动自驱动，全自动处理文件落盘与Local回路端口监听。",
       "language": "Go",
       "codeLocation": "depends/mutagen/cmd/mutagen-agent/main.go",
       "groupId": "group-mutagen-vps",
@@ -714,7 +714,7 @@ globalThis.softwareArchitecture = {
       "requirements": [
         "随 SSH 管道由 Local 自动推送至 VPS 并在内存中临时运行，零手动安装与环境依赖。",
         "集成 synchronizer 逻辑，在 VPS 目标目录执行文件落盘与修改扫描。",
-        "集成 forwarder 逻辑，在 VPS 本地开出 TCP 回路端口监听并引流回 SSH 数据流。",
+        "集成 forwarder 逻辑，在 VPS Local开出 TCP 回路端口监听并引流回 SSH 数据流。",
         "SSH 会话断开或任务终止时自动干净退出，零进程与文件残留。"
       ],
       "dependencies": [],
@@ -723,7 +723,7 @@ globalThis.softwareArchitecture = {
       "interfaces": [
         {
           "id": "method-agent-run",
-          "name": "运行远端代理服务",
+          "name": "运行VPS代理服务",
           "englishName": "RunAgent",
           "purpose": "接管 SSH stdin/stdout 流并响应同步落盘与端口监听请求。",
           "flow": "监听 stdio 数据流 -> 协调工作区与端口监听 -> 通道断开时优雅注销。",
@@ -760,9 +760,9 @@ globalThis.softwareArchitecture = {
     },
     {
       "id": "module-codebridge-local",
-      "name": "CodeBridgeLocal",
+      "name": "Local 业务主程序",
       "englishName": "CodeBridgeLocal",
-      "purpose": "Local 客户端业务主程序。负责解析本地命令行参数、管理项目配置、打通至 VPS 的 SSH 通道、驱动 Mutagen 本地命令行执行文件同步与端口反向映射，并将统一返回值存入 ConfigManager。",
+      "purpose": "Local 客户端业务主程序。负责解析Local命令行参数、管理项目配置、打通至 VPS 的 SSH 通道、驱动 Mutagen Local命令行执行文件同步与端口反向映射，并将统一返回值存入 ConfigManager。",
       "language": "Rust",
       "codeLocation": "src/local/main.rs",
       "groupId": "group-679f7997-02f7-419d-b8a9-50719242faa9",
@@ -778,9 +778,9 @@ globalThis.softwareArchitecture = {
       "unknowns": [],
       "requirements": [
         "命令行参数解析：使用 clap 解析子命令（start_codebridge、stop_bridge、query_status、add_forward）与独立参数。",
-        "参数继承与增量覆盖：每次启动优先使用命令行传入的参数；未传入的参数自动读取本地配置文件补齐；支持传入部分参数实现增量更新覆盖。",
-        "首次无配置防御报错：启动时如果既没有输入参数，本地又没有历史配置文件，直接报错拒绝盲启动，提示用户提供必要参数。",
-        "启动成功自动持久化：桥接任务启动成功后，自动将本次生效的完整参数持久化保存到本地配置文件，供下次启动直接复用。",
+        "参数继承与增量覆盖：每次启动优先使用命令行传入的参数；未传入的参数自动读取Local配置文件补齐；支持传入部分参数实现增量更新覆盖。",
+        "首次无配置防御报错：启动时如果既没有输入参数，Local又没有历史配置文件，直接报错拒绝盲启动，提示用户提供必要参数。",
+        "启动成功自动持久化：桥接任务启动成功后，自动将本次生效的完整参数持久化保存到Local配置文件，供下次启动直接复用。",
         "单连接通道铁律：Local 到目标 VPS 有且仅保持 1 条连接通道，所有同步与端口映射均复用该通道，不建立重复物理连接。",
         "驱动底层 Mutagen：作为父进程调用 MutagenCli，stdout 捕获 JSON，stderr 管道重定向至 Logger。",
         "统一返回值收口：操作完成后统一调用 ConfigManager::set_result，控制是否打印屏幕，自动记入文件日志。"
@@ -832,9 +832,9 @@ globalThis.softwareArchitecture = {
           "id": "method-local-start-codebridge",
           "name": "启动 CodeBridge 桥接",
           "englishName": "start_codebridge",
-          "purpose": "支持参数继承、增量覆盖与零参数启动：优先使用命令行传入参数，未传参数自动读取本地配置文件补齐；启动成功后自动将最新参数持久化保存供下次直接复用；既无输入参数又无配置文件时明确报错。",
-          "flow": "1. 参数合并：读取命令行输入参数，未传参数尝试通过 ConfigManager::load_json 读取配置文件补齐；\n2. 防御校验：若无输入且无配置文件，返回错误并提示提供必要参数；\n3. 驱动启动：使用有效参数调起同步与端口映射，云端自动分配 10000+ 可用端口；\n4. 保存记忆：启动成功后自动调用 ConfigManager::save_json 将最新有效参数保存到配置文件；\n5. 统一收口：调用 ConfigManager::set_result 输出包含 web_url 的标准 JSON 结果并记日志。",
-          "errors": "既无输入参数又无配置文件、本地路径不存在、SSH 无法连通、或端口已被占用时返回错误。",
+          "purpose": "支持参数继承、增量覆盖与零参数启动：优先使用命令行传入参数，未传参数自动读取Local配置文件补齐；启动成功后自动将最新参数持久化保存供下次直接复用；既无输入参数又无配置文件时明确报错。",
+          "flow": "1. 参数合并：读取命令行输入参数，未传参数尝试通过 ConfigManager::load_json 读取配置文件补齐；\n2. 防御校验：若无输入且无配置文件，返回错误并提示提供必要参数；\n3. 驱动启动：使用有效参数调起同步与端口映射，VPS自动分配 10000+ 可用端口；\n4. 保存记忆：启动成功后自动调用 ConfigManager::save_json 将最新有效参数保存到配置文件；\n5. 统一收口：调用 ConfigManager::set_result 输出包含 web_url 的标准 JSON 结果并记日志。",
+          "errors": "既无输入参数又无配置文件、Local路径不存在、SSH 无法连通、或端口已被占用时返回错误。",
           "status": "planned",
           "sources": [],
           "unknowns": [],
@@ -855,13 +855,13 @@ globalThis.softwareArchitecture = {
               "name": "VPS IP",
               "englishName": "vps_ip",
               "type": "Option<&str>",
-              "description": "云端 VPS 服务器的 IP 地址，默认取已配置的 IP。",
+              "description": "VPS VPS 服务器的 IP 地址，默认取已配置的 IP。",
               "required": false,
               "defaultValue": ""
             },
             {
               "id": "p-start-local-path",
-              "name": "本地目录",
+              "name": "项目目录",
               "englishName": "local_path",
               "type": "Option<&Path>",
               "description": "Local 电脑上的项目代码根目录，默认当前目录。",
@@ -870,7 +870,7 @@ globalThis.softwareArchitecture = {
             },
             {
               "id": "p-start-vps-path",
-              "name": "远端目录",
+              "name": "VPS目录",
               "englishName": "vps_path",
               "type": "Option<&str>",
               "description": "VPS 上的代码同步保存目录，默认自动推导为 '~/codebridge/<目录名>'，也支持显式指定。",
@@ -894,8 +894,8 @@ globalThis.softwareArchitecture = {
           "id": "method-local-stop-bridge",
           "name": "停止桥接",
           "englishName": "stop_bridge",
-          "purpose": "默认零参数安全停止当前目录对应项目的同步与端口映射任务，释放云端端口，保留两端磁盘文件。",
-          "flow": "读取当前工作目录推导项目 -> 终止对应同步与端口会话 -> 释放云端端口 -> 返回成功结果。",
+          "purpose": "默认零参数安全停止当前目录对应项目的同步与端口映射任务，释放VPS端口，保留两端磁盘文件。",
+          "flow": "读取当前工作目录推导项目 -> 终止对应同步与端口会话 -> 释放VPS端口 -> 返回成功结果。",
           "errors": "项目不存在或未在运行返回错误。",
           "status": "planned",
           "sources": [],
@@ -973,9 +973,9 @@ globalThis.softwareArchitecture = {
           "id": "method-local-add-forward",
           "name": "动态增补端口",
           "englishName": "add_forward",
-          "purpose": "为当前目录项目动态追加映射端口：只需输入本地网页端口，云端端口自动在 10000+ 随机分配，不中断现有任务。",
-          "flow": "校验本地网页端口 -> 云端自动在 10000+ 随机分配可用端口 -> 动态调用底层发起端口映射 -> 返回新端口 web_url。",
-          "errors": "本地端口未启动或云端端口被占用返回错误。",
+          "purpose": "为当前目录项目动态追加映射端口：只需输入Local网页端口，VPS端口自动在 10000+ 随机分配，不中断现有任务。",
+          "flow": "校验Local网页端口 -> VPS自动在 10000+ 随机分配可用端口 -> 动态调用底层发起端口映射 -> 返回新端口 web_url。",
+          "errors": "Local端口未启动或VPS端口被占用返回错误。",
           "status": "planned",
           "sources": [],
           "unknowns": [],
@@ -1007,7 +1007,7 @@ globalThis.softwareArchitecture = {
               "name": "增补结果",
               "englishName": "result",
               "type": "Result<CommandResult, String>",
-              "description": "包含新增映射会话与云端访问地址的标准响应对象。",
+              "description": "包含新增映射会话与VPS访问地址的标准响应对象。",
               "required": true,
               "defaultValue": ""
             }
@@ -1055,9 +1055,9 @@ globalThis.softwareArchitecture = {
     },
     {
       "id": "module-codebridge-vps",
-      "name": "CodeBridgeVPS",
+      "name": "VPS 业务主程序",
       "englishName": "CodeBridgeVPS",
-      "purpose": "VPS 云端服务端主程序。负责在云端管理项目资源独占登记，校验防止多台 Local 电脑或多个项目产生目录与端口冲突；配合远端 Agent 提供状态汇报与健康检查。",
+      "purpose": "VPS VPS服务端主程序。负责在VPS管理项目资源独占登记，校验防止多台 Local 电脑或多个项目产生目录与端口冲突；配合VPS Agent 提供状态汇报与健康检查。",
       "language": "Rust",
       "codeLocation": "src/vps/main.rs",
       "groupId": "group-0c1d02ac-36eb-4750-b3fc-0f51ae7cc54d",
@@ -1073,12 +1073,12 @@ globalThis.softwareArchitecture = {
       "unknowns": [],
       "requirements": [
         "命令行参数解析：使用 clap 解析子命令（start_vps、stop_vps、inspect_status 等）与独立参数，默认支持零参数运行。",
-        "云端服务生命周期：start_vps 初始化云端台账并待命；stop_vps 释放全部云端 10000+ 端口、清退临时台账并安全退出。",
+        "VPS服务生命周期：start_vps 初始化VPS台账并待命；stop_vps 释放全部VPS 10000+ 端口、清退临时台账并安全退出。",
         "多主机单通道承载：同时对接多台 Local，但与每台 Local 间严格保持 1 条连接通道，按主机身份隔离资源。",
-        "资源独占登记：以 ResourceRecord 记录各 Local 绑定的远端目录 vps_path 与端口，校验并拒绝相同或重叠目录冲突。",
-        "零参数状态巡检：inspect_status 默认零参数探测 VPS 本地回路端口连通性，向 AI Agent 返回包含 web_url 的结构化状态。",
-        "统一配置与日志：复用公共层 ConfigManager 与 Logger，记录云端操作日志与资源台账。",
-        "云端服务命名：启动支持传入 --name 参数自定义 VPS 后台服务进程名称；若未指定，自动随机生成 5 到 10 位纯英文字母作为进程名称。"
+        "资源独占登记：以 ResourceRecord 记录各 Local 绑定的VPS目录 vps_path 与端口，校验并拒绝相同或重叠目录冲突。",
+        "零参数状态巡检：inspect_status 默认零参数探测 VPS Local回路端口连通性，向 AI Agent 返回包含 web_url 的结构化状态。",
+        "统一配置与日志：复用公共层 ConfigManager 与 Logger，记录VPS操作日志与资源台账。",
+        "VPS服务命名：启动支持传入 --name 参数自定义 VPS 后台服务进程名称；若未指定，自动随机生成 5 到 10 位纯英文字母作为进程名称。"
       ],
       "dependencies": [
         "ConfigManager::set_result / ConfigManager::get_result",
@@ -1163,8 +1163,8 @@ globalThis.softwareArchitecture = {
           "id": "method-vps-start",
           "name": "启动 VPS 服务",
           "englishName": "start_vps",
-          "purpose": "启动云端服务：支持传入 --name 指定云端进程名（未指定时自动随机生成 5 到 10 位纯英文字母），初始化云端资源总台账，检查 ~/codebridge/ 根目录环境，进入就绪待命状态。",
-          "flow": "检查并生成/应用云端进程名称 -> 初始化资源台账 -> 检查并创建根工作区环境 -> 进入后台监听待命 -> 返回成功状态。",
+          "purpose": "启动VPS服务：支持传入 --name 指定VPS进程名（未指定时自动随机生成 5 到 10 位纯英文字母），初始化VPS资源总台账，检查 ~/codebridge/ 根目录环境，进入就绪待命状态。",
+          "flow": "检查并生成/应用VPS进程名称 -> 初始化资源台账 -> 检查并创建根工作区环境 -> 进入后台监听待命 -> 返回成功状态。",
           "errors": "环境异常或初始化失败返回错误。",
           "status": "planned",
           "sources": [],
@@ -1177,7 +1177,7 @@ globalThis.softwareArchitecture = {
               "name": "进程名称",
               "englishName": "name",
               "type": "Option<String>",
-              "description": "可选的自定义云端后台服务进程名称；未指定时自动随机生成 5 到 10 位纯英文字母。",
+              "description": "可选的自定义VPS后台服务进程名称；未指定时自动随机生成 5 到 10 位纯英文字母。",
               "required": false,
               "defaultValue": ""
             }
@@ -1198,8 +1198,8 @@ globalThis.softwareArchitecture = {
           "id": "method-vps-stop",
           "name": "停止 VPS 服务",
           "englishName": "stop_vps",
-          "purpose": "默认零参数停止云端服务：释放全部占用的 10000+ 端口，清退临时台账记录，安全退出，保持文件完好。",
-          "flow": "扫描当前所有活跃台账 -> 逐一释放占用的云端端口 -> 清空台账缓存 -> 退出服务。",
+          "purpose": "默认零参数停止VPS服务：释放全部占用的 10000+ 端口，清退临时台账记录，安全退出，保持文件完好。",
+          "flow": "扫描当前所有活跃台账 -> 逐一释放占用的VPS端口 -> 清空台账缓存 -> 退出服务。",
           "errors": "停止异常返回错误。",
           "status": "planned",
           "sources": [],
@@ -1233,8 +1233,8 @@ globalThis.softwareArchitecture = {
           "id": "method-vps-inspect-status",
           "name": "巡检当前状态",
           "englishName": "inspect_status",
-          "purpose": "默认零参数检查当前目录的工作区代码与本地回路端口连通性，并在 CommandResult.data 中返回 web_url 供 AI Agent 直接调试。",
-          "flow": "读取当前工作区路径 -> 探测本地回路端口建立连接 -> 汇总并返回包含 web_url 的健康结果。",
+          "purpose": "默认零参数检查当前目录的工作区代码与Local回路端口连通性，并在 CommandResult.data 中返回 web_url 供 AI Agent 直接调试。",
+          "flow": "读取当前工作区路径 -> 探测Local回路端口建立连接 -> 汇总并返回包含 web_url 的健康结果。",
           "errors": "目录不存在或端口不可达返回状态说明。",
           "status": "planned",
           "sources": [],
@@ -1268,7 +1268,7 @@ globalThis.softwareArchitecture = {
           "id": "method-vps-reserve-resource",
           "name": "原子独占登记",
           "englishName": "reserve_resource",
-          "purpose": "原子校验并登记指定 Local 主机的云端同步目录和监听端口，重叠冲突时拒绝。",
+          "purpose": "原子校验并登记指定 Local 主机的VPS同步目录和监听端口，重叠冲突时拒绝。",
           "flow": "校验路径重叠与端口占用 -> 登记台账 -> 保存并返回确认信息。",
           "errors": "路径已被其他项目占用或端口冲突时返回错误。",
           "status": "planned",
@@ -1321,7 +1321,7 @@ globalThis.softwareArchitecture = {
           "id": "method-vps-release-resource",
           "name": "释放独占登记",
           "englishName": "release_resource",
-          "purpose": "默认零参数解除当前目录的独占绑定，释放对应云端端口，保持文件完好。",
+          "purpose": "默认零参数解除当前目录的独占绑定，释放对应VPS端口，保持文件完好。",
           "flow": "核对当前目录身份 -> 撤销台账独占记录 -> 保留实际磁盘文件。",
           "errors": "未曾登记或身份不符返回错误。",
           "status": "planned",
@@ -1371,7 +1371,7 @@ globalThis.softwareArchitecture = {
         },
         {
           "id": "test-vps-conflict-protection",
-          "name": "云端目录与端口冲突校验测试",
+          "name": "VPS目录与端口冲突校验测试",
           "englishName": "VpsDirectoryAndPortConflictTest",
           "steps": "两个不同 Local 主机先后申请同一目录或相同端口。",
           "expected": "第二个申请被明确拒绝，原主机登记与文件完好保持。"
@@ -1381,7 +1381,7 @@ globalThis.softwareArchitecture = {
           "name": "VPS 指定进程名启动测试",
           "englishName": "VpsCustomProcessNameStart",
           "steps": "传入 --name MyCloudVps 调用 start_vps。",
-          "expected": "云端后台服务以 MyCloudVps 名称启动运行。"
+          "expected": "VPS后台服务以 MyCloudVps 名称启动运行。"
         }
       ]
     }
