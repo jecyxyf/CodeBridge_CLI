@@ -757,6 +757,356 @@ globalThis.softwareArchitecture = {
           "expected": "干净退出且无多余后台进程残留。"
         }
       ]
+    },
+    {
+      "id": "module-codebridge-local",
+      "name": "CodeBridgeLocal",
+      "englishName": "CodeBridgeLocal",
+      "purpose": "Local 客户端业务主程序。负责解析本地命令行参数、管理项目配置、打通至 VPS 的 SSH 通道、驱动 Mutagen 本地命令行执行文件同步与端口反向映射，并将统一返回值存入 ConfigManager。",
+      "language": "Rust",
+      "codeLocation": "src/local/main.rs",
+      "groupId": "group-679f7997-02f7-419d-b8a9-50719242faa9",
+      "x": 2430,
+      "y": 770,
+      "appearance": {
+        "textColor": "#17254d",
+        "backgroundColor": "#fcfdff",
+        "headerColor": "#f4f7ff"
+      },
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "requirements": [
+        "命令行参数解析：使用 clap 解析子命令（project、sync、forward、status）与独立参数。",
+        "项目配置管理：读取与保存项目目录映射与端口转发规则（通过 ConfigManager）。",
+        "驱动底层 Mutagen：作为父进程调用 MutagenCli，捕获 stdout（JSON 结果）并管道重定向 stderr 日志到 Logger。",
+        "统一返回值收口：操作完成后调用 ConfigManager::set_result，控制是否打印屏幕，自动记入文件日志。"
+      ],
+      "dependencies": [
+        "ConfigManager::set_result / ConfigManager::get_result",
+        "Logger::log_info / Logger::log_error",
+        "MutagenCli"
+      ],
+      "parameters": [],
+      "structures": [],
+      "interfaces": [
+        {
+          "id": "method-local-run-command",
+          "name": "调度执行命令",
+          "englishName": "run_command",
+          "purpose": "接收独立参数切片，调度业务逻辑，最终调用 set_result 统一输出。",
+          "flow": "解析 args -> 分发至具体业务操作 -> 调用 set_result 打印 JSON 并记日志。",
+          "errors": "未知子命令或参数不全时设置错误码并输出。",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": true,
+          "outputsConfirmed": true,
+          "inputs": [
+            {
+              "id": "p-local-args",
+              "name": "参数列表",
+              "englishName": "args",
+              "type": "&[String]",
+              "description": "命令行传入的参数切片。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "p-local-run-res",
+              "name": "执行结果",
+              "englishName": "result",
+              "type": "Result<(), String>",
+              "description": "Ok(()) 表示调度完成。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "id": "method-local-start-bridge",
+          "name": "一键启动桥接",
+          "englishName": "start_bridge",
+          "purpose": "根据项目配置，发起目录双向同步与端口反向映射。",
+          "flow": "读取项目配置 -> 启动 Mutagen 同步 -> 启动 Mutagen 端口映射 -> 返回汇总状态。",
+          "errors": "配置缺失、SSH 失败或端口冲突返回错误。",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": true,
+          "outputsConfirmed": true,
+          "inputs": [
+            {
+              "id": "p-local-start-id",
+              "name": "项目标识",
+              "englishName": "project_id",
+              "type": "&str",
+              "description": "待启动的目标项目唯一标识。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "p-local-start-res",
+              "name": "启动状态",
+              "englishName": "result",
+              "type": "Result<CommandResult, String>",
+              "description": "包含会话信息的标准响应对象。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "id": "method-local-stop-bridge",
+          "name": "停止项目桥接",
+          "englishName": "stop_bridge",
+          "purpose": "停止指定项目的同步与映射任务，保持两端文件完整不被误删。",
+          "flow": "终止对应会话 -> 验证会话关闭 -> 返回成功状态。",
+          "errors": "会话不存在返回错误。",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": true,
+          "outputsConfirmed": true,
+          "inputs": [
+            {
+              "id": "p-local-stop-id",
+              "name": "项目标识",
+              "englishName": "project_id",
+              "type": "&str",
+              "description": "待停止的目标项目唯一标识。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "p-local-stop-res",
+              "name": "停止结果",
+              "englishName": "result",
+              "type": "Result<CommandResult, String>",
+              "description": "标准停止响应对象。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "id": "method-local-query-status",
+          "name": "查询项目状态",
+          "englishName": "query_status",
+          "purpose": "汇总指定项目的连接、文件同步进度与端口连通性。",
+          "flow": "调 MutagenCli 查询 -> 整合状态 -> 格式化输出。",
+          "errors": "未找到项目返回错误。",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": true,
+          "outputsConfirmed": true,
+          "inputs": [
+            {
+              "id": "p-local-query-id",
+              "name": "项目标识",
+              "englishName": "project_id",
+              "type": "&str",
+              "description": "项目唯一标识。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "p-local-query-res",
+              "name": "状态快照",
+              "englishName": "result",
+              "type": "Result<CommandResult, String>",
+              "description": "包含连接、同步与端口详情的状态对象。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "events": [],
+      "tests": [
+        {
+          "id": "test-local-dispatch",
+          "name": "本地命令分发与收口测试",
+          "englishName": "LocalCommandDispatch",
+          "steps": "传入 status 子命令参数并执行 run_command。",
+          "expected": "正确分发至 query_status 并调用 set_result 打印标准 JSON。"
+        }
+      ]
+    },
+    {
+      "id": "module-codebridge-vps",
+      "name": "CodeBridgeVPS",
+      "englishName": "CodeBridgeVPS",
+      "purpose": "VPS 云端服务端主程序。负责在云端管理项目资源独占登记，校验防止多台 Local 电脑或多个项目产生目录与端口冲突；配合远端 Agent 提供状态汇报与健康检查。",
+      "language": "Rust",
+      "codeLocation": "src/vps/main.rs",
+      "groupId": "group-0c1d02ac-36eb-4750-b3fc-0f51ae7cc54d",
+      "x": 2420,
+      "y": 140,
+      "appearance": {
+        "textColor": "#17254d",
+        "backgroundColor": "#fcfdff",
+        "headerColor": "#f4f7ff"
+      },
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "requirements": [
+        "资源独占登记：记录各 Local 客户端已绑定的云端项目目录与端口，拒绝相同或重叠目录冲突。",
+        "项目状态就绪检查：探测 VPS 本地回路端口连通性，向 Agent 或查询命令返回结构化状态。",
+        "统一配置与日志：复用公共层 ConfigManager 与 Logger，记录云端操作日志与资源台账。"
+      ],
+      "dependencies": [
+        "ConfigManager::set_result / ConfigManager::get_result",
+        "Logger::log_info / Logger::log_error",
+        "MutagenAgent"
+      ],
+      "parameters": [],
+      "structures": [],
+      "interfaces": [
+        {
+          "id": "method-vps-reserve-resource",
+          "name": "登记独占资源",
+          "englishName": "reserve_resource",
+          "purpose": "原子校验并登记指定项目的云端同步目录和监听端口，重叠冲突时拒绝。",
+          "flow": "校验路径重叠与端口占用 -> 登记台账 -> 保存并返回确认信息。",
+          "errors": "路径已被其他项目占用或端口冲突时返回错误。",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": true,
+          "outputsConfirmed": true,
+          "inputs": [
+            {
+              "id": "p-vps-res-pid",
+              "name": "项目标识",
+              "englishName": "project_id",
+              "type": "&str",
+              "description": "申请资源的项目编号。",
+              "required": true,
+              "defaultValue": ""
+            },
+            {
+              "id": "p-vps-res-path",
+              "name": "远端目录",
+              "englishName": "remote_root",
+              "type": "&str",
+              "description": "申请独占的 VPS 同步根目录。",
+              "required": true,
+              "defaultValue": ""
+            },
+            {
+              "id": "p-vps-res-ports",
+              "name": "申请端口列表",
+              "englishName": "ports",
+              "type": "&[u16]",
+              "description": "申请独占的端口切片。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "p-vps-res-result",
+              "name": "登记结果",
+              "englishName": "result",
+              "type": "Result<CommandResult, String>",
+              "description": "包含登记凭证的结构化结果。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "id": "method-vps-release-resource",
+          "name": "释放独占资源",
+          "englishName": "release_resource",
+          "purpose": "确认项目任务停止后，显式解除对应目录与端口的独占登记，保持文件完好。",
+          "flow": "核对项目身份 -> 撤销台账独占记录 -> 保留实际磁盘文件。",
+          "errors": "项目未曾登记或身份不符返回错误。",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": true,
+          "outputsConfirmed": true,
+          "inputs": [
+            {
+              "id": "p-vps-rel-pid",
+              "name": "项目标识",
+              "englishName": "project_id",
+              "type": "&str",
+              "description": "拟释放资源的项目编号。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "p-vps-rel-result",
+              "name": "释放结果",
+              "englishName": "result",
+              "type": "Result<(), String>",
+              "description": "Ok(()) 表示释放完成。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "id": "method-vps-inspect-status",
+          "name": "巡检工作区状态",
+          "englishName": "inspect_status",
+          "purpose": "检查云端工作区目录是否存在以及已登记端口的 TCP 可达性。",
+          "flow": "检查文件路径 -> 探测本地端口建立连接 -> 汇总并返回健康结果。",
+          "errors": "目录不存在或端口不可达返回状态说明。",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": true,
+          "outputsConfirmed": true,
+          "inputs": [
+            {
+              "id": "p-vps-ins-pid",
+              "name": "项目标识",
+              "englishName": "project_id",
+              "type": "&str",
+              "description": "被巡检的项目标识。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "p-vps-ins-result",
+              "name": "巡检状态",
+              "englishName": "result",
+              "type": "Result<CommandResult, String>",
+              "description": "云端工作区与端口可达性快照。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "events": [],
+      "tests": [
+        {
+          "id": "test-vps-conflict",
+          "name": "云端目录冲突校验测试",
+          "englishName": "VpsDirectoryConflict",
+          "steps": "两个不同项目先后申请同一 VPS 目录。",
+          "expected": "第二个申请被明确拒绝，原项目登记完好保持。"
+        }
+      ]
     }
   ],
   "relations": [],
