@@ -43,8 +43,8 @@ globalThis.softwareArchitecture = {
       "englishName": "MutagenLocal",
       "color": "#ffffff",
       "backgroundColor": "#559c80",
-      "x": 3360,
-      "y": 720
+      "x": 3380,
+      "y": 890
     },
     {
       "id": "group-mutagen-vps",
@@ -85,13 +85,15 @@ globalThis.softwareArchitecture = {
         "save_json 和 load_json 仅负责 JSON 文本与配置文件之间的读写；serialize 和 deserialize 仅负责参数结构体与 JSON 文本之间的转换。",
         "调用方为 serialize 传入支持 serde::Serialize 的参数结构体，为 deserialize 指定支持 serde::de::DeserializeOwned 的目标类型 T；反序列化成功时返回 T。",
         "文件名由调用模块明确传入；只允许 config 目录下的 .json 配置文件，拒绝绝对路径和越出配置目录的路径。首次保存时创建缺少的 config 目录。",
-        "加载文件缺失、文件读写失败、JSON 转换失败都返回错误；是否使用默认参数由调用模块决定，本模块不替业务模块生成默认值。"
+        "加载文件缺失、文件读写失败、JSON 转换失败都返回错误；是否使用默认参数由调用模块决定，本模块不替业务模块生成默认值。",
+        "提供 set_result 与 get_result 静态关联函数：集中托管命令返回值，并在 set_result 中通过布尔开关控制控制台屏幕打印，自动触发 Logger 日志落盘。"
       ],
       "dependencies": [
         "Rust std::env::current_exe：取得主程序路径，确定其所在目录下的 config/。",
         "Rust std::fs：读取和保存 UTF-8 JSON 文本。",
         "serde::Serialize / serde::de::DeserializeOwned：业务模块参数结构体的序列化与反序列化约定。",
-        "serde_json::to_string / serde_json::from_str：结构体与 JSON 文本转换。"
+        "serde_json::to_string / serde_json::from_str：结构体与 JSON 文本转换。",
+        "Logger::log_info / Logger::log_error：自动将操作结果记录至日志文件。"
       ],
       "parameters": [],
       "structures": [
@@ -120,6 +122,62 @@ globalThis.softwareArchitecture = {
               "englishName": "file_path",
               "type": "Option<PathBuf>",
               "description": "文件读写错误对应的配置路径；纯转换错误可为空。"
+            }
+          ]
+        },
+        {
+          "id": "struct-command-result",
+          "name": "统一返回值",
+          "englishName": "CommandResult",
+          "fields": [
+            {
+              "id": "f-cmd-ok",
+              "name": "是否成功",
+              "englishName": "ok",
+              "type": "bool",
+              "description": "命令是否执行成功。"
+            },
+            {
+              "id": "f-cmd-data",
+              "name": "业务数据",
+              "englishName": "data",
+              "type": "Option<Value>",
+              "description": "成功时携带的结构化数据。"
+            },
+            {
+              "id": "f-cmd-error",
+              "name": "错误详情",
+              "englishName": "error",
+              "type": "Option<ErrorInfo>",
+              "description": "失败时携带的错误信息。"
+            }
+          ]
+        },
+        {
+          "id": "struct-error-info",
+          "name": "错误详情",
+          "englishName": "ErrorInfo",
+          "fields": [
+            {
+              "id": "f-err-code",
+              "name": "错误码",
+              "englishName": "code",
+              "type": "String",
+              "description": "机器可读的稳定错误识别码。"
+            },
+            {
+              "id": "f-err-msg",
+              "name": "错误说明",
+              "englishName": "message",
+              "type": "String",
+              "description": "通俗易懂的错误原因说明。"
+            },
+            {
+              "id": "f-err-retry",
+              "name": "是否可重试",
+              "englishName": "retryable",
+              "type": "bool",
+              "description": "调用方是否可沿用原参数重试。"
             }
           ]
         }
@@ -273,6 +331,93 @@ globalThis.softwareArchitecture = {
               "defaultValue": ""
             }
           ]
+        },
+        {
+          "id": "method-config-set-result",
+          "name": "设定返回值",
+          "englishName": "set_result",
+          "purpose": "静态关联函数：设定当前命令的标准返回值结构体，自动调用 Logger 记录日志，并根据布尔开关决定是否打印到控制台屏幕。",
+          "flow": "保存返回值 -> 自动调用 Logger 记录日志 -> 根据 print_screen 布尔开关决定是否通过 println! 打印标准 JSON。",
+          "errors": "日志写入失败或序列化异常返回 Err(ConfigError)。",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": true,
+          "outputsConfirmed": true,
+          "inputs": [
+            {
+              "id": "p-set-ok",
+              "name": "是否成功",
+              "englishName": "ok",
+              "type": "bool",
+              "description": "业务操作是否成功完成。",
+              "required": true,
+              "defaultValue": ""
+            },
+            {
+              "id": "p-set-data",
+              "name": "业务数据",
+              "englishName": "data",
+              "type": "Option<Value>",
+              "description": "成功时的业务数据内容。",
+              "required": true,
+              "defaultValue": ""
+            },
+            {
+              "id": "p-set-error",
+              "name": "错误详情",
+              "englishName": "error",
+              "type": "Option<ErrorInfo>",
+              "description": "失败时的错误详情对象。",
+              "required": true,
+              "defaultValue": ""
+            },
+            {
+              "id": "p-set-print",
+              "name": "控制台打印开关",
+              "englishName": "print_screen",
+              "type": "bool",
+              "description": "true 表示通过 println! 打印到标准输出屏幕，false 则静默执行。",
+              "required": true,
+              "defaultValue": "true"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "p-set-res",
+              "name": "返回结果",
+              "englishName": "result",
+              "type": "Result<(), ConfigError>",
+              "description": "Ok(()) 表示设定完成。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "id": "method-config-get-result",
+          "name": "读取返回值",
+          "englishName": "get_result",
+          "purpose": "静态关联函数：读取此前设定的统一返回值结构体对象。",
+          "flow": "从当前上下文中提取已暂存的 CommandResult 结构体并返回。",
+          "errors": "未曾设定过返回值时返回 Err(ConfigError)。",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": true,
+          "outputsConfirmed": true,
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "p-get-res",
+              "name": "返回值结构",
+              "englishName": "result",
+              "type": "Result<CommandResult, ConfigError>",
+              "description": "读取到的统一返回值对象。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
         }
       ],
       "events": [],
@@ -304,6 +449,13 @@ globalThis.softwareArchitecture = {
           "englishName": "ExplicitConfigurationErrors",
           "steps": "分别使用越界文件名、缺失文件、不可写目录及不符合目标类型的 JSON 调用对应接口。",
           "expected": "各接口返回明确 ConfigError，由调用模块处理，不回退到其他目录或替业务模块生成默认参数。"
+        },
+        {
+          "id": "test-config-result-switch",
+          "name": "返回值设定与屏幕打印开关测试",
+          "englishName": "SetAndGetResultWithScreenSwitch",
+          "steps": "调用 set_result 分别传入 print_screen 为 true 与 false，随后调用 get_result。",
+          "expected": "两次均能成功暂存并记录日志，true 时终端输出标准 JSON，false 时静默且 get_result 正常读取。"
         }
       ]
     },
@@ -473,8 +625,8 @@ globalThis.softwareArchitecture = {
       "language": "Go",
       "codeLocation": "depends/mutagen/cmd/mutagen/main.go",
       "groupId": "group-0cb11cc3-b58d-4551-90c7-2ac347d32ba7",
-      "x": 3380,
-      "y": 780,
+      "x": 3400,
+      "y": 950,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -609,9 +761,9 @@ globalThis.softwareArchitecture = {
   ],
   "relations": [],
   "view": {
-    "x": -45.79862315643402,
-    "y": 110.49092828226264,
-    "scale": 0.20138859487980282,
+    "x": -600.9380907435668,
+    "y": 145.35062094864568,
+    "scale": 0.4137394175659745,
     "expanded": [],
     "expandedInterfaces": []
   }
