@@ -780,8 +780,9 @@ globalThis.softwareArchitecture = {
         "命令行参数解析：使用 clap 解析子命令（start_codebridge、stop_bridge、query_status、add_forward）与独立参数。",
         "极致零参数体验：启动、停止、查状态默认全支持零参数运行，自动以当前目录为基准推导项目并联动 VPS。",
         "单连接通道铁律：Local 到目标 VPS 有且仅保持 1 条连接通道，所有同步与端口映射均复用该通道，不建立重复物理连接。",
+        "目录与端口自适应：支持显式指定 local_path 与 vps_path，未指定时默认当前目录与 ~/codebridge/<目录名>；网页端口 web_port 默认 3000，云端 VPS 端口自动在 10000+ 随机分配空闲端口，返回包含 web_url (如 http://127.0.0.1:10086) 供 AI Agent 直接调试。",
+        "动态热插拔端口：支持通过 add_forward 随时追加新的网页端口映射，云端自动分配 10000+ 端口，原同步与网络任务完全不中断。",
         "驱动底层 Mutagen：作为父进程调用 MutagenCli，stdout 捕获 JSON，stderr 管道重定向至 Logger。",
-        "极简端口自适应：网页端口 web_port 默认 3000，云端 VPS 端口自动在 10000+ 随机分配空闲端口，返回包含 web_url (如 http://127.0.0.1:10086) 供 AI Agent 直接调试。",
         "统一返回值收口：操作完成后统一调用 ConfigManager::set_result，控制是否打印屏幕，自动记入文件日志。"
       ],
       "dependencies": [
@@ -1057,11 +1058,13 @@ globalThis.softwareArchitecture = {
       "sources": [],
       "unknowns": [],
       "requirements": [
-        "命令行参数解析：使用 clap 解析子命令（start_vps、stop_vps、inspect_status 等）与独立参数。",
-        "极致零参数体验：start_vps、stop_vps、inspect_status 默认全部支持零参数运行，开箱即用。",
+        "命令行参数解析：使用 clap 解析子命令（start_vps、stop_vps、inspect_status 等）与独立参数，默认支持零参数运行。",
+        "云端服务生命周期：start_vps 初始化云端台账并待命；stop_vps 释放全部云端 10000+ 端口、清退临时台账并安全退出。",
         "多主机单通道承载：同时对接多台 Local，但与每台 Local 间严格保持 1 条连接通道，按主机身份隔离资源。",
-        "资源独占登记：记录各 Local 绑定的云端项目目录与端口，校验并拒绝相同或重叠目录冲突。",
-        "统一配置与日志：复用公共层 ConfigManager 与 Logger，记录云端操作日志与资源台账。"
+        "资源独占登记：以 ResourceRecord 记录各 Local 绑定的远端目录 vps_path 与端口，校验并拒绝相同或重叠目录冲突。",
+        "零参数状态巡检：inspect_status 默认零参数探测 VPS 本地回路端口连通性，向 AI Agent 返回包含 web_url 的结构化状态。",
+        "统一配置与日志：复用公共层 ConfigManager 与 Logger，记录云端操作日志与资源台账。",
+        "云端服务命名：启动支持传入 --name 参数自定义 VPS 后台服务进程名称；若未指定，自动随机生成 5 到 10 位纯英文字母作为进程名称。"
       ],
       "dependencies": [
         "ConfigManager::set_result / ConfigManager::get_result",
@@ -1146,15 +1149,25 @@ globalThis.softwareArchitecture = {
           "id": "method-vps-start",
           "name": "启动 VPS 服务",
           "englishName": "start_vps",
-          "purpose": "默认零参数启动云端服务：初始化云端资源总台账，检查 ~/codebridge/ 根目录环境，进入就绪待命状态。",
-          "flow": "初始化资源台账 -> 检查并创建根工作区环境 -> 进入后台监听待命 -> 返回成功状态。",
+          "purpose": "启动云端服务：支持传入 --name 指定云端进程名（未指定时自动随机生成 5 到 10 位纯英文字母），初始化云端资源总台账，检查 ~/codebridge/ 根目录环境，进入就绪待命状态。",
+          "flow": "检查并生成/应用云端进程名称 -> 初始化资源台账 -> 检查并创建根工作区环境 -> 进入后台监听待命 -> 返回成功状态。",
           "errors": "环境异常或初始化失败返回错误。",
           "status": "planned",
           "sources": [],
           "unknowns": [],
           "inputsConfirmed": true,
           "outputsConfirmed": true,
-          "inputs": [],
+          "inputs": [
+            {
+              "id": "p-vps-start-name",
+              "name": "进程名称",
+              "englishName": "name",
+              "type": "Option<String>",
+              "description": "可选的自定义云端后台服务进程名称；未指定时自动随机生成 5 到 10 位纯英文字母。",
+              "required": false,
+              "defaultValue": ""
+            }
+          ],
           "outputs": [
             {
               "id": "p-vps-start-res",
@@ -1348,6 +1361,13 @@ globalThis.softwareArchitecture = {
           "englishName": "VpsDirectoryAndPortConflictTest",
           "steps": "两个不同 Local 主机先后申请同一目录或相同端口。",
           "expected": "第二个申请被明确拒绝，原主机登记与文件完好保持。"
+        },
+        {
+          "id": "test-vps-custom-name-start",
+          "name": "VPS 指定进程名启动测试",
+          "englishName": "VpsCustomProcessNameStart",
+          "steps": "传入 --name MyCloudVps 调用 start_vps。",
+          "expected": "云端后台服务以 MyCloudVps 名称启动运行。"
         }
       ]
     }
