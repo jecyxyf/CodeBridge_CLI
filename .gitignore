@@ -1,5 +1,10 @@
 .venv/
-/target/
 /logs/
-/bin/
+/bin/*
+!/bin/Local/
+/bin/Local/*
+!/bin/Local/.gitkeep
+!/bin/VPS/
+/bin/VPS/*
+!/bin/VPS/.gitkeep
 
