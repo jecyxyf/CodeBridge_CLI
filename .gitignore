@@ -1,4 +1,5 @@
 .venv/
 /target/
 /logs/
+/bin/
 
