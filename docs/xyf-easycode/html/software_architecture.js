@@ -780,7 +780,8 @@ globalThis.softwareArchitecture = {
         "命令行参数解析：使用 clap 解析子命令（project、sync、forward、status）与独立参数。",
         "项目配置管理：读取与保存项目目录映射与端口转发规则（通过 ConfigManager）。",
         "驱动底层 Mutagen：作为父进程调用 MutagenCli，捕获 stdout（JSON 结果）并管道重定向 stderr 日志到 Logger。",
-        "统一返回值收口：操作完成后调用 ConfigManager::set_result，控制是否打印屏幕，自动记入文件日志。"
+        "统一返回值收口：操作完成后调用 ConfigManager::set_result，控制是否打印屏幕，自动记入文件日志。",
+        "启动进程命名：支持传入 --name 参数自定义后台进程名称；若未指定，自动随机生成 5 到 10 位纯英文字母作为后台进程名称。"
       ],
       "dependencies": [
         "ConfigManager::set_result / ConfigManager::get_result",
@@ -829,8 +830,8 @@ globalThis.softwareArchitecture = {
           "id": "method-local-start-bridge",
           "name": "一键启动桥接",
           "englishName": "start_bridge",
-          "purpose": "根据项目配置，发起目录双向同步与端口反向映射。",
-          "flow": "读取项目配置 -> 启动 Mutagen 同步 -> 启动 Mutagen 端口映射 -> 返回汇总状态。",
+          "purpose": "根据项目配置，发起目录双向同步与端口反向映射，支持指定进程名称或使用随机名称。",
+          "flow": "检查并生成/应用进程名称 -> 读取项目配置 -> 启动 Mutagen 同步与端口映射 -> 返回汇总状态。",
           "errors": "配置缺失、SSH 失败或端口冲突返回错误。",
           "status": "planned",
           "sources": [],
@@ -845,6 +846,15 @@ globalThis.softwareArchitecture = {
               "type": "&str",
               "description": "待启动的目标项目唯一标识。",
               "required": true,
+              "defaultValue": ""
+            },
+            {
+              "id": "p-local-start-name",
+              "name": "进程名称",
+              "englishName": "name",
+              "type": "Option<String>",
+              "description": "可选的自定义后台进程名称；未指定时传入 None 触发随机生成。",
+              "required": false,
               "defaultValue": ""
             }
           ],
@@ -929,6 +939,31 @@ globalThis.softwareArchitecture = {
               "defaultValue": ""
             }
           ]
+        },
+        {
+          "id": "method-local-generate-random-name",
+          "name": "生成随机进程名",
+          "englishName": "generate_random_name",
+          "purpose": "未指定 --name 参数时，随机生成长度在 5 到 10 位的纯英文字母名称。",
+          "flow": "随机选取 5 到 10 之间的整数长度 -> 从 a-z 字母表中抽取字符拼装 -> 返回名称字符串。",
+          "errors": "无异常。",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": true,
+          "outputsConfirmed": true,
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "p-gen-name-res",
+              "name": "随机名称",
+              "englishName": "result",
+              "type": "String",
+              "description": "5 到 10 位的纯英文字母字符串。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
         }
       ],
       "events": [],
@@ -939,6 +974,20 @@ globalThis.softwareArchitecture = {
           "englishName": "LocalCommandDispatch",
           "steps": "传入 status 子命令参数并执行 run_command。",
           "expected": "正确分发至 query_status 并调用 set_result 打印标准 JSON。"
+        },
+        {
+          "id": "test-local-random-name",
+          "name": "随机进程名生成测试",
+          "englishName": "RandomProcessNameGeneration",
+          "steps": "多次调用 generate_random_name 并检查生成结果。",
+          "expected": "每次生成的长度均在 5 到 10 之间，且均为纯英文字母，不含数字与特殊符号。"
+        },
+        {
+          "id": "test-local-custom-name",
+          "name": "指定进程名启动测试",
+          "englishName": "CustomProcessNameStart",
+          "steps": "传入 --name MyBridge 启动任务。",
+          "expected": "后台进程以 MyBridge 名称启动运行。"
         }
       ]
     },
