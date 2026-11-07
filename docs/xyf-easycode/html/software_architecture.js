@@ -16,8 +16,8 @@ globalThis.softwareArchitecture = {
       "englishName": "Common",
       "color": "#ffffff",
       "backgroundColor": "#8d80b8",
-      "x": 2750,
-      "y": 2280
+      "x": 2780,
+      "y": 2430
     },
     {
       "id": "group-679f7997-02f7-419d-b8a9-50719242faa9",
@@ -43,8 +43,8 @@ globalThis.softwareArchitecture = {
       "englishName": "MutagenLocal",
       "color": "#ffffff",
       "backgroundColor": "#559c80",
-      "x": 3340,
-      "y": 1180
+      "x": 3330,
+      "y": 1300
     },
     {
       "id": "group-mutagen-vps",
@@ -65,8 +65,8 @@ globalThis.softwareArchitecture = {
       "language": "Rust",
       "codeLocation": "",
       "groupId": "group-e4af7b0a-c2f1-48a1-a84e-5a98653a56c0",
-      "x": 2770,
-      "y": 2340,
+      "x": 2800,
+      "y": 2490,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -467,8 +467,8 @@ globalThis.softwareArchitecture = {
       "language": "Rust",
       "codeLocation": "src/common/logger.rs",
       "groupId": "group-e4af7b0a-c2f1-48a1-a84e-5a98653a56c0",
-      "x": 3350,
-      "y": 2340,
+      "x": 3380,
+      "y": 2490,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -625,8 +625,8 @@ globalThis.softwareArchitecture = {
       "language": "Go",
       "codeLocation": "depends/mutagen/cmd/mutagen/main.go",
       "groupId": "group-0cb11cc3-b58d-4551-90c7-2ac347d32ba7",
-      "x": 3360,
-      "y": 1240,
+      "x": 3350,
+      "y": 1360,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -766,8 +766,8 @@ globalThis.softwareArchitecture = {
       "language": "Rust",
       "codeLocation": "src/local/main.rs",
       "groupId": "group-679f7997-02f7-419d-b8a9-50719242faa9",
-      "x": 2770,
-      "y": 1240,
+      "x": 2780,
+      "y": 1350,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -778,10 +778,10 @@ globalThis.softwareArchitecture = {
       "unknowns": [],
       "requirements": [
         "命令行参数解析：使用 clap 解析子命令（start_codebridge、stop_bridge、query_status、add_forward）与独立参数。",
-        "极致零参数体验：启动、停止、查状态默认全支持零参数运行，自动以当前目录为基准推导项目并联动 VPS。",
+        "参数继承与增量覆盖：每次启动优先使用命令行传入的参数；未传入的参数自动读取本地配置文件补齐；支持传入部分参数实现增量更新覆盖。",
+        "首次无配置防御报错：启动时如果既没有输入参数，本地又没有历史配置文件，直接报错拒绝盲启动，提示用户提供必要参数。",
+        "启动成功自动持久化：桥接任务启动成功后，自动将本次生效的完整参数持久化保存到本地配置文件，供下次启动直接复用。",
         "单连接通道铁律：Local 到目标 VPS 有且仅保持 1 条连接通道，所有同步与端口映射均复用该通道，不建立重复物理连接。",
-        "目录与端口自适应：支持显式指定 local_path 与 vps_path，未指定时默认当前目录与 ~/codebridge/<目录名>；网页端口 web_port 默认 3000，云端 VPS 端口自动在 10000+ 随机分配空闲端口，返回包含 web_url (如 http://127.0.0.1:10086) 供 AI Agent 直接调试。",
-        "动态热插拔端口：支持通过 add_forward 随时追加新的网页端口映射，云端自动分配 10000+ 端口，原同步与网络任务完全不中断。",
         "驱动底层 Mutagen：作为父进程调用 MutagenCli，stdout 捕获 JSON，stderr 管道重定向至 Logger。",
         "统一返回值收口：操作完成后统一调用 ConfigManager::set_result，控制是否打印屏幕，自动记入文件日志。"
       ],
@@ -832,9 +832,9 @@ globalThis.softwareArchitecture = {
           "id": "method-local-start-codebridge",
           "name": "启动 CodeBridge 桥接",
           "englishName": "start_codebridge",
-          "purpose": "极简发起双向文件同步与端口反向映射：支持传入本地目录与远端目录（默认推导为 ~/codebridge/<目录名>），网页端口默认 3000，云端 VPS 端口自动在 10000+ 分配并在返回值中提供 web_url。",
-          "flow": "解析本地目录与远端目录 -> 网页端口默认 3000 -> 从 10000+ 随机分配可用 VPS 端口 -> 驱动 Mutagen 同步与端口映射 -> 返回包含 web_url 的标准 CommandResult 对象。",
-          "errors": "本地路径不存在、SSH 无法连通、或端口已被占用时返回错误。",
+          "purpose": "支持参数继承、增量覆盖与零参数启动：优先使用命令行传入参数，未传参数自动读取本地配置文件补齐；启动成功后自动将最新参数持久化保存供下次直接复用；既无输入参数又无配置文件时明确报错。",
+          "flow": "1. 参数合并：读取命令行输入参数，未传参数尝试通过 ConfigManager::load_json 读取配置文件补齐；\n2. 防御校验：若无输入且无配置文件，返回错误并提示提供必要参数；\n3. 驱动启动：使用有效参数调起同步与端口映射，云端自动分配 10000+ 可用端口；\n4. 保存记忆：启动成功后自动调用 ConfigManager::save_json 将最新有效参数保存到配置文件；\n5. 统一收口：调用 ConfigManager::set_result 输出包含 web_url 的标准 JSON 结果并记日志。",
+          "errors": "既无输入参数又无配置文件、本地路径不存在、SSH 无法连通、或端口已被占用时返回错误。",
           "status": "planned",
           "sources": [],
           "unknowns": [],
@@ -1017,25 +1017,39 @@ globalThis.softwareArchitecture = {
       "events": [],
       "tests": [
         {
-          "id": "test-local-zero-param-lifecycle",
-          "name": "零参数完整生命周期测试",
-          "englishName": "ZeroParamBridgeLifecycle",
-          "steps": "在测试目录下依次执行 start_codebridge（零参数）、query_status（零参数）、stop_bridge（零参数）。",
-          "expected": "全流程无需任何参数，自动识别目录并完成启动、状态查询与安全停止。"
-        },
-        {
-          "id": "test-local-dynamic-forward-single-param",
-          "name": "单参数动态加端口测试",
-          "englishName": "SingleParamDynamicForward",
-          "steps": "在运行项目中仅传入 --web-port 8080 执行 add_forward。",
-          "expected": "自动在云端 10000+ 开出新端口并返回 web_url，原同步完全不中断。"
-        },
-        {
           "id": "test-local-dispatch",
           "name": "命令总调度与收口测试",
           "englishName": "CommandDispatchTest",
-          "steps": "传入命令行参数执行 dispatch。",
+          "steps": "传入 start_codebridge 子命令参数并执行 dispatch。",
           "expected": "正确路由到对应业务方法并调用 set_result 输出统一 JSON。"
+        },
+        {
+          "id": "test-local-no-params-no-config-fails",
+          "name": "无参数无配置防御报错测试",
+          "englishName": "StartWithNoParamsAndNoConfigFails",
+          "steps": "在空配置目录下零参数调用 start_codebridge。",
+          "expected": "直接报错拒绝盲启动，并在 JSON error 中明确提示用户输入必要参数。"
+        },
+        {
+          "id": "test-local-partial-params-merge",
+          "name": "部分参数覆盖与合并测试",
+          "englishName": "StartWithPartialParamsMergesConfig",
+          "steps": "预置含有 VPS IP 的配置文件，仅传入 --web-port 8080 调用 start_codebridge。",
+          "expected": "成功将新端口 8080 与历史配置中的 VPS IP 合并并启动，随后更新配置文件。"
+        },
+        {
+          "id": "test-local-success-persists-config",
+          "name": "启动成功自动持久化测试",
+          "englishName": "StartSuccessPersistsConfig",
+          "steps": "首次传入有效参数成功启动桥接任务。",
+          "expected": "配置文件被成功创建并写入最新有效参数，下次可零参数直接复用。"
+        },
+        {
+          "id": "test-local-stop-bridge",
+          "name": "安全断开停止测试",
+          "englishName": "StopBridgeTest",
+          "steps": "调用 stop_bridge 停止运行中的桥接会话。",
+          "expected": "成功终止会话并安全保留两端磁盘文件。"
         }
       ]
     },
@@ -1397,9 +1411,9 @@ globalThis.softwareArchitecture = {
     }
   ],
   "view": {
-    "x": -252.3094400858257,
-    "y": 63.38807981571438,
-    "scale": 0.2886561967981973,
+    "x": -4805.850368524447,
+    "y": -1239.9118046713238,
+    "scale": 1.8,
     "expanded": [],
     "expandedInterfaces": []
   }
