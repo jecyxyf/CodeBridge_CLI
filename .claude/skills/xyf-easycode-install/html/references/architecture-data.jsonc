@@ -1,0 +1,216 @@
+// Complete project data guide, not a real project or a formal JSON configuration.
+// Runtime skeleton: ../software_architecture.js. Model authority: ../assert/model.js.
+// Save project data as globalThis.softwareArchitecture = <strict JSON>;
+// Use two-space indentation and a final newline; do not copy these guide comments.
+// Generate new globally unique IDs; retain IDs when renaming. Remove example data.
+// formatVersion is 1, independent of application version.
+// repository.path is the code root; revision/dirty describe actual source state.
+// Groups hold layers. A nonempty groupId must reference a real group.
+// Group frames derive their bounds from members; x/y position an empty group.
+// Module codeLocation is code-root-relative, newline-separated for multiple paths.
+// appearance requires all three #rrggbb colors when supplied.
+// status: planned=agreed design, verified=source evidence, modified=semantic edit.
+// sources contain actually read repository-relative path, 1-based line, endLine, symbol.
+// Verified items need at least one valid source. Never invent evidence.
+// unknowns stays [] only after doubts are resolved. Templates are not project facts.
+// requirements and dependencies are string arrays, one confirmed item per entry.
+// Missing/empty defaultValue means no documented default; present values are strings.
+// Structure fields have names, types and descriptions, without required/defaultValue.
+// Methods remain in interfaces; flow/errors are newline-separated strings, not arrays.
+// inputsConfirmed/outputsConfirmed must be true in a formal verified configuration.
+// false plus an empty array does not establish absence; sample false values show a draft.
+// Inputs require a boolean required flag; outputs use the same parameter model.
+// Events use description, direction emit/receive, flow, parameters and reserved trigger.
+// Tests describe steps/expected results, not evidence that a test actually passed.
+// Relations connect two different module IDs. Ports: top/right/bottom/left.
+// Optional legacy type is call/dependency; new arrows need no category.
+// Relations annotate the canvas and do not substitute for explicit dependencies.
+// view stores finite x/y, positive scale, and unique valid expanded item IDs.
+{
+  "formatVersion": 1,
+  "id": "project-guide",
+  "name": "Task manager",
+  "englishName": "task-board",
+  "description": "Create, save and display tasks.",
+  "repository": {
+    "path": "",
+    "revision": "",
+    "dirty": false
+  },
+  "groups": [
+    {
+      "id": "group-guide",
+      "name": "Feature layer",
+      "englishName": "FeatureLayer",
+      "color": "#ffffff",
+      "backgroundColor": "#81b3e9",
+      "x": 80,
+      "y": 80
+    }
+  ],
+  "modules": [
+    {
+      "id": "module-guide-board",
+      "name": "Task board",
+      "englishName": "TaskBoard",
+      "purpose": "Display tasks and provide a save action.",
+      "language": "TypeScript",
+      "codeLocation": "./src/task-board.ts",
+      "groupId": "group-guide",
+      "x": 120,
+      "y": 140,
+      "appearance": {
+        "textColor": "#17254d",
+        "backgroundColor": "#fcfdff",
+        "headerColor": "#f4f7ff"
+      },
+      "status": "planned",
+      "sources": [
+        {
+          "path": "src/task-board.ts",
+          "line": 1,
+          "endLine": 20,
+          "symbol": "TaskBoard"
+        }
+      ],
+      "unknowns": [],
+      "requirements": [
+        "Display the current task title.",
+        "Validate that the task title is not empty before saving."
+      ],
+      "dependencies": [
+        "Task storage module"
+      ],
+      "parameters": [
+        {
+          "id": "param-guide-title",
+          "name": "Task title",
+          "englishName": "taskTitle",
+          "type": "string",
+          "description": "Display title stored with the task.",
+          "required": false,
+          "defaultValue": ""
+        }
+      ],
+      "structures": [
+        {
+          "id": "structure-guide-task",
+          "name": "Task data",
+          "englishName": "TaskData",
+          "fields": [
+            {
+              "id": "field-guide-task-id",
+              "name": "Task ID",
+              "englishName": "taskId",
+              "type": "string",
+              "description": "Uniquely identify a task."
+            }
+          ]
+        }
+      ],
+      "interfaces": [
+        {
+          "id": "interface-guide-save",
+          "name": "Save task",
+          "englishName": "saveTask",
+          "purpose": "Validate and save the current task.",
+          "flow": "Validate the task title\nSave task data\nReturn the result",
+          "errors": "Return a validation error for an empty title\nRecord and return a storage failure",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": false,
+          "outputsConfirmed": false,
+          "inputs": [
+            {
+              "id": "param-guide-save-title",
+              "name": "Task title",
+              "englishName": "taskTitle",
+              "type": "string",
+              "description": "The task title to save.",
+              "required": true,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "param-guide-save-result",
+              "name": "Save result",
+              "englishName": "saveResult",
+              "type": "boolean",
+              "description": "Indicate whether saving succeeded.",
+              "required": false,
+              "defaultValue": "false"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "id": "event-guide-saved",
+          "name": "Task saved",
+          "englishName": "taskSaved",
+          "description": "Notify other modules to refresh tasks.",
+          "direction": "emit",
+          "flow": "Prepare message parameters\nEmit taskSaved",
+          "trigger": "",
+          "parameters": [
+            {
+              "id": "param-guide-saved-id",
+              "name": "Task ID",
+              "englishName": "taskId",
+              "type": "string",
+              "description": "Identify the task that was saved.",
+              "required": false,
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "tests": [
+        {
+          "id": "test-guide-save",
+          "name": "Save a valid task",
+          "englishName": "saveValidTask",
+          "steps": "Enter a task title\nCall saveTask",
+          "expected": "Save successfully and emit taskSaved."
+        }
+      ]
+    },
+    {
+      "id": "module-guide-storage",
+      "name": "Task storage",
+      "englishName": "TaskStorage",
+      "purpose": "Persist task data.",
+      "groupId": "",
+      "x": 760,
+      "y": 140,
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "dependencies": [],
+      "interfaces": []
+    }
+  ],
+  "relations": [
+    {
+      "id": "relation-guide-save",
+      "from": "module-guide-board",
+      "to": "module-guide-storage",
+      "label": "Save task",
+      "fromPort": "right",
+      "toPort": "left",
+      "type": "call",
+      "status": "planned",
+      "sources": [],
+      "unknowns": []
+    }
+  ],
+  "view": {
+    "x": 0,
+    "y": 0,
+    "scale": 1,
+    "expanded": [],
+    "expandedInterfaces": []
+  }
+}
