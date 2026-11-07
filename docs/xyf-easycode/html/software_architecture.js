@@ -16,8 +16,8 @@ globalThis.softwareArchitecture = {
       "englishName": "Common",
       "color": "#ffffff",
       "backgroundColor": "#8d80b8",
-      "x": 1820,
-      "y": 1250
+      "x": 2100,
+      "y": 2160
     },
     {
       "id": "group-679f7997-02f7-419d-b8a9-50719242faa9",
@@ -54,15 +54,6 @@ globalThis.softwareArchitecture = {
       "backgroundColor": "#ad8861",
       "x": 3310,
       "y": 80
-    },
-    {
-      "id": "group-mutagen-common",
-      "name": "Mutagen 公共",
-      "englishName": "MutagenCommon",
-      "color": "#ffffff",
-      "backgroundColor": "#8d80b8",
-      "x": 3310,
-      "y": 1220
     }
   ],
   "modules": [
@@ -74,8 +65,8 @@ globalThis.softwareArchitecture = {
       "language": "Rust",
       "codeLocation": "",
       "groupId": "group-e4af7b0a-c2f1-48a1-a84e-5a98653a56c0",
-      "x": 1840,
-      "y": 1310,
+      "x": 2120,
+      "y": 2220,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -324,8 +315,8 @@ globalThis.softwareArchitecture = {
       "language": "Rust",
       "codeLocation": "src/common/logger.rs",
       "groupId": "group-e4af7b0a-c2f1-48a1-a84e-5a98653a56c0",
-      "x": 2340,
-      "y": 1310,
+      "x": 2620,
+      "y": 2220,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -473,13 +464,154 @@ globalThis.softwareArchitecture = {
           "expected": "日志格式清晰，各线程写入互不冲突，消息不丢失、不破坏文件结构。"
         }
       ]
+    },
+    {
+      "id": "module-mutagen-cli",
+      "name": "Mutagen 命令行总入口",
+      "englishName": "MutagenCli",
+      "purpose": "Mutagen 本地主程序总入口（Cobra 根命令），提供 daemon、sync、forward、project 等子命令，输出标准 JSON 状态供外部调用。",
+      "language": "Go",
+      "codeLocation": "depends/mutagen/cmd/mutagen/main.go",
+      "groupId": "group-0cb11cc3-b58d-4551-90c7-2ac347d32ba7",
+      "x": 3380,
+      "y": 780,
+      "appearance": {
+        "textColor": "#17254d",
+        "backgroundColor": "#fcfdff",
+        "headerColor": "#f4f7ff"
+      },
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "requirements": [
+        "提供 daemon 子命令：管理本地后台守护管家启停与状态查询。",
+        "提供 sync 子命令：管理项目双向文件同步生命周期（create/list/flush/pause/resume/terminate）。",
+        "提供 forward 子命令：管理反向端口映射生命周期（create/list/pause/resume/terminate）。",
+        "提供 project 子命令：基于 mutagen.yml 一键编排并启停全部同步与端口会话。",
+        "所有查询命令支持 --template '{{json .}}' 输出机器可读的标准 JSON 格式。"
+      ],
+      "dependencies": [],
+      "parameters": [],
+      "structures": [],
+      "interfaces": [
+        {
+          "id": "method-cli-execute",
+          "name": "执行 Mutagen 命令",
+          "englishName": "ExecuteCommand",
+          "purpose": "调用 Mutagen 根命令执行指定子命令并捕获标准输出或 JSON 结果。",
+          "flow": "解析参数数组 -> 分发到对应子命令 -> 返回标准输出或格式化 JSON 文本。",
+          "errors": "命令不存在或执行失败返回 error 与退出码。",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": true,
+          "outputsConfirmed": true,
+          "inputs": [
+            {
+              "id": "p-cli-args",
+              "name": "参数数组",
+              "englishName": "args",
+              "type": "[]string",
+              "description": "命令行参数切片，如 [sync, list, --template, {{json .}}]。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ],
+          "outputs": [
+            {
+              "id": "p-cli-res",
+              "name": "命令输出",
+              "englishName": "output",
+              "type": "string",
+              "description": "标准输出捕获文本。",
+              "required": true,
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "events": [],
+      "tests": [
+        {
+          "id": "t-cli-exec",
+          "name": "CLI 执行测试",
+          "englishName": "TestExecuteCommand",
+          "steps": "执行 mutagen version 并读取输出。",
+          "expected": "成功输出版本字符串且退出码为 0。"
+        }
+      ]
+    },
+    {
+      "id": "module-mutagen-agent",
+      "name": "Mutagen 远端代理总入口",
+      "englishName": "MutagenAgent",
+      "purpose": "Mutagen 跑在 VPS 上的轻量临时小助手总入口，随 SSH 管道在云端内存中自动自驱动，全自动处理文件落盘与本地回路端口监听。",
+      "language": "Go",
+      "codeLocation": "depends/mutagen/cmd/mutagen-agent/main.go",
+      "groupId": "group-mutagen-vps",
+      "x": 3360,
+      "y": 140,
+      "appearance": {
+        "textColor": "#17254d",
+        "backgroundColor": "#fcfdff",
+        "headerColor": "#f4f7ff"
+      },
+      "status": "planned",
+      "sources": [],
+      "unknowns": [],
+      "requirements": [
+        "随 SSH 管道由 Local 自动推送至 VPS 并在内存中临时运行，零手动安装与环境依赖。",
+        "集成 synchronizer 逻辑，在 VPS 目标目录执行文件落盘与修改扫描。",
+        "集成 forwarder 逻辑，在 VPS 本地开出 TCP 回路端口监听并引流回 SSH 数据流。",
+        "SSH 会话断开或任务终止时自动干净退出，零进程与文件残留。"
+      ],
+      "dependencies": [],
+      "parameters": [],
+      "structures": [],
+      "interfaces": [
+        {
+          "id": "method-agent-run",
+          "name": "运行远端代理服务",
+          "englishName": "RunAgent",
+          "purpose": "接管 SSH stdin/stdout 流并响应同步落盘与端口监听请求。",
+          "flow": "监听 stdio 数据流 -> 协调工作区与端口监听 -> 通道断开时优雅注销。",
+          "errors": "通信通道中断正常退出。",
+          "status": "planned",
+          "sources": [],
+          "unknowns": [],
+          "inputsConfirmed": true,
+          "outputsConfirmed": true,
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "p-agent-exit-code",
+              "name": "退出码",
+              "englishName": "exitCode",
+              "type": "int",
+              "description": "退出状态码，正常为 0。",
+              "required": true,
+              "defaultValue": "0"
+            }
+          ]
+        }
+      ],
+      "events": [],
+      "tests": [
+        {
+          "id": "t-agent-lifecycle",
+          "name": "Agent 生命周期测试",
+          "englishName": "TestAgentLifecycle",
+          "steps": "启动代理并模拟通道关闭。",
+          "expected": "干净退出且无多余后台进程残留。"
+        }
+      ]
     }
   ],
   "relations": [],
   "view": {
-    "x": -589.2270521699054,
-    "y": 143.53749003895257,
-    "scale": 0.41373941756597515,
+    "x": -45.79862315643402,
+    "y": 110.49092828226264,
+    "scale": 0.20138859487980282,
     "expanded": [],
     "expandedInterfaces": []
   }
