@@ -831,8 +831,8 @@ globalThis.softwareArchitecture = {
           "id": "method-local-start-codebridge",
           "name": "启动 CodeBridge 桥接",
           "englishName": "start_codebridge",
-          "purpose": "极简一键发起双向文件同步与端口反向映射：自动读取当前目录并映射至 VPS 目录 ~/codebridge/<目录名>，网页端口默认 3000，云端 VPS 端口自动在 10000+ 分配并在返回值中提供 web_url。",
-          "flow": "推导本地目录与项目名称 -> 计算 VPS 远程路径 -> 网页端口默认 3000 -> 从 10000+ 随机分配可用 VPS 端口 -> 驱动 Mutagen 同步与端口映射 -> 返回包含 web_url 的标准 CommandResult 对象。",
+          "purpose": "极简发起双向文件同步与端口反向映射：支持传入本地目录与远端目录（默认推导为 ~/codebridge/<目录名>），网页端口默认 3000，云端 VPS 端口自动在 10000+ 分配并在返回值中提供 web_url。",
+          "flow": "解析本地目录与远端目录 -> 网页端口默认 3000 -> 从 10000+ 随机分配可用 VPS 端口 -> 驱动 Mutagen 同步与端口映射 -> 返回包含 web_url 的标准 CommandResult 对象。",
           "errors": "本地路径不存在、SSH 无法连通、或端口已被占用时返回错误。",
           "status": "planned",
           "sources": [],
@@ -863,9 +863,18 @@ globalThis.softwareArchitecture = {
               "name": "本地目录",
               "englishName": "local_path",
               "type": "Option<&Path>",
-              "description": "Local 电脑上的代码目录，默认当前目录。",
+              "description": "Local 电脑上的项目代码根目录，默认当前目录。",
               "required": false,
               "defaultValue": "."
+            },
+            {
+              "id": "p-start-vps-path",
+              "name": "远端目录",
+              "englishName": "vps_path",
+              "type": "Option<&str>",
+              "description": "VPS 上的代码同步保存目录，默认自动推导为 '~/codebridge/<目录名>'，也支持显式指定。",
+              "required": false,
+              "defaultValue": ""
             }
           ],
           "outputs": [
@@ -1075,10 +1084,10 @@ globalThis.softwareArchitecture = {
             },
             {
               "id": "f-rec-root",
-              "name": "云端根目录",
-              "englishName": "remote_root",
+              "name": "VPS目录",
+              "englishName": "vps_path",
               "type": "String",
-              "description": "VPS 上独占的工作区绝对路径。"
+              "description": "VPS 上独占的项目目录绝对路径。"
             },
             {
               "id": "f-rec-port",
@@ -1208,10 +1217,10 @@ globalThis.softwareArchitecture = {
           "inputs": [
             {
               "id": "p-vps-ins-path",
-              "name": "工作区路径",
-              "englishName": "workspace_path",
+              "name": "VPS目录",
+              "englishName": "vps_path",
               "type": "Option<&Path>",
-              "description": "可选的项目目录路径，默认当前工作目录。",
+              "description": "可选的 VPS 项目目录路径，默认当前工作目录。",
               "required": false,
               "defaultValue": "."
             }
@@ -1252,10 +1261,10 @@ globalThis.softwareArchitecture = {
             },
             {
               "id": "p-vps-res-path",
-              "name": "远端目录",
-              "englishName": "remote_root",
+              "name": "VPS目录",
+              "englishName": "vps_path",
               "type": "&str",
-              "description": "申请独占的 VPS 同步根目录。",
+              "description": "申请独占的 VPS 项目目录路径。",
               "required": true,
               "defaultValue": ""
             },
@@ -1296,10 +1305,10 @@ globalThis.softwareArchitecture = {
           "inputs": [
             {
               "id": "p-vps-rel-path",
-              "name": "工作区路径",
-              "englishName": "workspace_path",
+              "name": "VPS目录",
+              "englishName": "vps_path",
               "type": "Option<&Path>",
-              "description": "可选的目标工作区路径，默认当前工作目录。",
+              "description": "可选的目标 VPS 目录路径，默认当前工作目录。",
               "required": false,
               "defaultValue": "."
             }
