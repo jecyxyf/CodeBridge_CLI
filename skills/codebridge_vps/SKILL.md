@@ -13,9 +13,10 @@ description: 管理和巡检 CodeBridge VPS 云端服务端。负责云端待命
 
 ## 执行流程与规范
 
-### 1. 执行模式判断
-- **本机即 VPS**：直接调用 `/root/CodeBridgeVPS` 或系统命令 `CodeBridgeVPS`；
-- **开发机远程代管**：若当前终端在 Local 开发机，自动通过免密 SSH 通道（`ssh <VPS_IP> "<命令>"`）在远端 VPS 上执行对应操作。
+### 1. 执行模式与程序定位
+- **程序路径智能定位**：优先查找云端安装目录（`~/codebridge/CodeBridgeVPS`、`/root/CodeBridgeVPS`）或通过 `which CodeBridgeVPS` 查找，绝不硬编码单一路径；
+- **开发机远程代管**：若当前在本地开发机，自动从项目 `vps_ssh.config`、`~/.ssh/config` 或提示词中提取 VPS IP，通过免密 SSH 通道（`ssh <VPS_IP> "<程序路径> <命令>"`）在远端自动执行；
+- **本机即 VPS**：若当前终端本身就在云端 VPS 上，直接调用定位到的本地可执行程序。
 
 ### 2. 核心指令调度
 - **启动待命服务 (`start`)**：
