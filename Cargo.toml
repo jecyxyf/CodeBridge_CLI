@@ -29,12 +29,12 @@ tempfile = "3.10"
 
 [[test]]
 name = "common_tests"
-path = "docs/xyf-easycode/tests/common_tests.rs"
+path = "tests/common_tests.rs"
 
 [[test]]
 name = "local_tests"
-path = "docs/xyf-easycode/tests/local_tests.rs"
+path = "tests/local_tests.rs"
 
 [[test]]
 name = "vps_tests"
-path = "docs/xyf-easycode/tests/vps_tests.rs"
+path = "tests/vps_tests.rs"
