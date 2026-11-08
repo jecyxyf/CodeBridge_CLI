@@ -3,10 +3,10 @@ globalThis.softwareArchitecture = {
   "id": "project-template",
   "name": "CodeBridge CLI",
   "englishName": "codebridge-cli",
-  "description": "CodeBridge 是为远程开发与硬件联调设计的轻量命令行与 AI Skill 外壳，主程序采用 Rust 实现，底层零改动复用 Mutagen 的 Go 核心总入口。Local 与 VPS 之间严格保持唯一单连接通道，多项目多端口复用传输。业务全面支持 AI Agent（Skill）与人类零参数调用：执行 start_codebridge 自动将当前目录同步到 VPS 同名目录，网页端口（默认 3000）自动映射至 VPS 10000+ 随机空闲端口，并统一通过 ConfigManager::set_result 输出包含 web_url 的标准 JSON 并落盘日志。",
+  "description": "CodeBridge 采用 Rust 封装原生 Go Mutagen，用于 Local 与 VPS 之间的项目文件双向同步和网页端口转发。用户只需拷贝对应系统与架构的 CodeBridgeLocal、CodeBridgeVPS 可执行程序；构建时打包所需组件，运行时自动准备，不要求用户安装 Go、Mutagen 或手动配置系统环境变量。Mutagen 源码保持不变。Local 通过已有 SSH 能力主动连接 VPS，Agent 按 Mutagen 原生机制自动部署和启动；CodeBridgeVPS 负责资源台账与查询，不取代 Agent 协议。启动参数按输入、已保存配置、约定默认值的顺序补齐，成功后保存。命令返回统一 JSON，日志由各自程序目录的 logs/yyyy_mm_dd.log 保存并保留 90 天。单文件交付不等于单进程；每台 Local 与 VPS 只保持一条物理连接仍是待验证约束，不宣称原生 Mutagen 已满足。",
   "repository": {
     "path": "/home/xyf/orca/CodeBridge_CLI/0.0.1",
-    "revision": "8321944aeda2d85aa9a94ff4230bcf63b98a952e",
+    "revision": "7ba1748d816ac92477373c65b4ecf8437820c90a",
     "dirty": true
   },
   "groups": [
@@ -61,7 +61,7 @@ globalThis.softwareArchitecture = {
       "id": "module-05d74c5b-bdc8-4da4-a97d-c7ec5d67643d",
       "name": "配置参数模块",
       "englishName": "ConfigManager",
-      "purpose": "提供 JSON 保存、JSON 加载、参数结构体序列化和反序列化四个静态关联函数。配置目录固定为主程序所在目录/config/；业务参数结构体由各模块自行定义和持有。保留每个主程序进程一个实例的单例约束，对外无需先获取实例。",
+      "purpose": "两端共用的配置读写、JSON 转换与命令结果模块。保留 save_json、load_json、serialize、deserialize、set_result、get_result 六个静态关联函数。配置固定保存在应用程序目录/config/；业务参数由调用模块持有，命令结果仅在当前进程内暂存。",
       "language": "Rust",
       "codeLocation": "src/Common/config.rs",
       "groupId": "group-e4af7b0a-c2f1-48a1-a84e-5a98653a56c0",
@@ -79,14 +79,17 @@ globalThis.softwareArchitecture = {
         "单例模块：每个主程序进程内仅有一个配置参数模块实例。",
         "同一进程中的其他模块统一使用该实例。",
         "VPS 与 Local 的主程序分别持有自己的实例。",
-        "项目使用 Rust 实现；对外仅提供 save_json、load_json、serialize、deserialize 四个静态关联函数，不增加获取实例或业务参数管理接口。",
+        "项目使用 Rust 实现；对外保留 save_json、load_json、serialize、deserialize、set_result、get_result 六个静态关联函数，不新增业务参数管理接口。",
         "配置文件保存为当前运行主程序所在目录/config/*.json；从主程序可执行文件路径确定目录，不使用启动命令所在目录，也不在定位失败时回退到其他目录。",
         "各业务模块自行定义并持有自己的参数结构体；本模块不集中保存、缓存或解释各业务模块的参数。",
         "save_json 和 load_json 仅负责 JSON 文本与配置文件之间的读写；serialize 和 deserialize 仅负责参数结构体与 JSON 文本之间的转换。",
         "调用方为 serialize 传入支持 serde::Serialize 的参数结构体，为 deserialize 指定支持 serde::de::DeserializeOwned 的目标类型 T；反序列化成功时返回 T。",
         "文件名由调用模块明确传入；只允许 config 目录下的 .json 配置文件，拒绝绝对路径和越出配置目录的路径。首次保存时创建缺少的 config 目录。",
         "加载文件缺失、文件读写失败、JSON 转换失败都返回错误；是否使用默认参数由调用模块决定，本模块不替业务模块生成默认值。",
-        "提供 set_result 与 get_result 静态关联函数：集中托管命令返回值，并在 set_result 中通过布尔开关控制控制台屏幕打印，自动触发 Logger 日志落盘。"
+        "提供 set_result 与 get_result 静态关联函数：集中托管命令返回值，并在 set_result 中通过布尔开关控制控制台屏幕打印，自动触发 Logger 日志落盘。",
+        "业务参数读取、合并、校验及成功后保存由 CodeBridgeLocal 或 CodeBridgeVPS 决定；本模块不把文件损坏或权限错误当成空配置。",
+        "统一响应包含 ok、data、error；print_screen 只控制标准输出，不关闭日志。每条命令只输出一次最终响应；暂存结果不能作为跨进程状态或真实连接状态。",
+        "set_result 成功只表示本次结果处理完成，不表示结果中的业务操作成功；业务成功以 CommandResult.ok 及实际观测的 data 状态为准。"
       ],
       "dependencies": [
         "Rust std::env::current_exe：取得主程序路径，确定其所在目录下的 config/。",
@@ -336,10 +339,10 @@ globalThis.softwareArchitecture = {
           "id": "method-config-set-result",
           "name": "设定返回值",
           "englishName": "set_result",
-          "purpose": "静态关联函数：设定当前命令的标准返回值结构体，自动调用 Logger 记录日志，并根据布尔开关决定是否打印到控制台屏幕。",
-          "flow": "保存返回值 -> 自动调用 Logger 记录日志 -> 根据 print_screen 布尔开关决定是否通过 println! 打印标准 JSON。",
-          "errors": "日志写入失败或序列化异常返回 Err(ConfigError)。",
-          "status": "planned",
+          "purpose": "暂存当前进程的 CommandResult，按业务成功或失败调用 Logger，并由 print_screen 决定是否输出完整 JSON。业务方法返回数据，由 dispatch 统一调用本接口，避免重复输出。",
+          "flow": "返回值仅暂存在当前进程，不写作连接状态。\n业务成功调用 Logger::log_info，业务失败调用 Logger::log_error；日志调用不向本接口返回写入成败。\nprint_screen=true 时向标准输出写一个完整 JSON 响应；false 时不打印，调用者收到明确的结果处理错误。",
+          "errors": "序列化、结果暂存或标准输出失败返回 ConfigError。Logger 四个方法没有错误返回值，不能承诺通过本接口检测日志写入失败；保持 Logger 既有非中断约定。",
+          "status": "modified",
           "sources": [],
           "unknowns": [],
           "inputsConfirmed": true,
@@ -482,7 +485,8 @@ globalThis.softwareArchitecture = {
         "惰性初始化：第一次调用任意日志方法时，如果未初始化则内部自动完成初始化，对外不暴露显式初始化方法。",
         "日志保存位置：固定写入当前运行主程序所在目录/logs/yyyy_mm_dd.log，每天保存一个独立日志文件。",
         "自动翻滚与清理：日志最多保存 90 天，超过 90 天的历史日志文件自动清理删除。",
-        "方法约束：对外仅提供 log_error、log_debug、log_warn、log_info 4 个单例方法，不提供其他方法。"
+        "方法约束：对外仅提供 log_error、log_debug、log_warn、log_info 4 个单例方法，不提供其他方法。",
+        "Local 与 VPS 各自保存本程序和已采集底层日志，不宣称两台机器共享一个物理日志文件；采集和转交由各自业务模块负责，Logger 不管理子进程。"
       ],
       "dependencies": [
         "Rust std::env::current_exe：定位可执行程序路径以确定 logs/ 目录。",
@@ -621,7 +625,7 @@ globalThis.softwareArchitecture = {
       "id": "module-mutagen-cli",
       "name": "Mutagen 命令行总入口",
       "englishName": "MutagenCli",
-      "purpose": "Mutagen Local 主程序总入口（Cobra 根命令），提供 daemon、sync、forward、project 等子命令，输出标准 JSON 状态供外部调用。",
+      "purpose": "不修改源码的原生 Go 可执行程序入口，供 CodeBridgeLocal 通过进程参数调用。提供 daemon、sync、forward、project 等命令；它不是 Rust 可直接调用的 Go 类。只有已核实支持模板的状态查询使用 JSON 模板输出。",
       "language": "Go",
       "codeLocation": "depends/mutagen/cmd/mutagen/main.go",
       "groupId": "group-0cb11cc3-b58d-4551-90c7-2ac347d32ba7",
@@ -632,15 +636,37 @@ globalThis.softwareArchitecture = {
         "backgroundColor": "#fcfdff",
         "headerColor": "#f4f7ff"
       },
-      "status": "planned",
-      "sources": [],
-      "unknowns": [],
+      "status": "modified",
+      "sources": [
+        {
+          "path": "depends/mutagen/cmd/mutagen/main.go",
+          "line": 73,
+          "endLine": 109,
+          "symbol": "main / rootCommand"
+        },
+        {
+          "path": "depends/mutagen/cmd/mutagen/daemon/main.go",
+          "line": 46,
+          "endLine": 61,
+          "symbol": "supportedCommands"
+        },
+        {
+          "path": "depends/mutagen/pkg/agent/bundle.go",
+          "line": 54,
+          "endLine": 103,
+          "symbol": "ExecutableForPlatform"
+        }
+      ],
+      "unknowns": [
+        "运行平台清单、依赖校验和及原生版本兼容性需在构建与干净环境部署测试中确认，当前不视为通过。"
+      ],
       "requirements": [
-        "提供 daemon 子命令：管理Local后台守护管家启停与状态查询。",
-        "提供 sync 子命令：管理项目双向文件同步生命周期（create/list/flush/pause/resume/terminate）。",
-        "提供 forward 子命令：管理反向端口映射生命周期（create/list/pause/resume/terminate）。",
-        "提供 project 子命令：基于 mutagen.yml 一键编排并启停全部同步与端口会话。",
-        "所有查询命令支持 --template '{{json .}}' 输出机器可读的标准 JSON 格式。"
+        "源码固定使用项目 depends/mutagen 的已锁定提交，不改动该依赖源码；构建时生成主程序及匹配版本的 Agent 包，并内嵌至 CodeBridgeLocal。",
+        "原生 daemon 提供 run、start、stop；不能假设存在 daemon status 命令。同步与转发会话由原生后台管理，不重复实现文件监听或重连引擎。",
+        "原生 sync、forward 管理各自会话；CodeBridge 只操作本程序登记的精确会话编号，不使用全局全部会话操作影响用户其他任务。",
+        "已核实 sync list 与 forward list 可用 --template {{json .}} 输出查询数据；create、start 等命令不保证返回 JSON，退出码、标准输出和标准错误分别处理。",
+        "Agent 包按原生规则放在释放后的 Mutagen 可执行程序旁或支持的 libexec 位置，两者版本必须一致；不依赖用户单独准备组件。",
+        "原生 Mutagen 会派生后台进程和 SSH/Agent 相关进程；不能由改名或内嵌推断为单进程，也不能由包内的多路复用代码推断为全局唯一 SSH 连接。"
       ],
       "dependencies": [],
       "parameters": [],
@@ -650,11 +676,18 @@ globalThis.softwareArchitecture = {
           "id": "method-cli-execute",
           "name": "执行 Mutagen 命令",
           "englishName": "ExecuteCommand",
-          "purpose": "调用 Mutagen 根命令执行指定子命令并捕获标准输出或 JSON 结果。",
-          "flow": "解析参数数组 -> 分发到对应子命令 -> 返回标准输出或格式化 JSON 文本。",
-          "errors": "命令不存在或执行失败返回 error 与退出码。",
-          "status": "planned",
-          "sources": [],
+          "purpose": "原有名称 ExecuteCommand 表示外部进程调用边界，不是 Mutagen 源码中的同名公开 Go 函数；由 Rust 以参数数组启动原生可执行程序。",
+          "flow": "以原生命令行参数调用 mutagen，并收集退出码、标准输出、标准错误。\n仅对支持模板的查询解析 JSON；其他命令按原生行为处理。",
+          "errors": "非零退出码、超时或查询解析失败由 Rust 转换为统一错误；请求受理或会话创建不等于文件同步完成或网页可访问。",
+          "status": "modified",
+          "sources": [
+            {
+              "path": "depends/mutagen/cmd/mutagen/main.go",
+              "line": 89,
+              "endLine": 109,
+              "symbol": "main"
+            }
+          ],
           "unknowns": [],
           "inputsConfirmed": true,
           "outputsConfirmed": true,
@@ -664,7 +697,7 @@ globalThis.softwareArchitecture = {
               "name": "参数数组",
               "englishName": "args",
               "type": "[]string",
-              "description": "命令行参数切片，如 [sync, list, --template, {{json .}}]。",
+              "description": "原生程序的命令行参数数组，例如 sync、list、--template、{{json .}}；不是 Go 库接口入参。",
               "required": true,
               "defaultValue": ""
             }
@@ -675,7 +708,7 @@ globalThis.softwareArchitecture = {
               "name": "命令输出",
               "englishName": "output",
               "type": "string",
-              "description": "标准输出捕获文本。",
+              "description": "被调用进程的标准输出；仅支持模板的查询可约定为 JSON，退出码与诊断由 Rust 调用方另行检查。",
               "required": true,
               "defaultValue": ""
             }
@@ -690,6 +723,13 @@ globalThis.softwareArchitecture = {
           "englishName": "TestExecuteCommand",
           "steps": "执行 mutagen version 并读取输出。",
           "expected": "成功输出版本字符串且退出码为 0。"
+        },
+        {
+          "id": "test-cb-native-query-contract",
+          "name": "原生命令与查询格式",
+          "englishName": "NativeCommandAndQueryContract",
+          "steps": "在隔离数据目录中检查 version、daemon start/stop、sync list 和 forward list 的真实输出及退出码。",
+          "expected": "不调用不存在的 daemon status；查询 JSON 可解析，非查询不假设为 JSON，失败不会报告为成功。"
         }
       ]
     },
@@ -697,7 +737,7 @@ globalThis.softwareArchitecture = {
       "id": "module-mutagen-agent",
       "name": "Mutagen VPS 代理总入口",
       "englishName": "MutagenAgent",
-      "purpose": "Mutagen 跑在 VPS 上的轻量临时小助手总入口，随 SSH 管道在VPS内存中自动自驱动，全自动处理文件落盘与Local回路端口监听。",
+      "purpose": "原生 Go mutagen-agent 程序入口。由 Local 的 Mutagen 经 SSH 部署到 VPS 的版本目录，并按 synchronizer 或 forwarder 模式启动，通过标准输入输出处理相应协议。用户不需要单独安装、调用或了解它。",
       "language": "Go",
       "codeLocation": "depends/mutagen/cmd/mutagen-agent/main.go",
       "groupId": "group-mutagen-vps",
@@ -708,14 +748,43 @@ globalThis.softwareArchitecture = {
         "backgroundColor": "#fcfdff",
         "headerColor": "#f4f7ff"
       },
-      "status": "planned",
-      "sources": [],
-      "unknowns": [],
+      "status": "modified",
+      "sources": [
+        {
+          "path": "depends/mutagen/cmd/mutagen-agent/main.go",
+          "line": 63,
+          "endLine": 79,
+          "symbol": "rootCommand / main"
+        },
+        {
+          "path": "depends/mutagen/pkg/agent/install.go",
+          "line": 15,
+          "endLine": 36,
+          "symbol": "Install"
+        },
+        {
+          "path": "depends/mutagen/pkg/agent/install.go",
+          "line": 59,
+          "endLine": 109,
+          "symbol": "install"
+        },
+        {
+          "path": "depends/mutagen/pkg/agent/dial.go",
+          "line": 61,
+          "endLine": 69,
+          "symbol": "connect"
+        }
+      ],
+      "unknowns": [
+        "不同断线方式下 Agent 进程与监听端口的收尾时机需真实验证；不能以文档声明替代实测。"
+      ],
       "requirements": [
-        "随 SSH 管道由 Local 自动推送至 VPS 并在内存中临时运行，零手动安装与环境依赖。",
-        "集成 synchronizer 逻辑，在 VPS 目标目录执行文件落盘与修改扫描。",
-        "集成 forwarder 逻辑，在 VPS Local开出 TCP 回路端口监听并引流回 SSH 数据流。",
-        "SSH 会话断开或任务终止时自动干净退出，零进程与文件残留。"
+        "保持 depends/mutagen 源码不变；Agent 与 Local 的 Mutagen 使用相同构建版本并执行原生版本握手。",
+        "Agent 由 Local 的 Mutagen 自动复制、安装和调用，安装文件会留在 VPS 磁盘；不得描述为纯内存运行或退出后零文件残留。",
+        "synchronizer 与 forwarder 是按需启动的模式，不是一个集中管理所有 Local 的常驻资源登记服务；CodeBridgeVPS 的台账职责不能由该入口自动替代。",
+        "同步模式在 VPS 指定目录读写文件；转发模式按源端或目标端配置提供监听或连接。本项目的反向转发在 VPS 的 127.0.0.1 上监听。",
+        "标准输入输出用于原生二进制协议，不写入 CodeBridge JSON 或业务日志；Agent 运行日志通过标准错误转发。",
+        "进程和端点退出情况以真实协议、退出码和资源观测为准；断开网络不能直接等同于立即退出或端口已经释放。"
       ],
       "dependencies": [],
       "parameters": [],
@@ -725,11 +794,18 @@ globalThis.softwareArchitecture = {
           "id": "method-agent-run",
           "name": "运行VPS代理服务",
           "englishName": "RunAgent",
-          "purpose": "接管 SSH stdin/stdout 流并响应同步落盘与端口监听请求。",
-          "flow": "监听 stdio 数据流 -> 协调工作区与端口监听 -> 通道断开时优雅注销。",
-          "errors": "通信通道中断正常退出。",
-          "status": "planned",
-          "sources": [],
+          "purpose": "原有名称 RunAgent 表示 Agent 可执行程序的启动边界，不是源码中的同名公开 Go 函数。实际由 Mutagen 选择 synchronizer 或 forwarder 模式调用。",
+          "flow": "接收原生 Mutagen 选择的 Agent 命令与对应协议流。\n通过 SSH 标准输入输出提供所选端点服务，并在退出时提供实际进程退出码。",
+          "errors": "协议握手、版本不匹配或运行故障按原生错误处理；不能将所有通道中断统一判定为正常退出。",
+          "status": "modified",
+          "sources": [
+            {
+              "path": "depends/mutagen/cmd/mutagen-agent/main.go",
+              "line": 63,
+              "endLine": 79,
+              "symbol": "main"
+            }
+          ],
           "unknowns": [],
           "inputsConfirmed": true,
           "outputsConfirmed": true,
@@ -740,7 +816,7 @@ globalThis.softwareArchitecture = {
               "name": "退出码",
               "englishName": "exitCode",
               "type": "int",
-              "description": "退出状态码，正常为 0。",
+              "description": "Agent 进程实际退出码，0 只表示正常退出，不表示业务同步或网页检查已经通过。",
               "required": true,
               "defaultValue": "0"
             }
@@ -753,8 +829,8 @@ globalThis.softwareArchitecture = {
           "id": "t-agent-lifecycle",
           "name": "Agent 生命周期测试",
           "englishName": "TestAgentLifecycle",
-          "steps": "启动代理并模拟通道关闭。",
-          "expected": "干净退出且无多余后台进程残留。"
+          "steps": "分别创建真实同步与反向转发，记录 Agent 进程、版本安装目录及监听端口；终止会话并观察收尾。",
+          "expected": "对应会话确实结束且资源状态可确认；允许保留原生安装文件，不以零文件残留作为通过条件。"
         }
       ]
     },
@@ -762,7 +838,7 @@ globalThis.softwareArchitecture = {
       "id": "module-codebridge-local",
       "name": "Local 业务主程序",
       "englishName": "CodeBridgeLocal",
-      "purpose": "Local 客户端业务主程序。负责解析Local命令行参数、管理项目配置、打通至 VPS 的 SSH 通道、驱动 Mutagen Local命令行执行文件同步与端口反向映射，并将统一返回值存入 ConfigManager。",
+      "purpose": "Local 的 Rust 命令外壳，负责自动准备内嵌组件、读取与保存启动参数、调用原生 Mutagen 的同步和转发命令，并把真实结果转换为统一 JSON。用户只操作 CodeBridge，不重复编写 Mutagen 的同步引擎。",
       "language": "Rust",
       "codeLocation": "src/Local/main.rs",
       "groupId": "group-679f7997-02f7-419d-b8a9-50719242faa9",
@@ -773,22 +849,38 @@ globalThis.softwareArchitecture = {
         "backgroundColor": "#fcfdff",
         "headerColor": "#f4f7ff"
       },
-      "status": "planned",
+      "status": "modified",
       "sources": [],
-      "unknowns": [],
+      "unknowns": [
+        "严格唯一物理 SSH 连接能否在不修改 Mutagen 的前提下跨目标平台承载同步、转发和资源控制，尚未证明；这是继续业务实现前的阻塞项。",
+        "CodeBridgeLocal 常驻外壳和原生 daemon 的组织方式、后台日志采集与停机控制未定；不能承诺一个进程或只捕获 daemon start 命令即可采集全部日志。",
+        "VPS IP 之外的 SSH 用户名、端口、认证及项目专用 SSH 配置如何进入原生 Mutagen，现有参数未完整定义；不得靠测试主机的个人配置隐式补齐。",
+        "内嵌组件释放目录、版本升级及多实例隔离策略需确认；系统与 CPU 架构兼容性需要实测。",
+        "多项目持久化记录与每条同步/转发会话编号的数据结构、Local 持久身份来源需补齐，不能用一个拼造的 session_id 代表所有会话。"
+      ],
       "requirements": [
-        "命令行参数解析：使用 clap 解析子命令（start_codebridge、stop_bridge、query_status、add_forward）与独立参数。",
-        "参数继承与增量覆盖：每次启动优先使用命令行传入的参数；未传入的参数自动读取Local配置文件补齐；支持传入部分参数实现增量更新覆盖。",
-        "首次无配置防御报错：启动时如果既没有输入参数，Local又没有历史配置文件，直接报错拒绝盲启动，提示用户提供必要参数。",
-        "启动成功自动持久化：桥接任务启动成功后，自动将本次生效的完整参数持久化保存到Local配置文件，供下次启动直接复用。",
-        "单连接通道铁律：Local 到目标 VPS 有且仅保持 1 条连接通道，所有同步与端口映射均复用该通道，不建立重复物理连接。",
-        "驱动底层 Mutagen：作为父进程调用 MutagenCli，stdout 捕获 JSON，stderr 管道重定向至 Logger。",
-        "统一返回值收口：操作完成后统一调用 ConfigManager::set_result，控制是否打印屏幕，自动记入文件日志。"
+        "单文件交付：用户只拷贝对应平台的 CodeBridgeLocal 即可使用；构建阶段从 depends/mutagen 的锁定提交生成并内嵌主程序和匹配 Agent 包，运行时不下载源码或安装编译工具。",
+        "自动准备运行组件：释放到应用程序管理的专用目录，检查版本、完整性和执行权限；并发首次启动不破坏文件，升级不覆盖正在使用的版本。具体内部目录约定待确认。",
+        "环境边界：使用已有系统 SSH、有效登录配置、网络访问及目录权限；不要求用户设置系统环境变量，也不静默安装工具。SSH 账号、端口和凭据选择方式必须在接入设计中确认。",
+        "命令行独立参数进入 dispatch；外部 start、stop、status、forward 分别对应 start_codebridge、stop_bridge、query_status、add_forward，所有结果支持 Skill 读取。",
+        "参数优先级：显式输入优先于上次成功保存的配置，配置优先于已约定默认值；默认值不能提前填充而覆盖历史值。支持只输入部分参数；合并后仍缺必要信息则报错。",
+        "既无输入参数又无配置文件时拒绝启动；配置文件损坏或无读取权限时明确报错，不当成首次使用或空配置。启动成功后保存实际生效的完整参数，保存失败须说明业务已启动但配置未保存。",
+        "目录与归属：规范化 local_path 后定位会话，不能仅凭目录名区分项目；vps_path 优先输入或历史值，无记录时按既定 ~/codebridge/<目录名> 推导，冲突则拒绝而不是覆盖其他 Local。",
+        "真实调用 Mutagen 创建或复用登记一致的同步与转发会话；保存真实会话编号，重复启动不生成重复任务。失败只回收本次创建的资源，不删除两端项目文件。",
+        "网页端口 web_port 为 Local 已有服务的真实端口，不随机更改或自动启动业务程序；VPS 端口从 10000 至 65535 随机选择候选，并由 VPS 实际检查和 Mutagen 绑定确认；冲突有界重试，不能用 Local 空闲端口推断 VPS 空闲。",
+        "连接约束：每台 Local 仅连接一个 VPS，要求同一对 Local/VPS 的任务复用唯一物理连接；该约束仍需可行性验证，不得擅自放宽，也不得宣称原生 Mutagen 已自动满足。",
+        "后台边界：用户无需管理内部组件，但运行时可能存在 CodeBridge、Mutagen daemon、SSH 与 Agent 进程；不将单文件交付或进程改名解释为单进程实现。常驻外壳、原生 daemon 与命令进程的具体组织待确认。",
+        "日志汇聚：采集实际运行组件的日志，保留级别和来源并交给 Logger，写入本程序目录/logs/yyyy_mm_dd.log，保留 90 天；短时 CLI 的 stderr 不等于 daemon 的持续日志，采集方案需单独验证。",
+        "输出与状态：仅把支持模板的原生查询解析为 JSON；dispatch 每条命令统一调用 ConfigManager::set_result 一次。返回实际状态，区分已受理、运行中、冲突、失败、离线和未知，不伪造 ready、connected、会话编号或网页地址。",
+        "stop_bridge 和 add_forward 仅操作归属本程序及目标目录的会话，保留其他项目和用户自行建立的 Mutagen 会话；端口、进程是否停止必须确认，状态不明时保留登记。"
       ],
       "dependencies": [
-        "ConfigManager::set_result / ConfigManager::get_result",
-        "Logger::log_info / Logger::log_error",
-        "MutagenCli"
+        "ConfigManager::load_json / ConfigManager::deserialize：读取已保存参数。",
+        "ConfigManager::serialize / ConfigManager::save_json：成功后保存有效参数。",
+        "ConfigManager::set_result / ConfigManager::get_result：当前进程的统一命令结果。",
+        "Logger::log_info / Logger::log_error / Logger::log_warn / Logger::log_debug：业务与已采集底层日志。",
+        "MutagenCli：原生可执行程序及匹配 Agent 包。",
+        "CodeBridgeVPS::reserve_resource / CodeBridgeVPS::release_resource / CodeBridgeVPS::inspect_status：VPS 资源与查询，调用通道待确认。"
       ],
       "parameters": [],
       "structures": [],
@@ -797,10 +889,10 @@ globalThis.softwareArchitecture = {
           "id": "method-local-dispatch",
           "name": "命令总调度",
           "englishName": "dispatch",
-          "purpose": "命令行总调度入口。接收并解析命令行独立参数，分发调用启动、停止、查状态、加端口等具体业务方法，并调用 set_result 统一收口输出。",
-          "flow": "解析输入命令行参数 -> 匹配子命令 -> 路由调用对应具体业务方法 -> 统一通过 set_result 打印屏幕与记日志。",
-          "errors": "未知命令或参数不全时设置错误码并输出。",
-          "status": "planned",
+          "purpose": "解析独立参数并调用对应业务方法，在命令出口统一生成一次 CommandResult、日志和可控 JSON 输出。",
+          "flow": "识别命令以及哪些参数由用户显式输入，不在解析时用默认值覆盖历史配置。\n调用对应业务方法并保留其实际成功或失败结果。\n统一调用 set_result 一次，错误使用非零进程退出码；帮助或版本请求不当作参数错误。",
+          "errors": "参数错误、业务失败、结果输出失败均不得吞掉；帮助与版本请求按正常请求处理，不重复输出响应。",
+          "status": "modified",
           "sources": [],
           "unknowns": [],
           "inputsConfirmed": true,
@@ -832,10 +924,10 @@ globalThis.softwareArchitecture = {
           "id": "method-local-start-codebridge",
           "name": "启动 CodeBridge 桥接",
           "englishName": "start_codebridge",
-          "purpose": "支持参数继承、增量覆盖与零参数启动：优先使用命令行传入参数，未传参数自动读取Local配置文件补齐；启动成功后自动将最新参数持久化保存供下次直接复用；既无输入参数又无配置文件时明确报错。",
-          "flow": "1. 参数合并：读取命令行输入参数，未传参数尝试通过 ConfigManager::load_json 读取配置文件补齐；\n2. 防御校验：若无输入且无配置文件，返回错误并提示提供必要参数；\n3. 驱动启动：使用有效参数调起同步与端口映射，VPS自动分配 10000+ 可用端口；\n4. 保存记忆：启动成功后自动调用 ConfigManager::save_json 将最新有效参数保存到配置文件；\n5. 统一收口：调用 ConfigManager::set_result 输出包含 web_url 的标准 JSON 结果并记日志。",
-          "errors": "既无输入参数又无配置文件、Local路径不存在、SSH 无法连通、或端口已被占用时返回错误。",
-          "status": "planned",
+          "purpose": "自动准备内嵌依赖，使用输入参数覆盖历史配置并补齐约定默认值，实际启动同步和网页转发；成功后保存生效参数，返回真实会话与状态供 dispatch 统一输出。",
+          "flow": "参数选择按显式输入、上次成功配置、约定默认值排序；既无输入又无配置文件或合并后缺必要信息时拒绝启动。\n内嵌组件、SSH 条件及目录权限满足后才能创建或复用归属一致的任务；唯一物理连接方案未验证前不得宣称满足。\n确认真实同步会话与 VPS 监听地址；会话受理不等于初始同步完成或网页业务就绪。\n成功后保存本次生效参数及真实会话归属；保存失败须返回业务实际状态和保存失败原因。\n返回 CommandResult 由 dispatch 统一处理，不在本方法重复打印或填造 web_url。",
+          "errors": "无参数且无配置、必要参数不足、配置损坏或不可读、组件校验失败、路径无效、SSH 失败、VPS 目录冲突、监听绑定失败均明确报错。失败不覆盖上次成功配置；不能把部分成功或配置保存失败报告为完整成功。",
+          "status": "modified",
           "sources": [],
           "unknowns": [],
           "inputsConfirmed": true,
@@ -846,7 +938,7 @@ globalThis.softwareArchitecture = {
               "name": "网页端口",
               "englishName": "web_port",
               "type": "Option<u16>",
-              "description": "Local 电脑上正在运行的网页服务端口，默认 3000。",
+              "description": "Local 网页实际服务端口；未传优先读取已保存配置，无历史值时才使用 3000。",
               "required": false,
               "defaultValue": "3000"
             },
@@ -855,7 +947,7 @@ globalThis.softwareArchitecture = {
               "name": "VPS IP",
               "englishName": "vps_ip",
               "type": "Option<&str>",
-              "description": "VPS VPS 服务器的 IP 地址，默认取已配置的 IP。",
+              "description": "VPS IP；未传读取已保存 IP，无可用值则报错。SSH 用户、认证与端口接入方式属于待确认条件。",
               "required": false,
               "defaultValue": ""
             },
@@ -864,7 +956,7 @@ globalThis.softwareArchitecture = {
               "name": "项目目录",
               "englishName": "local_path",
               "type": "Option<&Path>",
-              "description": "Local 电脑上的项目代码根目录，默认当前目录。",
+              "description": "Local 项目目录；显式值优先，其次已保存值，无历史值时使用当前目录。路径需规范化后定位任务，不只取目录名。",
               "required": false,
               "defaultValue": "."
             },
@@ -873,7 +965,7 @@ globalThis.softwareArchitecture = {
               "name": "VPS目录",
               "englishName": "vps_path",
               "type": "Option<&str>",
-              "description": "VPS 上的代码同步保存目录，默认自动推导为 '~/codebridge/<目录名>'，也支持显式指定。",
+              "description": "VPS 项目保存目录；显式值优先，其次已保存值，无历史值时推导 ~/codebridge/<目录名>；已有归属冲突时拒绝。",
               "required": false,
               "defaultValue": ""
             }
@@ -884,7 +976,7 @@ globalThis.softwareArchitecture = {
               "name": "启动结果",
               "englishName": "result",
               "type": "Result<CommandResult, String>",
-              "description": "包含 web_url (如 http://127.0.0.1:10086)、web_port、vps_port 与同步状态的 CommandResult 对象。",
+              "description": "真实启动结果：区分任务已受理与同步/网页就绪；会话编号、VPS 端口和 web_url 均来自实际创建或查询，无法确认时标明未知。",
               "required": true,
               "defaultValue": ""
             }
@@ -894,10 +986,10 @@ globalThis.softwareArchitecture = {
           "id": "method-local-stop-bridge",
           "name": "停止桥接",
           "englishName": "stop_bridge",
-          "purpose": "默认零参数安全停止当前目录对应项目的同步与端口映射任务，释放VPS端口，保留两端磁盘文件。",
-          "flow": "读取当前工作目录推导项目 -> 终止对应同步与端口会话 -> 释放VPS端口 -> 返回成功结果。",
-          "errors": "项目不存在或未在运行返回错误。",
-          "status": "planned",
+          "purpose": "停止当前目录或指定范围内、本程序管理的同步和转发会话；确认停止后释放对应登记，保留两端文件及下次启动所需参数。",
+          "flow": "根据规范化目录和已保存会话归属定位目标，all=true 仅扩大到本程序管理的项目。\n请求终止目标同步和转发并确认实际状态；不触碰其他程序任务。\n确认停止后解除对应资源登记，保留项目文件和历史启动参数；结果由 dispatch 输出。",
+          "errors": "范围不明、目标离线、会话停止或端口释放无法确认时返回失败或未知，保留资源归属，不提前宣布释放。",
+          "status": "modified",
           "sources": [],
           "unknowns": [],
           "inputsConfirmed": true,
@@ -939,9 +1031,9 @@ globalThis.softwareArchitecture = {
           "name": "查询状态",
           "englishName": "query_status",
           "purpose": "默认零参数检查当前目录对应项目的连接状态、文件同步进度（watching/syncing/conflicted）以及端口映射清单。",
-          "flow": "读取当前工作目录推导项目 -> 向底层查询会话状态 -> 解析连接、同步进度与端口清单 -> 组装状态对象并返回。",
-          "errors": "未找到指定项目返回错误。",
-          "status": "planned",
+          "flow": "按规范化目录查找本程序登记的真实会话。\n分别查询同步、转发及连接状态，带实际观测时间；不可用或离线时明确标注。\n仅返回真实登记的 VPS 地址与网页可达性，交由 dispatch 输出。",
+          "errors": "无登记、引擎不可用、查询失败或状态过期分别报告；不能把缓存配置直接报告成在线，也不能生成默认 10086 网页地址。",
+          "status": "modified",
           "sources": [],
           "unknowns": [],
           "inputsConfirmed": true,
@@ -974,9 +1066,9 @@ globalThis.softwareArchitecture = {
           "name": "动态增补端口",
           "englishName": "add_forward",
           "purpose": "为当前目录项目动态追加映射端口：只需输入Local网页端口，VPS端口自动在 10000+ 随机分配，不中断现有任务。",
-          "flow": "校验Local网页端口 -> VPS自动在 10000+ 随机分配可用端口 -> 动态调用底层发起端口映射 -> 返回新端口 web_url。",
-          "errors": "Local端口未启动或VPS端口被占用返回错误。",
-          "status": "planned",
+          "flow": "定位当前项目的真实会话归属和 VPS 配置，使用输入的真实网页端口。\n取得 VPS 候选端口登记并实际创建转发，绑定冲突有界重试。\n保存新增真实会话编号与访问地址，原任务继续运行；结果由 dispatch 统一输出。",
+          "errors": "项目未运行、网页服务不可达、VPS 登记或实际绑定失败、保存失败均如实报告；不返回拼造的成功地址，不中断原有任务。",
+          "status": "modified",
           "sources": [],
           "unknowns": [],
           "inputsConfirmed": true,
@@ -1050,6 +1142,48 @@ globalThis.softwareArchitecture = {
           "englishName": "StopBridgeTest",
           "steps": "调用 stop_bridge 停止运行中的桥接会话。",
           "expected": "成功终止会话并安全保留两端磁盘文件。"
+        },
+        {
+          "id": "test-cb-copy-only-local",
+          "name": "仅拷贝 Local 程序部署",
+          "englishName": "CopyOnlyLocalDeployment",
+          "steps": "在无独立 Mutagen 和 Go 的干净测试环境，仅放置匹配平台的 CodeBridgeLocal，提供可用系统 SSH 和登录条件后启动。",
+          "expected": "组件自动准备且真实双向同步与网页访问通过；缺失 SSH 或权限返回明确错误，不安装工具。"
+        },
+        {
+          "id": "test-cb-real-roundtrip",
+          "name": "真实同步与转发停止",
+          "englishName": "RealSyncForwardAndStop",
+          "steps": "两端互改独立测试目录文件，VPS 实际请求 Local 测试网页；调用 stop_bridge 后再次检查会话与端口。",
+          "expected": "双向文件内容一致，网页响应正确，目标会话与监听确实停止，其他任务不受影响。"
+        },
+        {
+          "id": "test-cb-config-precedence",
+          "name": "完整参数继承与失败保存",
+          "englishName": "StartupConfigPrecedenceAndFailure",
+          "steps": "保存非 3000 网页端口和非当前目录，零参数及部分覆盖重启；再模拟配置损坏、启动失败与保存失败。",
+          "expected": "四项参数遵守输入优先、配置其次、默认最后；失败不覆盖成功配置，不吞保存错误。"
+        },
+        {
+          "id": "test-cb-no-fake-status",
+          "name": "失败不伪造成功",
+          "englishName": "NoFabricatedRuntimeStatus",
+          "steps": "无会话、断线、端口冲突和引擎缺失时分别启动或查询，并检查标准输出和退出码。",
+          "expected": "恰好一个统一 JSON，失败/未知如实可见，退出码匹配；未探测不返回 connected、ready 或假会话编号。"
+        },
+        {
+          "id": "test-cb-single-connection",
+          "name": "唯一物理连接验收",
+          "englishName": "SinglePhysicalConnectionAcceptance",
+          "steps": "在隔离目标环境同时运行多项目同步、多端口转发和资源查询，实际统计 SSH 物理连接。",
+          "expected": "同一 Local/VPS 仅有一条连接方可通过；方案或平台未验证时标记未验证，不以单个 daemon 代替此验收。"
+        },
+        {
+          "id": "test-cb-daemon-logs",
+          "name": "持续运行日志汇聚",
+          "englishName": "ContinuousDaemonLogCollection",
+          "steps": "命令退出后触发同步、重连和错误，检查 Local 与 VPS 日志来源、级别及日期文件。",
+          "expected": "已承诺采集的日志不会在命令退出后丢失；各自写入程序目录/logs/yyyy_mm_dd.log；未覆盖路径明确标为未验证。"
         }
       ]
     },
@@ -1057,7 +1191,7 @@ globalThis.softwareArchitecture = {
       "id": "module-codebridge-vps",
       "name": "VPS 业务主程序",
       "englishName": "CodeBridgeVPS",
-      "purpose": "VPS VPS服务端主程序。负责在VPS管理项目资源独占登记，校验防止多台 Local 电脑或多个项目产生目录与端口冲突；配合VPS Agent 提供状态汇报与健康检查。",
+      "purpose": "VPS 的 Rust 业务入口，用户只拷贝 CodeBridgeVPS 即可准备程序环境、管理资源台账及查询实际状态。同步与转发仍由 Local 驱动原生 Agent，VPS 业务服务不是 Mutagen Agent 的改名替代品。",
       "language": "Rust",
       "codeLocation": "src/VPS/main.rs",
       "groupId": "group-0c1d02ac-36eb-4750-b3fc-0f51ae7cc54d",
@@ -1068,22 +1202,33 @@ globalThis.softwareArchitecture = {
         "backgroundColor": "#fcfdff",
         "headerColor": "#f4f7ff"
       },
-      "status": "planned",
+      "status": "modified",
       "sources": [],
-      "unknowns": [],
+      "unknowns": [
+        "CodeBridgeVPS 后台服务的本机命令通信、SSH 进入方式、调用者认证和停止 Agent/Local 会话的控制链未定；不能仅写台账实现端口释放。",
+        "同一 Local/VPS 唯一物理连接如何覆盖原生 Agent、CodeBridge 资源控制和查询，尚未验证。",
+        "--name 的实际进程名称设置、跨平台长度限制及内部子进程的命名边界需验证；保留需求，不假称已实现。",
+        "Agent 日志回传到 Local 与 VPS Logger 各自的覆盖范围和持续采集路径需确认。",
+        "ResourceRecord 的现有字段只描述基础归属；多个端口、真实会话编号及授权信息的持久结构尚待确认，不在本轮擅自扩充参数。"
+      ],
       "requirements": [
-        "命令行参数解析：使用 clap 解析子命令（start_vps、stop_vps、inspect_status 等）与独立参数，默认支持零参数运行。",
-        "VPS服务生命周期：start_vps 初始化VPS台账并待命；stop_vps 释放全部VPS 10000+ 端口、清退临时台账并安全退出。",
-        "多主机单通道承载：同时对接多台 Local，但与每台 Local 间严格保持 1 条连接通道，按主机身份隔离资源。",
-        "资源独占登记：以 ResourceRecord 记录各 Local 绑定的VPS目录 vps_path 与端口，校验并拒绝相同或重叠目录冲突。",
-        "零参数状态巡检：inspect_status 默认零参数探测 VPS Local回路端口连通性，向 AI Agent 返回包含 web_url 的结构化状态。",
-        "统一配置与日志：复用公共层 ConfigManager 与 Logger，记录VPS操作日志与资源台账。",
-        "VPS服务命名：启动支持传入 --name 参数自定义 VPS 后台服务进程名称；若未指定，自动随机生成 5 到 10 位纯英文字母作为进程名称。"
+        "单文件交付：用户只拷贝匹配系统与 CPU 架构的 CodeBridgeVPS；自身必要资源由构建打包和程序自动准备，不要求安装 Go、Mutagen 或手动处理 Agent。已有 SSH 服务、认证与可写目录是明确前提。",
+        "start_vps 创建或加载资源台账并确保 CodeBridge 业务服务真实就绪，不启动第二套 Mutagen 同步引擎；Agent 由 Local 的 Mutagen 按原生机制自动部署和调用。后台控制入口及与 Local 的通信方案待确认。",
+        "单文件不等于单进程：允许必要内部组件；保留 --name 指定名称及缺省 5 至 10 位英文字母的需求，但各平台如何设置实际进程名称仍需验证，不能只返回一个 service_name 冒充已改名。",
+        "同时管理多个 Local 的资源，按持久身份和规范化 VPS 目录区分归属；每台 Local 与 VPS 唯一物理连接仍是待验证约束，不视为原生 Agent 已具备的集中服务。",
+        "reserve_resource 原子检查相同、父子重叠和符号链接别名目录，检查台账与系统端口占用；随机端口范围为 10000 至 65535，登记候选不代表实际监听成功，最终以 Mutagen 绑定观测确认。",
+        "资源释放只处理本程序管理且归属已确认的任务；先确认对应同步、转发和监听已停止，再解除相应登记。Local 离线、停止不明时保留绑定，不能清空台账让其他主机重用目录。",
+        "stop_vps 不扫描关闭所有 10000 以上端口、不停止 SSH 服务或用户业务程序、不删除项目文件；未能停止的任务明确返回失败或未知，不先报告 clean_exit。",
+        "inspect_status 查询真实目录、资源归属及 VPS 的 127.0.0.1 端口连接结果；端口能连通不等于网页业务或硬件正常，无登记不返回默认 web_url。",
+        "配置和结果复用 Common 的 ConfigManager；台账损坏不可当空台账覆盖，保存失败不得报告登记成功。dispatch 每条命令统一输出一次 JSON，帮助/版本不作为业务失败。",
+        "业务和已采集底层日志统一交给 Logger，保存在 VPS 程序目录/logs/yyyy_mm_dd.log，按天保留 90 天；原生 Agent 的 stderr 不会自动进入 Rust 进程，归集路径必须设计并验证。"
       ],
       "dependencies": [
-        "ConfigManager::set_result / ConfigManager::get_result",
-        "Logger::log_info / Logger::log_error",
-        "MutagenAgent"
+        "ConfigManager::load_json / ConfigManager::deserialize / ConfigManager::serialize / ConfigManager::save_json：资源台账。",
+        "ConfigManager::set_result / ConfigManager::get_result：统一命令响应。",
+        "Logger::log_info / Logger::log_error / Logger::log_warn / Logger::log_debug：业务与已采集日志。",
+        "MutagenAgent：原生端点由 Local 的 Mutagen 启动，不是 VPS 业务服务可直接调用的 Go 类。",
+        "CodeBridgeLocal：任务停止与资源控制回执，具体认证和控制通道待确认。"
       ],
       "parameters": [],
       "structures": [
@@ -1129,9 +1274,9 @@ globalThis.softwareArchitecture = {
           "name": "命令总调度",
           "englishName": "dispatch",
           "purpose": "VPS 命令行总调度入口。接收并解析命令行参数，路由分发至启动、停止、巡检等具体方法，统一调用 set_result 输出标准 JSON。",
-          "flow": "解析命令行参数 -> 分发到对应业务方法 -> 统一通过 set_result 打印屏幕与记日志。",
-          "errors": "未知命令或参数不全时输出错误。",
-          "status": "planned",
+          "flow": "解析外部命令与显式参数，调用相应业务方法并保留执行结果。\n统一调用 set_result 一次并设置正确退出码；帮助和版本为正常请求。",
+          "errors": "参数、业务或输出错误不得忽略，不能 JSON 报失败却以成功退出码退出。",
+          "status": "modified",
           "sources": [],
           "unknowns": [],
           "inputsConfirmed": true,
@@ -1163,10 +1308,10 @@ globalThis.softwareArchitecture = {
           "id": "method-vps-start",
           "name": "启动 VPS 服务",
           "englishName": "start_vps",
-          "purpose": "启动VPS服务：支持传入 --name 指定VPS进程名（未指定时自动随机生成 5 到 10 位纯英文字母），初始化VPS资源总台账，检查 ~/codebridge/ 根目录环境，进入就绪待命状态。",
-          "flow": "检查并生成/应用VPS进程名称 -> 初始化资源台账 -> 检查并创建根工作区环境 -> 进入后台监听待命 -> 返回成功状态。",
-          "errors": "环境异常或初始化失败返回错误。",
-          "status": "planned",
+          "purpose": "仅需 CodeBridgeVPS 可执行程序即可准备业务服务所需环境，加载持久台账并确认实际后台服务就绪；保留可选 --name，缺省生成 5 至 10 位英文字母，不要求用户操作 Mutagen。",
+          "flow": "检查运行环境及所需内嵌资源；已有 SSH 服务和目录权限不足时明确报告。\n按 name 或随机名称请求设置业务进程名，实际设置和平台兼容性须验证。\n加载已有台账或首次创建，不能因文件损坏而清空归属；重复启动识别已有服务。\n只有真实后台服务就绪才返回成功；Mutagen Agent 仍由 Local 的 Mutagen 按需调用，不以此方法启动一个 Agent 集中监听器。",
+          "errors": "组件、平台、命名、目录权限、台账加载或后台服务启动失败如实报告；仅生成 JSON 或台账文件不能视为服务已启动。",
+          "status": "modified",
           "sources": [],
           "unknowns": [],
           "inputsConfirmed": true,
@@ -1177,7 +1322,7 @@ globalThis.softwareArchitecture = {
               "name": "进程名称",
               "englishName": "name",
               "type": "Option<String>",
-              "description": "可选的自定义VPS后台服务进程名称；未指定时自动随机生成 5 到 10 位纯英文字母。",
+              "description": "VPS 的 CodeBridge 业务进程名称；未输入时内部生成 5 至 10 位英文字母，不新增随机命名公开方法。实际进程名称设置与平台限制需验证。",
               "required": false,
               "defaultValue": ""
             }
@@ -1188,7 +1333,7 @@ globalThis.softwareArchitecture = {
               "name": "启动状态",
               "englishName": "result",
               "type": "Result<CommandResult, String>",
-              "description": "包含服务就绪标识的标准响应对象。",
+              "description": "实际后台服务启动或复用结果，名称及进程状态必须真实；Agent 是否运行单独观测，不能以 service_name 字段替代启动验证。",
               "required": true,
               "defaultValue": ""
             }
@@ -1198,12 +1343,14 @@ globalThis.softwareArchitecture = {
           "id": "method-vps-stop",
           "name": "停止 VPS 服务",
           "englishName": "stop_vps",
-          "purpose": "默认零参数停止VPS服务：释放全部占用的 10000+ 端口，清退临时台账记录，安全退出，保持文件完好。",
-          "flow": "扫描当前所有活跃台账 -> 逐一释放占用的VPS端口 -> 清空台账缓存 -> 退出服务。",
-          "errors": "停止异常返回错误。",
-          "status": "planned",
+          "purpose": "停止 CodeBridgeVPS 管理范围内的任务和业务服务。确认资源停止后再释放登记，保留项目文件及停止状态不明的绑定。",
+          "flow": "核对本服务管理的资源及停止范围，all 仅用于本程序范围。\n通过已验证控制链请求对应任务停止并检查回执和监听状态。\n仅释放已确认停止的登记，持久保留未确认项；完成后确认业务服务退出。",
+          "errors": "控制链未就绪、Local 离线、身份不符或资源停止无法确认时返回错误或未知；不清空全部台账，不冒称端口已释放。",
+          "status": "modified",
           "sources": [],
-          "unknowns": [],
+          "unknowns": [
+            "all=false 的精确停止范围在现有接口中没有明确说明，需确认后才能完整实现该分支。"
+          ],
           "inputsConfirmed": true,
           "outputsConfirmed": true,
           "inputs": [
@@ -1212,7 +1359,7 @@ globalThis.softwareArchitecture = {
               "name": "停止全部",
               "englishName": "all",
               "type": "Option<bool>",
-              "description": "是否清退全部台账与端口，默认 true。",
+              "description": "默认 true，表示请求停止本 CodeBridge 服务管理的全部任务，不包含用户其他程序；false 的具体范围尚待确认。",
               "required": false,
               "defaultValue": "true"
             }
@@ -1233,10 +1380,10 @@ globalThis.softwareArchitecture = {
           "id": "method-vps-inspect-status",
           "name": "巡检当前状态",
           "englishName": "inspect_status",
-          "purpose": "默认零参数检查当前目录的工作区代码与Local回路端口连通性，并在 CommandResult.data 中返回 web_url 供 AI Agent 直接调试。",
-          "flow": "读取当前工作区路径 -> 探测Local回路端口建立连接 -> 汇总并返回包含 web_url 的健康结果。",
-          "errors": "目录不存在或端口不可达返回状态说明。",
-          "status": "planned",
+          "purpose": "按 VPS 目录检查真实资源台账、目录存在性和 VPS 的 127.0.0.1 监听端口可达性，返回已登记的实际 web_url。",
+          "flow": "规范化当前或指定 VPS 目录并读取其真实登记。\n检查目录和对应端口，分别报告服务、Agent/任务、监听与网页检查的已知状态。\n无法观测时标记未知或失败；结果交 dispatch 统一输出，不生成默认地址。",
+          "errors": "无登记、配置损坏、查询失败、端口不可达分别说明；TCP 可连接不自动判定网页或硬件功能通过。",
+          "status": "modified",
           "sources": [],
           "unknowns": [],
           "inputsConfirmed": true,
@@ -1269,9 +1416,9 @@ globalThis.softwareArchitecture = {
           "name": "原子独占登记",
           "englishName": "reserve_resource",
           "purpose": "原子校验并登记指定 Local 主机的VPS同步目录和监听端口，重叠冲突时拒绝。",
-          "flow": "校验路径重叠与端口占用 -> 登记台账 -> 保存并返回确认信息。",
-          "errors": "路径已被其他项目占用或端口冲突时返回错误。",
-          "status": "planned",
+          "flow": "确认调用者及 Local 身份和目录归属，规范化路径。\n原子检查真实路径重叠及端口台账；未指定端口时选择 10000 至 65535 的候选。\n保存申请结果并区分候选登记与实际监听；实际绑定冲突由控制链反馈，不提前宣称 web_url 可访问。",
+          "errors": "身份不符、目录重叠、系统端口或台账冲突、台账损坏及保存失败均拒绝或如实报告；不能用未加锁的读后写冒充原子登记。",
+          "status": "modified",
           "sources": [],
           "unknowns": [],
           "inputsConfirmed": true,
@@ -1300,7 +1447,7 @@ globalThis.softwareArchitecture = {
               "name": "VPS 端口",
               "englishName": "vps_port",
               "type": "Option<u16>",
-              "description": "可选的指定端口号；未指定时自动在 10000+ 随机分配。",
+              "description": "内部可选指定候选端口；未传在 10000 至 65535 随机选择，经 VPS 检查和原生转发实际绑定后才能确认可用。",
               "required": false,
               "defaultValue": ""
             }
@@ -1321,10 +1468,10 @@ globalThis.softwareArchitecture = {
           "id": "method-vps-release-resource",
           "name": "释放独占登记",
           "englishName": "release_resource",
-          "purpose": "默认零参数解除当前目录的独占绑定，释放对应VPS端口，保持文件完好。",
-          "flow": "核对当前目录身份 -> 撤销台账独占记录 -> 保留实际磁盘文件。",
-          "errors": "未曾登记或身份不符返回错误。",
-          "status": "planned",
+          "purpose": "确认当前或指定 VPS 目录的调用身份与资源归属，并在相关任务已停止后解除该登记，保留项目文件。",
+          "flow": "读取真实登记并核对调用身份和目录归属。\n取得相关同步、转发和监听已停止的可靠结果；状态不明则保留登记。\n保存解除结果并返回，实际文件不删除；由 dispatch 统一输出。",
+          "errors": "无登记、身份不符、任务停止不明或持久化失败返回错误；删除台账条目不能代替关闭真实端口。",
+          "status": "modified",
           "sources": [],
           "unknowns": [],
           "inputsConfirmed": true,
@@ -1382,6 +1529,34 @@ globalThis.softwareArchitecture = {
           "englishName": "VpsCustomProcessNameStart",
           "steps": "传入 --name MyCloudVps 调用 start_vps。",
           "expected": "VPS后台服务以 MyCloudVps 名称启动运行。"
+        },
+        {
+          "id": "test-cb-copy-only-vps",
+          "name": "仅拷贝 VPS 程序部署",
+          "englishName": "CopyOnlyVpsDeployment",
+          "steps": "在无 Go 和独立 Mutagen 的干净 VPS 测试目录，仅拷贝匹配平台的 CodeBridgeVPS 并启动，再从 Local 建立真实同步与转发。",
+          "expected": "用户不操作依赖组件；CodeBridge 服务真实存在，Agent 按原生机制自动准备；只输出 ready 不算通过。"
+        },
+        {
+          "id": "test-cb-vps-real-probe",
+          "name": "真实端口与无登记检查",
+          "englishName": "VpsRealEndpointInspection",
+          "steps": "分别构造无登记、已登记但未监听、实际 TCP 监听和网页错误状态，执行 inspect_status。",
+          "expected": "无假地址，TCP 和网页就绪不混淆，实际不可达不会返回 port_reachable=true。"
+        },
+        {
+          "id": "test-cb-vps-scoped-shutdown",
+          "name": "停止范围与离线绑定保护",
+          "englishName": "VpsScopedShutdownAndOfflineOwnership",
+          "steps": "建立本程序与外部程序的多个监听，令一个 Local 离线后请求停止和释放。",
+          "expected": "不影响外部程序，不删除项目文件；确认停止才释放，离线未确认登记保留且不能被其他 Local 抢占。"
+        },
+        {
+          "id": "test-cb-vps-concurrent-claim",
+          "name": "并发目录与端口归属",
+          "englishName": "ConcurrentDirectoryAndPortOwnership",
+          "steps": "并发申请相同、父子和符号链接别名目录，申请被占系统端口并模拟台账写入失败。",
+          "expected": "冲突不同时成功，失败不覆盖台账；候选端口未绑定不报告为可访问。"
         }
       ]
     }
@@ -1391,10 +1566,12 @@ globalThis.softwareArchitecture = {
       "id": "relation-024d2e97-0259-4243-aeb8-2e0591a3fa0f",
       "from": "module-codebridge-vps",
       "to": "module-mutagen-agent",
-      "label": "",
-      "status": "planned",
+      "label": "Agent 由 Local 调用；非直接 Go 接口",
+      "status": "modified",
       "sources": [],
-      "unknowns": [],
+      "unknowns": [
+        "此箭头表示同在 VPS 的职责关联，不能视为已实现 CodeBridgeVPS 到 Agent 的直接控制链。"
+      ],
       "fromPort": "right",
       "toPort": "left"
     },
@@ -1402,8 +1579,8 @@ globalThis.softwareArchitecture = {
       "id": "relation-69dd4812-0f81-4f36-904c-e08d5780c0d4",
       "from": "module-codebridge-local",
       "to": "module-mutagen-cli",
-      "label": "",
-      "status": "planned",
+      "label": "内嵌准备后调用原生命令",
+      "status": "modified",
       "sources": [],
       "unknowns": [],
       "fromPort": "right",
