@@ -332,6 +332,12 @@ impl CodeBridgeLocal {
             .unwrap_or("project");
         let safe_name = Self::to_safe_session_name(project_name);
 
+        // 步骤 3.1: 确保本地根目录下存在隐藏同步锚点，防止在 VPS 执行 rm -rf * 时触发单侧清空保护挂起
+        let anchor_file = effective_local_path.join(".codebridge");
+        if !anchor_file.exists() {
+            let _ = std::fs::write(&anchor_file, b"");
+        }
+
         // 步骤 4: 确定云端远程目录（输入优先 > 历史配置 > 默认推导 ~/codebridge/<项目名>）
         let effective_vps_path = match (vps_path, &saved_config) {
             (Some(p), _) if !p.trim().is_empty() => p.trim().to_string(),
