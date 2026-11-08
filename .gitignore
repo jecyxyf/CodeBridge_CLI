@@ -8,4 +8,4 @@
 /bin/VPS/*
 !/bin/VPS/.gitkeep
 
-ssh/config
+ssh_config
