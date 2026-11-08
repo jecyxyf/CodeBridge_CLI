@@ -3,7 +3,7 @@ globalThis.softwareArchitecture = {
   "id": "project-template",
   "name": "CodeBridge CLI",
   "englishName": "codebridge-cli",
-  "description": "CodeBridge 采用 Rust 封装原生 Go Mutagen，用于 Local 与 VPS 之间的项目文件双向同步和网页端口转发。用户只需拷贝对应系统与架构的 CodeBridgeLocal、CodeBridgeVPS 可执行程序；构建时打包所需组件，运行时自动准备，不要求用户安装 Go、Mutagen 或手动配置系统环境变量。Mutagen 源码保持不变。Local 通过已有 SSH 能力主动连接 VPS，Agent 按 Mutagen 原生机制自动部署和启动；CodeBridgeVPS 负责资源台账与查询，不取代 Agent 协议。启动参数按输入、已保存配置、约定默认值的顺序补齐，成功后保存。命令返回统一 JSON，日志由各自程序目录的 logs/yyyy_mm_dd.log 保存并保留 90 天。单文件交付不等于单进程；每台 Local 与 VPS 只保持一条物理连接仍是待验证约束，不宣称原生 Mutagen 已满足。",
+  "description": "CodeBridge 采用 Rust 封装原生 Go Mutagen，用于 Local 与 VPS 之间的项目文件双向同步和网页端口转发。CodeBridgeLocal 与 CodeBridgeVPS 两个程序在构建期通过静态编译与打包内嵌各自所需的 Mutagen 组件，交付为独立纯绿色单文件。用户只需拷贝对应平台的可执行程序即可直接运行，运行期间无需且不允许再次下载或现场编译 Mutagen，亦无需手动配置系统环境变量。Local 通过已有 SSH 能力主动连接 VPS，内置 Agent 资源自动就绪；CodeBridgeVPS 负责资源台账管理与状态巡检。启动参数按输入、已保存配置、约定默认值的顺序补齐，成功后保存。命令返回统一 JSON，日志由各自程序目录的 logs/yyyy_mm_dd.log 保存并保留 90 天。单文件交付不等于单进程；每台 Local 与 VPS 只保持一条物理连接仍是待验证约束，不宣称原生 Mutagen 已满足。",
   "repository": {
     "path": "/home/xyf/orca/CodeBridge_CLI/0.0.1",
     "revision": "7ba1748d816ac92477373c65b4ecf8437820c90a",
@@ -16,8 +16,8 @@ globalThis.softwareArchitecture = {
       "englishName": "Common",
       "color": "#ffffff",
       "backgroundColor": "#8d80b8",
-      "x": 2780,
-      "y": 2430
+      "x": 2740,
+      "y": 2870
     },
     {
       "id": "group-679f7997-02f7-419d-b8a9-50719242faa9",
@@ -25,8 +25,8 @@ globalThis.softwareArchitecture = {
       "englishName": "Local",
       "color": "#ffffff",
       "backgroundColor": "#559c80",
-      "x": 2750,
-      "y": 1180
+      "x": 2740,
+      "y": 1320
     },
     {
       "id": "group-0c1d02ac-36eb-4750-b3fc-0f51ae7cc54d",
@@ -34,8 +34,8 @@ globalThis.softwareArchitecture = {
       "englishName": "VPS",
       "color": "#ffffff",
       "backgroundColor": "#ad884f",
-      "x": 2750,
-      "y": 80
+      "x": 2730,
+      "y": -60
     },
     {
       "id": "group-0cb11cc3-b58d-4551-90c7-2ac347d32ba7",
@@ -44,7 +44,7 @@ globalThis.softwareArchitecture = {
       "color": "#ffffff",
       "backgroundColor": "#559c80",
       "x": 3330,
-      "y": 1300
+      "y": 1320
     },
     {
       "id": "group-mutagen-vps",
@@ -52,8 +52,8 @@ globalThis.softwareArchitecture = {
       "englishName": "MutagenVPS",
       "color": "#ffffff",
       "backgroundColor": "#ad8861",
-      "x": 3310,
-      "y": 80
+      "x": 3320,
+      "y": -60
     }
   ],
   "modules": [
@@ -65,8 +65,8 @@ globalThis.softwareArchitecture = {
       "language": "Rust",
       "codeLocation": "src/Common/config.rs",
       "groupId": "group-e4af7b0a-c2f1-48a1-a84e-5a98653a56c0",
-      "x": 2800,
-      "y": 2490,
+      "x": 2760,
+      "y": 2930,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -470,8 +470,8 @@ globalThis.softwareArchitecture = {
       "language": "Rust",
       "codeLocation": "src/Common/logger.rs",
       "groupId": "group-e4af7b0a-c2f1-48a1-a84e-5a98653a56c0",
-      "x": 3380,
-      "y": 2490,
+      "x": 3340,
+      "y": 2930,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -630,7 +630,7 @@ globalThis.softwareArchitecture = {
       "codeLocation": "depends/mutagen/cmd/mutagen/main.go",
       "groupId": "group-0cb11cc3-b58d-4551-90c7-2ac347d32ba7",
       "x": 3350,
-      "y": 1360,
+      "y": 1380,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -741,8 +741,8 @@ globalThis.softwareArchitecture = {
       "language": "Go",
       "codeLocation": "depends/mutagen/cmd/mutagen-agent/main.go",
       "groupId": "group-mutagen-vps",
-      "x": 3360,
-      "y": 140,
+      "x": 3340,
+      "y": 0,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -838,12 +838,12 @@ globalThis.softwareArchitecture = {
       "id": "module-codebridge-local",
       "name": "Local 业务主程序",
       "englishName": "CodeBridgeLocal",
-      "purpose": "Local 的 Rust 命令外壳，负责自动准备内嵌组件、读取与保存启动参数、调用原生 Mutagen 的同步和转发命令，并把真实结果转换为统一 JSON。用户只操作 CodeBridge，不重复编写 Mutagen 的同步引擎。",
+      "purpose": "Local 的 Rust 命令外壳，构建期静态内嵌原生 Mutagen 主程序与依赖包，运行时自动在私有运行目录解压并驱动原生同步与端口转发命令，统一输出标准 JSON 结果。用户只操作 CodeBridgeLocal 单文件，无需额外部署、下载或编译 Mutagen。",
       "language": "Rust",
       "codeLocation": "src/Local/main.rs",
       "groupId": "group-679f7997-02f7-419d-b8a9-50719242faa9",
-      "x": 2780,
-      "y": 1350,
+      "x": 2760,
+      "y": 1380,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -855,12 +855,11 @@ globalThis.softwareArchitecture = {
         "严格唯一物理 SSH 连接能否在不修改 Mutagen 的前提下跨目标平台承载同步、转发和资源控制，尚未证明；这是继续业务实现前的阻塞项。",
         "CodeBridgeLocal 常驻外壳和原生 daemon 的组织方式、后台日志采集与停机控制未定；不能承诺一个进程或只捕获 daemon start 命令即可采集全部日志。",
         "VPS IP 之外的 SSH 用户名、端口、认证及项目专用 SSH 配置如何进入原生 Mutagen，现有参数未完整定义；不得靠测试主机的个人配置隐式补齐。",
-        "内嵌组件释放目录、版本升级及多实例隔离策略需确认；系统与 CPU 架构兼容性需要实测。",
         "多项目持久化记录与每条同步/转发会话编号的数据结构、Local 持久身份来源需补齐，不能用一个拼造的 session_id 代表所有会话。"
       ],
       "requirements": [
-        "单文件交付：用户只拷贝对应平台的 CodeBridgeLocal 即可使用；构建阶段从 depends/mutagen 的锁定提交生成并内嵌主程序和匹配 Agent 包，运行时不下载源码或安装编译工具。",
-        "自动准备运行组件：释放到应用程序管理的专用目录，检查版本、完整性和执行权限；并发首次启动不破坏文件，升级不覆盖正在使用的版本。具体内部目录约定待确认。",
+        "单文件交付：用户只拷贝对应平台的 CodeBridgeLocal 即可使用；构建阶段从 depends/mutagen 的锁定提交通过 Go 编译，并在 Rust 编译时使用 include_bytes! 静态内嵌 mutagen 主程序与 agents 压缩包，交付为独立可执行文件；运行期严禁联网下载源码或现场编译。",
+        "自动准备运行组件：首次运行或版本变更时，程序自动在当前可执行程序同级私有目录（如 .codebridge_runtime/ 或用户级缓存目录）释放内嵌组件并赋予执行权限；对外部用户完全透明无感。",
         "环境边界：使用已有系统 SSH、有效登录配置、网络访问及目录权限；不要求用户设置系统环境变量，也不静默安装工具。SSH 账号、端口和凭据选择方式必须在接入设计中确认。",
         "命令行独立参数进入 dispatch；外部 start、stop、status、forward 分别对应 start_codebridge、stop_bridge、query_status、add_forward，所有结果支持 Skill 读取。",
         "参数优先级：显式输入优先于上次成功保存的配置，配置优先于已约定默认值；默认值不能提前填充而覆盖历史值。支持只输入部分参数；合并后仍缺必要信息则报错。",
@@ -1191,12 +1190,12 @@ globalThis.softwareArchitecture = {
       "id": "module-codebridge-vps",
       "name": "VPS 业务主程序",
       "englishName": "CodeBridgeVPS",
-      "purpose": "VPS 的 Rust 业务入口，用户只拷贝 CodeBridgeVPS 即可准备程序环境、管理资源台账及查询实际状态。同步与转发仍由 Local 驱动原生 Agent，VPS 业务服务不是 Mutagen Agent 的改名替代品。",
+      "purpose": "VPS 的 Rust 业务程序，构建期静态内嵌 Linux 平台的 Mutagen Agent 组件，用户只拷贝 CodeBridgeVPS 即可直接运行。负责在云端管理项目资源独占台账、防止目录与端口冲突、就绪本地 Agent 组件并提供状态巡检。运行时无需下载或编译任何外部依赖。",
       "language": "Rust",
       "codeLocation": "src/VPS/main.rs",
       "groupId": "group-0c1d02ac-36eb-4750-b3fc-0f51ae7cc54d",
-      "x": 2770,
-      "y": 140,
+      "x": 2750,
+      "y": 0,
       "appearance": {
         "textColor": "#17254d",
         "backgroundColor": "#fcfdff",
@@ -1212,8 +1211,8 @@ globalThis.softwareArchitecture = {
         "ResourceRecord 的现有字段只描述基础归属；多个端口、真实会话编号及授权信息的持久结构尚待确认，不在本轮擅自扩充参数。"
       ],
       "requirements": [
-        "单文件交付：用户只拷贝匹配系统与 CPU 架构的 CodeBridgeVPS；自身必要资源由构建打包和程序自动准备，不要求安装 Go、Mutagen 或手动处理 Agent。已有 SSH 服务、认证与可写目录是明确前提。",
-        "start_vps 创建或加载资源台账并确保 CodeBridge 业务服务真实就绪，不启动第二套 Mutagen 同步引擎；Agent 由 Local 的 Mutagen 按原生机制自动部署和调用。后台控制入口及与 Local 的通信方案待确认。",
+        "单文件交付：用户只拷贝匹配 Linux 系统与 CPU 架构的 CodeBridgeVPS 即可使用；构建阶段将 Linux 版本的 mutagen-agent 编译并通过 include_bytes! 静态内嵌进二进制中；用户直接运行，严禁在 VPS 现场下载、拉取或编译 Go/Mutagen 代码。",
+        "start_vps 创建或加载资源台账并确保 CodeBridge 业务服务及内置 Agent 资源真实就绪；内置 Agent 释放至私有运行目录就绪后供同步通道调用，不启动第二套冲突的同步引擎。",
         "单文件不等于单进程：允许必要内部组件；保留 --name 指定名称及缺省 5 至 10 位英文字母的需求，但各平台如何设置实际进程名称仍需验证，不能只返回一个 service_name 冒充已改名。",
         "同时管理多个 Local 的资源，按持久身份和规范化 VPS 目录区分归属；每台 Local 与 VPS 唯一物理连接仍是待验证约束，不视为原生 Agent 已具备的集中服务。",
         "reserve_resource 原子检查相同、父子重叠和符号链接别名目录，检查台账与系统端口占用；随机端口范围为 10000 至 65535，登记候选不代表实际监听成功，最终以 Mutagen 绑定观测确认。",
@@ -1588,9 +1587,9 @@ globalThis.softwareArchitecture = {
     }
   ],
   "view": {
-    "x": -4805.850368524447,
-    "y": -1239.9118046713238,
-    "scale": 1.8,
+    "x": -1021.2558946374929,
+    "y": -986.9063825333812,
+    "scale": 0.5421495814419625,
     "expanded": [],
     "expandedInterfaces": []
   }

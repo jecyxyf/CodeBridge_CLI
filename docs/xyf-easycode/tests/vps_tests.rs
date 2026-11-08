@@ -5,6 +5,10 @@
  ********************************************************************************/
 
 use std::process::Command;
+use std::sync::Mutex;
+
+/// 全局测试互斥锁，确保同一测试二进制内读写共享台账的测试用例串行执行
+static TEST_LOCK: Mutex<()> = Mutex::new(());
 
 fn get_bin_path() -> String {
     let mut path = std::env::current_exe().unwrap();
@@ -17,6 +21,7 @@ fn get_bin_path() -> String {
 
 #[test]
 fn test_vps_service_lifecycle() {
+    let _guard = TEST_LOCK.lock().unwrap();
     /************************ Test 1: 启动与停止服务生命周期 ************************/
     let bin = get_bin_path();
 
@@ -56,6 +61,7 @@ fn test_vps_service_lifecycle() {
 
 #[test]
 fn test_vps_directory_and_port_conflict() {
+    let _guard = TEST_LOCK.lock().unwrap();
     /************************ Test 2: 云端目录与端口冲突防御 ************************/
     let bin = get_bin_path();
     let test_dir = "/opt/codebridge_test_exclusive";

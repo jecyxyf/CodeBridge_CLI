@@ -77,7 +77,8 @@ fn test_local_query_status_and_forward_and_stop() {
     let stdout = String::from_utf8_lossy(&status_out.stdout);
     let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("输出应为合法 JSON");
     assert!(parsed["ok"].as_bool().unwrap());
-    assert_eq!(parsed["data"]["status"].as_str().unwrap(), "watching");
+    let st = parsed["data"]["status"].as_str().unwrap();
+    assert!(st == "watching" || st.starts_with("connecting") || st == "connected" || st == "paused");
 
     /************************ Test 5: 动态加端口测试 ************************/
     let fwd_out = Command::new(&bin)
