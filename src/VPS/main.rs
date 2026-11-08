@@ -19,8 +19,8 @@ use std::time::Duration;
 const VPS_REGISTRY_FILE: &str = "vps_registry.json";
 
 /// 静态编译内嵌的 Linux 版 Mutagen Agent 目标二进制文件
-/// 构建期通过 Go 编译，构建脚本将其放入 bin/embedded/VPS/mutagen-agent 并内嵌于此
-const EMBEDDED_AGENT: &[u8] = include_bytes!("../../bin/embedded/VPS/mutagen-agent");
+/// 从构建私有缓存目录内嵌，交付目录严禁外露原生程序
+const EMBEDDED_AGENT: &[u8] = include_bytes!("../../bin/target/embedded_assets/VPS/mutagen-agent");
 
 /// 云端资源台账记录数据结构
 /// 记录每台 Local 客户端所绑定的独占目录与分配的 10000+ 端口

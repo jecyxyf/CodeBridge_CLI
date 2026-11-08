@@ -3,7 +3,7 @@ globalThis.softwareArchitecture = {
   "id": "project-template",
   "name": "CodeBridge CLI",
   "englishName": "codebridge-cli",
-  "description": "CodeBridge 采用 Rust 封装原生 Go Mutagen，用于 Local 与 VPS 之间的项目文件双向同步和网页端口转发。CodeBridgeLocal 与 CodeBridgeVPS 两个程序在构建期通过静态编译与打包内嵌各自所需的 Mutagen 组件，交付为独立纯绿色单文件。用户只需拷贝对应平台的可执行程序即可直接运行，运行期间无需且不允许再次下载或现场编译 Mutagen，亦无需手动配置系统环境变量。Local 通过已有 SSH 能力主动连接 VPS，内置 Agent 资源自动就绪；CodeBridgeVPS 负责资源台账管理与状态巡检。启动参数按输入、已保存配置、约定默认值的顺序补齐，成功后保存。命令返回统一 JSON，日志由各自程序目录的 logs/yyyy_mm_dd.log 保存并保留 90 天。单文件交付不等于单进程；每台 Local 与 VPS 只保持一条物理连接仍是待验证约束，不宣称原生 Mutagen 已满足。",
+  "description": "CodeBridge 采用 Rust 封装原生 Go Mutagen，用于 Local 与 VPS 之间的项目文件双向同步和网页端口转发。CodeBridgeLocal 与 CodeBridgeVPS 两个程序在构建期通过静态编译与打包内嵌各自所需的 Mutagen 组件，交付为独立纯绿色单文件。用户只需拷贝对应平台的可执行程序即可直接运行，运行期间无需且不允许再次下载或现场编译 Mutagen，亦无需手动配置系统环境变量。Local 通过已有 SSH 能力主动连接 VPS，内置 Agent 资源自动就绪；CodeBridgeVPS 负责资源台账管理与状态巡检。启动参数按输入、已保存配置、约定默认值的顺序补齐，成功后保存。命令返回统一 JSON，日志由各自程序目录的 logs/yyyy_mm_dd.log 保存并保留 90 天。单文件交付不等于单进程；每台 Local 与 VPS 只保持一条物理连接仍是待验证约束，不宣称原生 Mutagen 已满足。 最终编译结果严格且仅允许包含 CodeBridgeLocal 与 CodeBridgeVPS 两个可执行程序，严禁在最终交付目录中残留、外露任何其他独立可执行文件或辅助程序（如原生 mutagen 或 agent 二进制）。编译所需的中间内嵌原料必须隔离在构建缓存中，不得作为交付物外露。",
   "repository": {
     "path": "/home/xyf/orca/CodeBridge_CLI/0.0.1",
     "revision": "7ba1748d816ac92477373c65b4ecf8437820c90a",
@@ -858,7 +858,7 @@ globalThis.softwareArchitecture = {
         "多项目持久化记录与每条同步/转发会话编号的数据结构、Local 持久身份来源需补齐，不能用一个拼造的 session_id 代表所有会话。"
       ],
       "requirements": [
-        "单文件交付：用户只拷贝对应平台的 CodeBridgeLocal 即可使用；构建阶段从 depends/mutagen 的锁定提交通过 Go 编译，并在 Rust 编译时使用 include_bytes! 静态内嵌 mutagen 主程序与 agents 压缩包，交付为独立可执行文件；运行期严禁联网下载源码或现场编译。",
+        "单文件交付与产物唯一性：用户只拷贝对应平台的 CodeBridgeLocal 即可使用；构建阶段从 depends/mutagen 的锁定提交通过 Go 编译，并在 Rust 编译时使用 include_bytes! 静态内嵌 mutagen 主程序与 agents 压缩包，交付为独立可执行文件；运行期严禁联网下载源码或现场编译。 最终编译结果严格仅保留 CodeBridgeLocal，交付目录严禁外露或附带任何其他独立可执行程序。",
         "自动准备运行组件：首次运行或版本变更时，程序自动在当前可执行程序同级私有目录（如 .codebridge_runtime/ 或用户级缓存目录）释放内嵌组件并赋予执行权限；对外部用户完全透明无感。",
         "环境边界：使用已有系统 SSH、有效登录配置、网络访问及目录权限；不要求用户设置系统环境变量，也不静默安装工具。SSH 账号、端口和凭据选择方式必须在接入设计中确认。",
         "命令行独立参数进入 dispatch；外部 start、stop、status、forward 分别对应 start_codebridge、stop_bridge、query_status、add_forward，所有结果支持 Skill 读取。",
@@ -1183,6 +1183,13 @@ globalThis.softwareArchitecture = {
           "englishName": "ContinuousDaemonLogCollection",
           "steps": "命令退出后触发同步、重连和错误，检查 Local 与 VPS 日志来源、级别及日期文件。",
           "expected": "已承诺采集的日志不会在命令退出后丢失；各自写入程序目录/logs/yyyy_mm_dd.log；未覆盖路径明确标为未验证。"
+        },
+        {
+          "id": "test-cb-purity-local",
+          "name": "编译产物纯净性验收",
+          "englishName": "BinaryPurityVerification",
+          "steps": "扫描编译后交付产物目录（bin/Local 与 bin/VPS），检查是否存在除 CodeBridgeLocal 与 CodeBridgeVPS 以外的任何可执行程序。",
+          "expected": "交付产物仅有 CodeBridgeLocal 与 CodeBridgeVPS 两个文件，无任何第三方或辅助可执行程序外露。"
         }
       ]
     },
@@ -1211,7 +1218,7 @@ globalThis.softwareArchitecture = {
         "ResourceRecord 的现有字段只描述基础归属；多个端口、真实会话编号及授权信息的持久结构尚待确认，不在本轮擅自扩充参数。"
       ],
       "requirements": [
-        "单文件交付：用户只拷贝匹配 Linux 系统与 CPU 架构的 CodeBridgeVPS 即可使用；构建阶段将 Linux 版本的 mutagen-agent 编译并通过 include_bytes! 静态内嵌进二进制中；用户直接运行，严禁在 VPS 现场下载、拉取或编译 Go/Mutagen 代码。",
+        "单文件交付与产物唯一性：用户只拷贝匹配 Linux 系统与 CPU 架构的 CodeBridgeVPS 即可使用；构建阶段将 Linux 版本的 mutagen-agent 编译并通过 include_bytes! 静态内嵌进二进制中；用户直接运行，严禁在 VPS 现场下载、拉取或编译 Go/Mutagen 代码。 最终编译结果严格仅保留 CodeBridgeVPS，交付目录严禁外露或附带任何其他独立可执行程序。",
         "start_vps 创建或加载资源台账并确保 CodeBridge 业务服务及内置 Agent 资源真实就绪；内置 Agent 释放至私有运行目录就绪后供同步通道调用，不启动第二套冲突的同步引擎。",
         "单文件不等于单进程：允许必要内部组件；保留 --name 指定名称及缺省 5 至 10 位英文字母的需求，但各平台如何设置实际进程名称仍需验证，不能只返回一个 service_name 冒充已改名。",
         "同时管理多个 Local 的资源，按持久身份和规范化 VPS 目录区分归属；每台 Local 与 VPS 唯一物理连接仍是待验证约束，不视为原生 Agent 已具备的集中服务。",

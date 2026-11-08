@@ -17,14 +17,14 @@ use std::process::Command;
 /// 本地持久化保存的历史配置文件名
 const LOCAL_CONFIG_FILE: &str = "local_config.json";
 
-/// 静态编译内嵌的 Mutagen 主程序（Windows 平台嵌入 exe，非 Windows 平台嵌入二进制）
+/// 静态编译内嵌的 Mutagen 主程序（从构建私有缓存目录内嵌，交付目录不外露原生程序）
 #[cfg(windows)]
-const EMBEDDED_MUTAGEN: &[u8] = include_bytes!("../../bin/embedded/Local/mutagen.exe");
+const EMBEDDED_MUTAGEN: &[u8] = include_bytes!("../../bin/target/embedded_assets/Local/mutagen.exe");
 #[cfg(not(windows))]
-const EMBEDDED_MUTAGEN: &[u8] = include_bytes!("../../bin/embedded/Local/mutagen");
+const EMBEDDED_MUTAGEN: &[u8] = include_bytes!("../../bin/target/embedded_assets/Local/mutagen");
 
 /// 静态编译内嵌的 Mutagen 跨平台 Agents 资源包（用于远程 SSH 自动下发）
-const EMBEDDED_AGENTS: &[u8] = include_bytes!("../../bin/embedded/Local/mutagen-agents.tar.gz");
+const EMBEDDED_AGENTS: &[u8] = include_bytes!("../../bin/target/embedded_assets/Local/mutagen-agents.tar.gz");
 
 /// 本地持久化保存的历史配置记录结构体
 /// 用于在零参数启动或部分参数启动时，能够无缝继承上次成功的有效连接配置

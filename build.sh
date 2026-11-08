@@ -5,19 +5,20 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-echo "==> [1/4] 检查并构建内嵌 Mutagen 静态组件..."
-mkdir -p bin/embedded/Local bin/embedded/VPS
+echo "==> [1/4] 检查并构建内嵌 Mutagen 静态组件（隔离至构建内部缓存）..."
+ASSETS_DIR="bin/target/embedded_assets"
+mkdir -p "$ASSETS_DIR/Local" "$ASSETS_DIR/VPS"
 
-if [ ! -f "bin/embedded/Local/mutagen.exe" ] && [ ! -f "bin/embedded/Local/mutagen" ]; then
+if [ ! -f "$ASSETS_DIR/Local/mutagen.exe" ] && [ ! -f "$ASSETS_DIR/Local/mutagen" ]; then
     echo "==> 编译 Mutagen 原生组件 (depends/mutagen)..."
     (cd depends/mutagen && go run scripts/build.go --mode=slim)
     if [ -f "depends/mutagen/build/mutagen.exe" ]; then
-        cp depends/mutagen/build/mutagen.exe bin/embedded/Local/mutagen.exe
+        cp depends/mutagen/build/mutagen.exe "$ASSETS_DIR/Local/mutagen.exe"
     else
-        cp depends/mutagen/build/mutagen bin/embedded/Local/mutagen
+        cp depends/mutagen/build/mutagen "$ASSETS_DIR/Local/mutagen"
     fi
-    cp depends/mutagen/build/mutagen-agents.tar.gz bin/embedded/Local/mutagen-agents.tar.gz
-    cp depends/mutagen/build/agent/linux_amd64 bin/embedded/VPS/mutagen-agent
+    cp depends/mutagen/build/mutagen-agents.tar.gz "$ASSETS_DIR/Local/mutagen-agents.tar.gz"
+    cp depends/mutagen/build/agent/linux_amd64 "$ASSETS_DIR/VPS/mutagen-agent"
 fi
 
 echo "==> [2/4] 执行 Cargo Release 编译 (产物自动存入 bin/target/)..."
@@ -36,6 +37,9 @@ else
 fi
 
 chmod +x bin/Local/* bin/VPS/* 2>/dev/null || true
+
+# 彻底清理历史外露的中间目录，确保交付区仅有最终的 CodeBridgeVPS 和 CodeBridgeLocal
+rm -rf bin/embedded 2>/dev/null || true
 
 echo "==> [4/4] 构建与分发完成！输出程序就绪："
 ls -la bin/Local/ bin/VPS/

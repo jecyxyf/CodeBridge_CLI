@@ -102,3 +102,51 @@ fn test_local_query_status_and_forward_and_stop() {
     assert!(stop_parsed["ok"].as_bool().unwrap());
     assert_eq!(stop_parsed["data"]["status"].as_str().unwrap(), "stopped");
 }
+
+#[test]
+fn test_binary_purity_verification() {
+    /************************ Test 7: 编译产物纯净性验收 (BinaryPurityVerification) ************************/
+    // 检查项目根目录的 bin/ 交付区，确保仅存在 CodeBridgeLocal 与 CodeBridgeVPS 两个可执行程序
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let bin_dir = manifest_dir.join("bin");
+
+    // 1. 严格断言 bin/ 下不得暴露已淘汰的 embedded 临时原料目录
+    let embedded_dir = bin_dir.join("embedded");
+    assert!(
+        !embedded_dir.exists(),
+        "错误：交付目录 bin/ 下严禁外露 embedded 临时原料目录！"
+    );
+
+    // 2. 检查 bin/Local 目录
+    let local_dir = bin_dir.join("Local");
+    if local_dir.exists() {
+        for entry in std::fs::read_dir(&local_dir).unwrap().flatten() {
+            let path = entry.path();
+            let file_name = path.file_name().unwrap_or_default().to_string_lossy();
+            if path.is_file() && !file_name.starts_with('.') {
+                assert!(
+                    file_name == "CodeBridgeLocal" || file_name == "CodeBridgeLocal.exe",
+                    "错误：bin/Local 目录下发现了非法多余程序: {}",
+                    file_name
+                );
+            }
+        }
+    }
+
+    // 3. 检查 bin/VPS 目录
+    let vps_dir = bin_dir.join("VPS");
+    if vps_dir.exists() {
+        for entry in std::fs::read_dir(&vps_dir).unwrap().flatten() {
+            let path = entry.path();
+            let file_name = path.file_name().unwrap_or_default().to_string_lossy();
+            if path.is_file() && !file_name.starts_with('.') {
+                assert!(
+                    file_name == "CodeBridgeVPS" || file_name == "CodeBridgeVPS.exe",
+                    "错误：bin/VPS 目录下发现了非法多余程序: {}",
+                    file_name
+                );
+            }
+        }
+    }
+}
+
