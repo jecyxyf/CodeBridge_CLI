@@ -24,7 +24,7 @@ fi
 echo "==> [2/4] 执行 Cargo Release 编译 (产物自动存入 bin/target/)..."
 cargo build --release
 
-echo "==> [3/4] 分发单文件可执行程序到 bin/Local/ 与 bin/VPS/..."
+echo "==> [3/4] 分发单文件可执行程序与配套技能到 bin/Local/ 与 bin/VPS/..."
 mkdir -p bin/Local bin/VPS
 
 # 兼顾 Windows (.exe) 与 Linux 平台命名
@@ -36,9 +36,20 @@ else
     cp bin/target/release/CodeBridgeVPS bin/VPS/CodeBridgeVPS
 fi
 
-chmod +x bin/Local/* bin/VPS/* 2>/dev/null || true
+# 同步分发对应端的专属技能目录（开箱即用，自带 AI 技能说明书）
+rm -rf bin/Local/skills bin/VPS/skills
+mkdir -p bin/Local/skills bin/VPS/skills
 
-# 彻底清理历史外露的中间目录，确保交付区仅有最终的 CodeBridgeVPS 和 CodeBridgeLocal
+# Local 交付包包含：本地客户端技能、全自动安装技能
+cp -r skills/codebridge_local bin/Local/skills/
+cp -r skills/codebridge_vps_install bin/Local/skills/
+
+# VPS 交付包包含：云端服务端技能
+cp -r skills/codebridge_vps bin/VPS/skills/
+
+chmod +x bin/Local/CodeBridgeLocal* bin/VPS/CodeBridgeVPS* 2>/dev/null || true
+
+# 彻底清理历史外露的中间目录，确保交付区绝无多余可执行程序
 rm -rf bin/embedded 2>/dev/null || true
 
 echo "==> [4/4] 构建与分发完成！输出程序就绪："

@@ -131,6 +131,13 @@ fn test_binary_purity_verification() {
                 );
             }
         }
+        // 验证配套技能目录已分发就绪（仅包含本地与安装技能，不包含云端专属技能）
+        let local_skills = local_dir.join("skills");
+        if local_skills.exists() {
+            assert!(local_skills.join("codebridge_local").exists(), "bin/Local 缺少 codebridge_local 技能");
+            assert!(local_skills.join("codebridge_vps_install").exists(), "bin/Local 缺少 codebridge_vps_install 技能");
+            assert!(!local_skills.join("codebridge_vps").exists(), "bin/Local 错误包含了云端专属 codebridge_vps 技能");
+        }
     }
 
     // 3. 检查 bin/VPS 目录
@@ -146,6 +153,11 @@ fn test_binary_purity_verification() {
                     file_name
                 );
             }
+        }
+        // 验证配套技能目录已分发就绪
+        let vps_skills = vps_dir.join("skills");
+        if vps_skills.exists() {
+            assert!(vps_skills.join("codebridge_vps").exists(), "bin/VPS 缺少 codebridge_vps 技能");
         }
     }
 }
