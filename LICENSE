@@ -1,21 +1,27 @@
-MIT License
+PolyForm Noncommercial License 1.0.0 (保富非商业许可协议 1.0.0 版本)
 
-Copyright (c) 2026 Brook.Xi (honkercn@126.com)
+版权所有 (c) 2026 Brook.Xi (honkercn@126.com) 保留所有权利。
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+## 1. 协议目的
+本许可协议的唯一目的，是允许将本软件仅用于非商业目的。
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+## 2. 协议受约束性
+为了获得本许可协议授予的权利，您必须完全同意并遵守本协议的所有规则。
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+## 3. 版权声明保留
+您必须确保从您处获得本软件全部或任何部分副本的任何人（无论是否包含修改），均能同时收到本许可协议全文以及软件的原始版权声明。
+
+## 4. 非商业许可授予
+对于任何非商业目的，许可人在此免费授予您一项全球性的、免版税的、非独占的版权许可，允许您对本软件进行使用、运行、复制、修改以及分发其修改版或衍生版本。
+
+## 5. “非商业目的”的严格定义
+本协议中的“非商业目的”是指任何非商业性质的目的。商业目的包括但不限于以下行为，本协议对此类行为予以严格禁止：
+- 将本软件、其编译产物（包括 CodeBridgeLocal 与 CodeBridgeVPS）或衍生作品用于开发、生产或提供商业产品或商业服务；
+- 在任何商业营利性机构、收费技术服务或商业运维平台中使用本软件；
+- 作为商业产品、商业硬件的配套软件或付费解决方案的一部分向第三方提供；
+- 将本软件作为收费的商业云端托管服务（SaaS）、收费 API 或收费网络穿透服务对外运营。
+
+如需将本软件用于任何商业目的，必须事先取得版权所有者（Brook.Xi）明确的书面商业授权。
+
+## 6. 免责声明
+本软件按“原样”提供，许可人不提供任何明示或暗示的保证，包括但不限于适销性、特定用途适用性以及不侵权的默示保证。在任何情况下，许可人均不对因使用本软件或其任何部分而引起的任何直接、间接、偶然或特殊的损害承担法律责任。
