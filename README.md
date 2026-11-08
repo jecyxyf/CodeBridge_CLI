@@ -1,7 +1,5 @@
 # CodeBridge CLI
 
-> 借助远程 VPS 的 AI Agent，安全完成本地项目的全流程代码开发与 Computer Use 网页调试。
-
 ---
 
 ## 1 项目描述

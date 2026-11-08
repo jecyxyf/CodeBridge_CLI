@@ -13,3 +13,4 @@ ssh_password
 vps_ssh.config
 
 /docs/
+/tests/
