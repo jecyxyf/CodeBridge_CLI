@@ -52,7 +52,7 @@ pub struct LocalSavedConfig {
 
 /// CodeBridgeLocal 顶级命令行指令定义
 #[derive(Parser, Debug)]
-#[command(name = "CodeBridgeLocal", version = "0.0.1", about = "CodeBridge Local Client")]
+#[command(name = "CodeBridgeLocal", version = "0.0.2", about = "CodeBridge Local Client")]
 pub struct Cli {
     /// 子命令枚举：可省略，省略时默认按 start 命令零参数分发
     #[command(subcommand)]

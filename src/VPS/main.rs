@@ -40,7 +40,7 @@ pub struct ResourceRecord {
 
 /// CodeBridgeVPS 顶级命令行指令定义
 #[derive(Parser, Debug)]
-#[command(name = "CodeBridgeVPS", version = "0.0.1", about = "CodeBridge VPS Server")]
+#[command(name = "CodeBridgeVPS", version = "0.0.2", about = "CodeBridge VPS Server")]
 pub struct Cli {
     /// 子命令枚举：可省略，省略时默认按 start 命令零参数分发
     #[command(subcommand)]
