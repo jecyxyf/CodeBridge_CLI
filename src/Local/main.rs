@@ -375,18 +375,26 @@ impl CodeBridgeLocal {
                 format!("{}:{}", effective_ip, effective_vps_path)
             };
             let local_path_str = effective_local_path.to_string_lossy().to_string();
-            let sync_res = Self::run_mutagen_cmd(&mutagen_bin, &[
+            // 完整数据同步：不设置任何忽略项，所有文件与目录必须同步，禁止遗漏
+            // --no-global-configuration：不读取用户 ~/.mutagen.yml，防止全局配置偷偷追加忽略规则
+            // --no-ignore-vcs：强制同步 .git/.svn/.hg 等版本库目录
+            // --sync-mode two-way-resolved：冲突时自动以本地 (Alpha) 为准，杜绝冲突文件停滞不同步
+            let mut sync_args: Vec<&str> = vec![
                 "sync", "create", "--paused",
-                "--name", &sync_session_name,
-                "--ignore-vcs",
-                "-i", "bin/**",
-                "-i", "target/**",
-                "-i", "node_modules/**",
-                "-i", ".venv/**",
-                "-i", "depends/**",
-                &local_path_str,
-                &beta_endpoint,
-            ]);
+                "--name", sync_session_name.as_str(),
+                "--no-global-configuration",
+                "--no-ignore-vcs",
+                "--sync-mode", "two-way-resolved",
+            ];
+            // --symlink-mode posix-raw：链接原样同步，避免项目外或绝对路径链接导致整个会话停止
+            // Mutagen 限制：任一端为 Windows 时不支持 posix-raw，Windows 本地保持默认 portable 模式
+            #[cfg(not(windows))]
+            {
+                sync_args.extend_from_slice(&["--symlink-mode", "posix-raw"]);
+            }
+            sync_args.push(local_path_str.as_str());
+            sync_args.push(beta_endpoint.as_str());
+            let sync_res = Self::run_mutagen_cmd(&mutagen_bin, &sync_args);
             if let Ok((_, stdout, _)) = sync_res {
                 // 从创建成功输出行中提取真实会话唯一识别码 (如 Created session sync_...)
                 if let Some(idx) = stdout.find("Created session ") {
